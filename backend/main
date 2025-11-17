@@ -1,0 +1,945 @@
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+import os
+import json
+import shutil
+from datetime import datetime
+from typing import Optional
+
+app = FastAPI(title="Telegram Mini App", version="12.0.0")
+
+# Разрешаем CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Пути
+current_dir = os.path.dirname(os.path.abspath(__file__))
+frontend_dir = os.path.join(current_dir, "../frontend")
+DATA_FILE = os.path.join(current_dir, "data.json")
+UPLOAD_DIR = os.path.join(current_dir, "uploads")
+
+# Создаем папку для загрузок если её нет
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+print("🚀 Запускаем сервер с исправленными фичами...")
+
+# Раздаем статические файлы
+if os.path.exists(frontend_dir):
+    app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+
+# Раздаем загруженные файлы
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+# Загрузка данных
+def load_data():
+    if not os.path.exists(DATA_FILE):
+        return {
+            "profiles": [],
+            "chats": [],
+            "messages": [],
+            "comments": [],
+            "promocodes": [],
+            "settings": {
+                "crypto_wallets": {
+                    "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
+                    "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
+                    "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0"
+                },
+                "banner": {
+                    "text": "Special Offer: 15% discount with promo code WELCOME15",
+                    "visible": True,
+                    "link": "https://t.me/yourchannel",
+                    "link_text": "Join Channel"
+                }
+            }
+        }
+    try:
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            data = json.loads(f.read())
+            # Ensure settings exist
+            if "settings" not in data:
+                data["settings"] = {
+                    "crypto_wallets": {
+                        "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
+                        "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
+                        "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0"
+                    },
+                    "banner": {
+                        "text": "Special Offer: 15% discount with promo code WELCOME15",
+                        "visible": True,
+                        "link": "https://t.me/yourchannel",
+                        "link_text": "Join Channel"
+                    }
+                }
+            if "promocodes" not in data:
+                data["promocodes"] = []
+            if "comments" not in data:
+                data["comments"] = []
+            return data
+    except:
+        return {
+            "profiles": [],
+            "chats": [],
+            "messages": [],
+            "comments": [],
+            "promocodes": [],
+            "settings": {
+                "crypto_wallets": {
+                    "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
+                    "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
+                    "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0"
+                },
+                "banner": {
+                    "text": "Special Offer: 15% discount with promo code WELCOME15",
+                    "visible": True,
+                    "link": "https://t.me/yourchannel",
+                    "link_text": "Join Channel"
+                }
+            }
+        }
+
+# Сохранение данных
+def save_data(data):
+    try:
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
+
+# Сохранение файла
+def save_uploaded_file(file: UploadFile) -> str:
+    """Сохраняет загруженный файл и возвращает путь к нему"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    filename = f"{timestamp}_{file.filename}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return f"/uploads/{filename}"
+
+# Определяем тип файла по расширению
+def get_file_type(filename: str) -> str:
+    extension = filename.lower().split('.')[-1]
+    image_extensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']
+    video_extensions = ['mp4', 'avi', 'mov', 'mkv', 'webm']
+
+    if extension in image_extensions:
+        return 'image'
+    elif extension in video_extensions:
+        return 'video'
+    else:
+        return 'file'
+
+# API endpoints
+@app.get("/")
+async def main():
+    return FileResponse(os.path.join(frontend_dir, "index.html"))
+
+@app.get("/api/profiles")
+async def get_profiles(
+    page: int = 0,
+    limit: int = 12,
+    city: str = None,
+    nationality: str = None,
+    travel_city: str = None,
+    age_min: int = None,
+    age_max: int = None,
+    height_min: int = None,
+    height_max: int = None,
+    weight_min: int = None,
+    weight_max: int = None,
+    chest_min: int = None,
+    chest_max: int = None
+):
+    data = load_data()
+    profiles = [p for p in data["profiles"] if p.get("visible", True)]
+
+    # Фильтрация по городу
+    if city and city != "all":
+        profiles = [p for p in profiles if p.get("city", "").lower() == city.lower()]
+
+    # Фильтрация по национальности
+    if nationality and nationality != "all":
+        profiles = [p for p in profiles if p.get("nationality", "").lower() == nationality.lower()]
+
+    # Фильтрация по городу вылета
+    if travel_city and travel_city != "all":
+        profiles = [p for p in profiles if travel_city.lower() in [c.lower() for c in p.get("travel_cities", [])]]
+
+    # Фильтрация по возрасту
+    if age_min:
+        profiles = [p for p in profiles if p.get("age", 0) >= age_min]
+    if age_max:
+        profiles = [p for p in profiles if p.get("age", 100) <= age_max]
+
+    # Фильтрация по росту
+    if height_min:
+        profiles = [p for p in profiles if p.get("height", 0) >= height_min]
+    if height_max:
+        profiles = [p for p in profiles if p.get("height", 250) <= height_max]
+
+    # Фильтрация по весу
+    if weight_min:
+        profiles = [p for p in profiles if p.get("weight", 0) >= weight_min]
+    if weight_max:
+        profiles = [p for p in profiles if p.get("weight", 200) <= weight_max]
+
+    # Фильтрация по груди
+    if chest_min:
+        profiles = [p for p in profiles if p.get("chest", 0) >= chest_min]
+    if chest_max:
+        profiles = [p for p in profiles if p.get("chest", 12) <= chest_max]
+
+    # Пагинация
+    start = page * limit
+    end = start + limit
+    paginated_profiles = profiles[start:end]
+
+    return {
+        "profiles": paginated_profiles,
+        "has_more": end < len(profiles),
+        "total": len(profiles)
+    }
+
+@app.get("/api/filters/cities")
+async def get_cities():
+    """Получить список всех городов для фильтра"""
+    data = load_data()
+    cities = list(set([p.get("city", "") for p in data["profiles"] if p.get("city")]))
+    return {"cities": sorted(cities)}
+
+@app.get("/api/filters/nationalities")
+async def get_nationalities():
+    """Получить список всех национальностей для фильтра"""
+    data = load_data()
+    nationalities = list(set([p.get("nationality", "") for p in data["profiles"] if p.get("nationality")]))
+    return {"nationalities": sorted(nationalities)}
+
+@app.get("/api/filters/travel_cities")
+async def get_travel_cities():
+    """Получить список всех городов вылета"""
+    data = load_data()
+    travel_cities = set()
+    for profile in data["profiles"]:
+        if "travel_cities" in profile:
+            travel_cities.update(profile["travel_cities"])
+    return {"travel_cities": sorted(list(travel_cities))}
+
+@app.get("/api/profiles/{profile_id}")
+async def get_profile(profile_id: int):
+    data = load_data()
+    profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Загружаем комментарии для этого профиля
+    comments = [c for c in data.get("comments", []) if c["profile_id"] == profile_id]
+    profile["comments"] = comments
+
+    return profile
+
+@app.post("/api/chats/{profile_id}/messages")
+async def send_message(
+    profile_id: int,
+    text: str = Form(None),
+    file: UploadFile = File(None)
+):
+    """Отправка сообщения с возможностью прикрепления файла"""
+    data = load_data()
+
+    # Находим профиль для имени
+    profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Находим или создаем чат
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        chat = {
+            "id": len(data["chats"]) + 1,
+            "profile_id": profile_id,
+            "profile_name": profile["name"],
+            "created_at": datetime.now().isoformat()
+        }
+        data["chats"].append(chat)
+
+    # Подготавливаем данные сообщения
+    message_data = {
+        "id": len(data["messages"]) + 1,
+        "chat_id": chat["id"],
+        "is_from_user": True,
+        "created_at": datetime.now().isoformat()
+    }
+
+    # Если есть файл
+    if file and file.filename:
+        file_url = save_uploaded_file(file)
+        file_type = get_file_type(file.filename)
+
+        message_data.update({
+            "file_url": file_url,
+            "file_type": file_type,
+            "file_name": file.filename,
+            "text": text or ""  # Убираем автоматический текст с именем файла
+        })
+    else:
+        # Только текст
+        if not text:
+            raise HTTPException(status_code=400, detail="Text or file is required")
+        message_data["text"] = text
+
+    data["messages"].append(message_data)
+    save_data(data)
+    return {"status": "sent", "message_id": message_data["id"]}
+
+@app.get("/api/chats/{profile_id}/messages")
+async def get_chat_messages(profile_id: int):
+    data = load_data()
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        return {"messages": []}
+
+    messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+    return {"messages": messages}
+
+@app.get("/api/chats/{profile_id}/updates")
+async def get_chat_updates(profile_id: int, last_message_id: int = 0):
+    data = load_data()
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        return {"messages": [], "last_message_id": 0}
+
+    messages = [m for m in data["messages"] if m["chat_id"] == chat["id"] and m["id"] > last_message_id]
+    max_id = max([m["id"] for m in data["messages"]]) if data["messages"] else 0
+
+    return {"messages": messages, "last_message_id": max_id}
+
+# Комментарии к профилям
+@app.get("/api/profiles/{profile_id}/comments")
+async def get_profile_comments(profile_id: int):
+    data = load_data()
+    comments = [c for c in data.get("comments", []) if c["profile_id"] == profile_id]
+    return {"comments": comments}
+
+@app.post("/api/profiles/{profile_id}/comments")
+async def add_profile_comment(profile_id: int, comment_data: dict):
+    data = load_data()
+
+    # Проверяем существование профиля
+    profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    new_comment = {
+        "id": len(data.get("comments", [])) + 1,
+        "profile_id": profile_id,
+        "user_name": "Anonymous User",  # Всегда анонимный
+        "text": comment_data["text"],
+        "created_at": datetime.now().isoformat()
+    }
+
+    if "comments" not in data:
+        data["comments"] = []
+    data["comments"].append(new_comment)
+    save_data(data)
+
+    return {"status": "added", "comment": new_comment}
+
+@app.delete("/api/profiles/{profile_id}/comments/{comment_id}")
+async def delete_profile_comment(profile_id: int, comment_id: int):
+    """Удаление комментария (для админки)"""
+    data = load_data()
+
+    if "comments" not in data:
+        raise HTTPException(status_code=404, detail="No comments found")
+
+    # Находим комментарий
+    comment_index = next((i for i, c in enumerate(data["comments"]) if c["id"] == comment_id and c["profile_id"] == profile_id), None)
+
+    if comment_index is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    # Удаляем комментарий
+    deleted_comment = data["comments"].pop(comment_index)
+    save_data(data)
+
+    return {"status": "deleted", "comment": deleted_comment}
+
+@app.get("/api/settings/crypto_wallets")
+async def get_crypto_wallets():
+    """Получить настройки крипто-кошельков"""
+    data = load_data()
+    return data.get("settings", {}).get("crypto_wallets", {})
+
+@app.post("/api/settings/crypto_wallets")
+async def update_crypto_wallets(wallets: dict):
+    """Обновить настройки крипто-кошельков"""
+    data = load_data()
+    if "settings" not in data:
+        data["settings"] = {}
+    data["settings"]["crypto_wallets"] = wallets
+    save_data(data)
+    return {"status": "updated"}
+
+@app.get("/api/settings/banner")
+async def get_banner():
+    """Получить настройки баннера"""
+    data = load_data()
+    return data.get("settings", {}).get("banner", {})
+
+@app.post("/api/settings/banner")
+async def update_banner(banner: dict):
+    """Обновить настройки баннера"""
+    data = load_data()
+    if "settings" not in data:
+        data["settings"] = {}
+    data["settings"]["banner"] = banner
+    save_data(data)
+    return {"status": "updated"}
+
+# Промокоды
+@app.get("/api/promocodes")
+async def get_promocodes():
+    """Получить все промокоды"""
+    data = load_data()
+    return {"promocodes": data.get("promocodes", [])}
+
+@app.post("/api/promocodes")
+async def create_promocode(promocode: dict):
+    """Создать новый промокод"""
+    data = load_data()
+
+    new_promocode = {
+        "id": len(data["promocodes"]) + 1,
+        "code": promocode["code"].upper(),
+        "discount": promocode["discount"],
+        "is_active": True,
+        "used_by": [],
+        "created_at": datetime.now().isoformat()
+    }
+
+    data["promocodes"].append(new_promocode)
+    save_data(data)
+    return {"status": "created", "promocode": new_promocode}
+
+@app.post("/api/promocodes/{promocode_id}/toggle")
+async def toggle_promocode(promocode_id: int):
+    """Активировать/деактивировать промокод"""
+    data = load_data()
+    promocode = next((p for p in data["promocodes"] if p["id"] == promocode_id), None)
+    if promocode:
+        promocode["is_active"] = not promocode["is_active"]
+        save_data(data)
+    return {"status": "updated"}
+
+@app.delete("/api/promocodes/{promocode_id}")
+async def delete_promocode(promocode_id: int):
+    """Удалить промокод"""
+    data = load_data()
+    data["promocodes"] = [p for p in data["promocodes"] if p["id"] != promocode_id]
+    save_data(data)
+    return {"status": "deleted"}
+
+@app.post("/api/promocodes/validate")
+async def validate_promocode(validation: dict):
+    """Проверить промокод"""
+    data = load_data()
+    code = validation["code"].upper()
+
+    promocode = next((p for p in data["promocodes"] if p["code"] == code), None)
+
+    if not promocode:
+        return {"valid": False, "message": "Promocode not found"}
+
+    if not promocode["is_active"]:
+        return {"valid": False, "message": "Promocode is inactive"}
+
+    return {
+        "valid": True,
+        "discount": promocode["discount"],
+        "message": f"Promocode activated! {promocode['discount']}% discount applied"
+    }
+
+# Система оплаты
+@app.post("/api/payment/crypto")
+async def process_crypto_payment(payment_data: dict):
+    """Обработка крипто-платежа"""
+    data = load_data()
+
+    # Логируем платеж
+    payment_log = {
+        "id": len(data.get("payments", [])) + 1,
+        "profile_id": payment_data["profile_id"],
+        "amount": payment_data["amount"],
+        "currency": payment_data["currency"],
+        "wallet": payment_data["wallet"],
+        "status": "pending",  # Изменено на pending для ожидания подтверждения
+        "created_at": datetime.now().isoformat()
+    }
+
+    if "payments" not in data:
+        data["payments"] = []
+    data["payments"].append(payment_log)
+    save_data(data)
+
+    return {
+        "status": "pending",
+        "message": "Payment is being processed",
+        "payment_id": payment_log["id"]
+    }
+
+@app.get("/api/translations/{lang}")
+async def get_translations(lang: str):
+    """Получить переводы для указанного языка"""
+    translations = {
+        "en": {
+            "app_name": "Ashoo",
+            "subtitle": "100% Anonymous Dating",
+            "premium_profiles": "Premium Profiles",
+            "online_now": "Online Now",
+            "anonymous_dating": "Anonymous Dating",
+            "filters": "Filters",
+            "city": "City",
+            "nationality": "Nationality",
+            "travel_city": "Travel City",
+            "all_cities": "All cities",
+            "all_nationalities": "All nationalities",
+            "age": "Age",
+            "height": "Height (cm)",
+            "weight": "Weight (kg)",
+            "chest": "Chest",
+            "chest_sizes": {
+                "1": "1 chest",
+                "2": "2 chest",
+                "3": "3 chest",
+                "4": "4 chest",
+                "5": "5 chest",
+                "6": "6 chest",
+                "7": "7 chest",
+                "8": "8 chest",
+                "9": "9 chest",
+                "10": "10 chest",
+                "11": "11 chest",
+                "12": "12 chest"
+            },
+            "reset": "Reset",
+            "apply": "Apply",
+            "loading": "Loading profiles...",
+            "loading_more": "Loading more profiles...",
+            "view_profile": "View Profile",
+            "write_message": "Write Message",
+            "book_with_crypto": "Book with Crypto",
+            "more": "More",
+            "share": "Share",
+            "chat_with": "Chat with",
+            "type_message": "Type a message...",
+            "send": "➤",
+            "no_chats": "No active chats",
+            "no_profiles": "No profiles found",
+            "new": "NEW",
+            "years": "years",
+            "cm": "cm",
+            "kg": "kg",
+            "download": "Download",
+            "pay_with_crypto": "Pay with Crypto",
+            "crypto_payment": "Crypto Payment",
+            "select_network": "Select Network",
+            "wallet_address": "Wallet Address",
+            "copy": "Copy",
+            "copied": "Copied!",
+            "close": "Close",
+            "payment_awaiting": "Awaiting Confirmation",
+            "payment_processing": "Your payment is being processed. Please wait for confirmation message.",
+            "travel_cities": "Travel Cities",
+            "description": "Description",
+            "welcome_message": "Hello! Write me a message",
+            "error_sending": "Error sending message",
+            "promocode": "Promo Code",
+            "enter_promocode": "Enter promo code",
+            "apply_promocode": "Apply",
+            "promocode_applied": "Promo code applied!",
+            "promocode_invalid": "Invalid promo code",
+            "discount": "Discount",
+            "banner_join": "Join Channel",
+            "attach_file": "Attach File",
+            "file": "File",
+            "photo": "Photo",
+            "video": "Video",
+            "add_comment": "Add Comment",
+            "comments": "Comments",
+            "no_comments": "No comments yet",
+            "your_comment": "Your comment",
+            "post_comment": "Post Comment",
+            "rating": "Rating",
+            "payment_processing": "Processing payment...",
+            "select_crypto": "Select Cryptocurrency",
+            "amount": "Amount",
+            "usd": "USD",
+            "pay_now": "Pay Now",
+            "booking_profile": "Booking Profile"
+        },
+        "ja": {
+            "app_name": "Ashoo",
+            "subtitle": "100% 匿名デート",
+            "premium_profiles": "プレミアムプロフィール",
+            "online_now": "オンライン",
+            "anonymous_dating": "匿名デート",
+            "filters": "フィルター",
+            "city": "都市",
+            "nationality": "国籍",
+            "travel_city": "旅行先都市",
+            "all_cities": "すべての都市",
+            "all_nationalities": "すべての国籍",
+            "age": "年齢",
+            "height": "身長 (cm)",
+            "weight": "体重 (kg)",
+            "chest": "バスト",
+            "chest_sizes": {
+                "1": "1 バスト",
+                "2": "2 バスト",
+                "3": "3 バスト",
+                "4": "4 バスト",
+                "5": "5 バスト",
+                "6": "6 バスト",
+                "7": "7 バスト",
+                "8": "8 バスト",
+                "9": "9 バスト",
+                "10": "10 バスト",
+                "11": "11 バスト",
+                "12": "12 バスト"
+            },
+            "reset": "リセット",
+            "apply": "適用",
+            "loading": "プロフィールを読み込み中...",
+            "loading_more": "さらに読み込み中...",
+            "view_profile": "プロフィールを見る",
+            "write_message": "メッセージを送る",
+            "book_with_crypto": "暗号通貨で予約",
+            "more": "もっと見る",
+            "share": "共有",
+            "chat_with": "とのチャット",
+            "type_message": "メッセージを入力...",
+            "send": "➤",
+            "no_chats": "アクティブなチャットはありません",
+            "no_profiles": "プロフィールが見つかりません",
+            "new": "新着",
+            "years": "歳",
+            "cm": "cm",
+            "kg": "kg",
+            "download": "ダウンロード",
+            "pay_with_crypto": "暗号通貨で支払う",
+            "crypto_payment": "暗号通貨決済",
+            "select_network": "ネットワークを選択",
+            "wallet_address": "ウォレットアドレス",
+            "copy": "コピー",
+            "copied": "コピーしました！",
+            "close": "閉じる",
+            "payment_awaiting": "確認待ち",
+            "payment_processing": "お支払いを処理中です。確認メッセージをお待ちください。",
+            "travel_cities": "旅行先都市",
+            "description": "説明",
+            "welcome_message": "こんにちは！メッセージをお待ちしています",
+            "error_sending": "メッセージ送信エラー",
+            "promocode": "プロモコード",
+            "enter_promocode": "プロモコードを入力",
+            "apply_promocode": "適用",
+            "promocode_applied": "プロモコードが適用されました！",
+            "promocode_invalid": "無効なプロモコード",
+            "discount": "割引",
+            "banner_join": "チャンネルに参加",
+            "attach_file": "ファイルを添付",
+            "file": "ファイル",
+            "photo": "写真",
+            "video": "ビデオ",
+            "add_comment": "コメントを追加",
+            "comments": "コメント",
+            "no_comments": "まだコメントはありません",
+            "your_comment": "コメントを入力",
+            "post_comment": "コメントを投稿",
+            "rating": "評価",
+            "payment_processing": "支払いを処理中...",
+            "select_crypto": "暗号通貨を選択",
+            "amount": "金額",
+            "usd": "USD",
+            "pay_now": "今すぐ支払う",
+            "booking_profile": "予約プロフィール"
+        },
+        "ko": {
+            "app_name": "Ashoo",
+            "subtitle": "100% 익명 데이트",
+            "premium_profiles": "프리미엄 프로필",
+            "online_now": "온라인",
+            "anonymous_dating": "익명 데이트",
+            "filters": "필터",
+            "city": "도시",
+            "nationality": "국적",
+            "travel_city": "여행 도시",
+            "all_cities": "모든 도시",
+            "all_nationalities": "모든 국적",
+            "age": "나이",
+            "height": "키 (cm)",
+            "weight": "체중 (kg)",
+            "chest": "가슴",
+            "chest_sizes": {
+                "1": "1 가슴",
+                "2": "2 가슴",
+                "3": "3 가슴",
+                "4": "4 가슴",
+                "5": "5 가슴",
+                "6": "6 가슴",
+                "7": "7 가슴",
+                "8": "8 가슴",
+                "9": "9 가슴",
+                "10": "10 가슴",
+                "11": "11 가슴",
+                "12": "12 가슴"
+            },
+            "reset": "초기화",
+            "apply": "적용",
+            "loading": "프로필 로딩 중...",
+            "loading_more": "더 불러오는 중...",
+            "view_profile": "프로필 보기",
+            "write_message": "메시지 보내기",
+            "book_with_crypto": "암호화폐로 예약",
+            "more": "더보기",
+            "share": "공유",
+            "chat_with": "와의 채팅",
+            "type_message": "메시지를 입력하세요...",
+            "send": "➤",
+            "no_chats": "활성화된 채팅이 없습니다",
+            "no_profiles": "프로필을 찾을 수 없습니다",
+            "new": "새로운",
+            "years": "세",
+            "cm": "cm",
+            "kg": "kg",
+            "download": "다운로드",
+            "pay_with_crypto": "암호화폐로 결제",
+            "crypto_payment": "암호화폐 결제",
+            "select_network": "네트워크 선택",
+            "wallet_address": "지갑 주소",
+            "copy": "복사",
+            "copied": "복사되었습니다!",
+            "close": "닫기",
+            "payment_awaiting": "확인 대기 중",
+            "payment_processing": "결제가 처리 중입니다. 확인 메시지를 기다려 주세요.",
+            "travel_cities": "여행 도시",
+            "description": "설명",
+            "welcome_message": "안녕하세요! 메시지를 보내주세요",
+            "error_sending": "메시지 전송 오류",
+            "promocode": "프로모 코드",
+            "enter_promocode": "프로모 코드 입력",
+            "apply_promocode": "적용",
+            "promocode_applied": "프로모 코드가 적용되었습니다!",
+            "promocode_invalid": "유효하지 않은 프로모 코드",
+            "discount": "할인",
+            "banner_join": "채널 참여",
+            "attach_file": "파일 첨부",
+            "file": "파일",
+            "photo": "사진",
+            "video": "동영상",
+            "add_comment": "댓글 추가",
+            "comments": "댓글",
+            "no_comments": "아직 댓글이 없습니다",
+            "your_comment": "댓글 입력",
+            "post_comment": "댓글 작성",
+            "rating": "평점",
+            "payment_processing": "결제 처리 중...",
+            "select_crypto": "암호화폐 선택",
+            "amount": "금액",
+            "usd": "USD",
+            "pay_now": "지금 결제",
+            "booking_profile": "예약 프로필"
+        },
+        "ar": {
+            "app_name": "Ashoo",
+            "subtitle": "100% مواعدة مجهولة",
+            "premium_profiles": "ملفات مميزة",
+            "online_now": "متصل الآن",
+            "anonymous_dating": "مواعدة مجهولة",
+            "filters": "الفلاتر",
+            "city": "المدينة",
+            "nationality": "الجنسية",
+            "travel_city": "مدينة السفر",
+            "all_cities": "جميع المدن",
+            "all_nationalities": "جميع الجنسيات",
+            "age": "العمر",
+            "height": "الطول (سم)",
+            "weight": "الوزن (كجم)",
+            "chest": "الصدر",
+            "chest_sizes": {
+                "1": "1 صدر",
+                "2": "2 صدر",
+                "3": "3 صدر",
+                "4": "4 صدر",
+                "5": "5 صدر",
+                "6": "6 صدر",
+                "7": "7 صدر",
+                "8": "8 صدر",
+                "9": "9 صدر",
+                "10": "10 صدر",
+                "11": "11 صدر",
+                "12": "12 صدر"
+            },
+            "reset": "إعادة تعيين",
+            "apply": "تطبيق",
+            "loading": "جاري تحميل الملفات الشخصية...",
+            "loading_more": "جاري تحميل المزيد...",
+            "view_profile": "عرض الملف الشخصي",
+            "write_message": "كتابة رسالة",
+            "book_with_crypto": "الحجز بالعملات المشفرة",
+            "more": "المزيد",
+            "share": "مشاركة",
+            "chat_with": "الدردشة مع",
+            "type_message": "اكتب رسالة...",
+            "send": "➤",
+            "no_chats": "لا توجد محادثات نشطة",
+            "no_profiles": "لم يتم العثور على ملفات شخصية",
+            "new": "جديد",
+            "years": "سنة",
+            "cm": "سم",
+            "kg": "كجم",
+            "download": "تحميل",
+            "pay_with_crypto": "الدفع بالعملات المشفرة",
+            "crypto_payment": "الدفع بالعملات المشفرة",
+            "select_network": "اختر الشبكة",
+            "wallet_address": "عنوان المحفظة",
+            "copy": "نسخ",
+            "copied": "تم النسخ!",
+            "close": "إغلاق",
+            "payment_awaiting": "في انتظار التأكيد",
+            "payment_processing": "جاري معالجة دفعتك. يرجى انتظار رسالة التأكيد.",
+            "travel_cities": "مدن السفر",
+            "description": "الوصف",
+            "welcome_message": "مرحباً! اكتب لي رسالة",
+            "error_sending": "خطأ في إرسال الرسالة",
+            "promocode": "كود الخصم",
+            "enter_promocode": "أدخل كود الخصم",
+            "apply_promocode": "تطبيق",
+            "promocode_applied": "تم تطبيق كود الخصم!",
+            "promocode_invalid": "كود خصم غير صالح",
+            "discount": "خصم",
+            "banner_join": "انضم للقناة",
+            "attach_file": "إرفاق ملف",
+            "file": "ملف",
+            "photo": "صورة",
+            "video": "فيديو",
+            "add_comment": "إضافة تعليق",
+            "comments": "التعليقات",
+            "no_comments": "لا توجد تعليقات بعد",
+            "your_comment": "تعليقك",
+            "post_comment": "نشر التعليق",
+            "rating": "التقييم",
+            "payment_processing": "جاري معالجة الدفع...",
+            "select_crypto": "اختر العملة المشفرة",
+            "amount": "المبلغ",
+            "usd": "USD",
+            "pay_now": "ادفع الآن",
+            "booking_profile": "ملف الحجز"
+        },
+        "zh": {
+            "app_name": "Ashoo",
+            "subtitle": "100% 匿名约会",
+            "premium_profiles": "高级资料",
+            "online_now": "在线",
+            "anonymous_dating": "匿名约会",
+            "filters": "筛选",
+            "city": "城市",
+            "nationality": "国籍",
+            "travel_city": "出发城市",
+            "all_cities": "所有城市",
+            "all_nationalities": "所有国籍",
+            "age": "年龄",
+            "height": "身高 (厘米)",
+            "weight": "体重 (公斤)",
+            "chest": "胸围",
+            "chest_sizes": {
+                "1": "1胸围",
+                "2": "2胸围",
+                "3": "3胸围",
+                "4": "4胸围",
+                "5": "5胸围",
+                "6": "6胸围",
+                "7": "7胸围",
+                "8": "8胸围",
+                "9": "9胸围",
+                "10": "10胸围",
+                "11": "11胸围",
+                "12": "12胸围"
+            },
+            "reset": "重置",
+            "apply": "应用",
+            "loading": "加载个人资料...",
+            "loading_more": "加载更多个人资料...",
+            "view_profile": "查看资料",
+            "write_message": "发送消息",
+            "book_with_crypto": "加密货币预订",
+            "more": "更多",
+            "share": "分享",
+            "chat_with": "与聊天",
+            "type_message": "输入消息...",
+            "send": "➤",
+            "no_chats": "没有活跃聊天",
+            "no_profiles": "未找到个人资料",
+            "new": "新",
+            "years": "岁",
+            "cm": "厘米",
+            "kg": "公斤",
+            "download": "下载",
+            "pay_with_crypto": "加密货币支付",
+            "crypto_payment": "加密货币支付",
+            "select_network": "选择网络",
+            "wallet_address": "钱包地址",
+            "copy": "复制",
+            "copied": "已复制！",
+            "close": "关闭",
+            "payment_awaiting": "等待确认",
+            "payment_processing": "您的付款正在处理中。请等待确认消息。",
+            "travel_cities": "出发城市",
+            "description": "描述",
+            "welcome_message": "你好！给我发消息吧",
+            "error_sending": "发送消息错误",
+            "promocode": "优惠码",
+            "enter_promocode": "输入优惠码",
+            "apply_promocode": "应用",
+            "promocode_applied": "优惠码已应用！",
+            "promocode_invalid": "无效优惠码",
+            "discount": "折扣",
+            "banner_join": "加入频道",
+            "attach_file": "附加文件",
+            "file": "文件",
+            "photo": "照片",
+            "video": "视频",
+            "add_comment": "添加评论",
+            "comments": "评论",
+            "no_comments": "暂无评论",
+            "your_comment": "您的评论",
+            "post_comment": "发表评论",
+            "rating": "评分",
+            "payment_processing": "处理支付中...",
+            "select_crypto": "选择加密货币",
+            "amount": "金额",
+            "usd": "USD",
+            "pay_now": "立即支付",
+            "booking_profile": "预订资料"
+        }
+    }
+
+    return translations.get(lang, translations["en"])
+
+@app.get("/api/test")
+async def test():
+    return {"status": "ok", "message": "Сервер работает!"}
+
+if __name__ == "__main__":
+    print("🚀 Сервер запущен: http://localhost:8001")
+    print("🎨 Исправленные фичи: анонимные комментарии, улучшенный чат, полный перевод!")
+    uvicorn.run(app, host="0.0.0.0", port=8001, access_log=False)

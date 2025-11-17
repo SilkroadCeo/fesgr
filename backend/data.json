@@ -1,0 +1,414 @@
+{
+  "profiles": [
+    {
+      "id": 1,
+      "name": "Анна",
+      "age": 25,
+      "nationality": "Russian",
+      "city": "Москва",
+      "travel_cities": [
+        "Москва",
+        "Санкт-Петербург",
+        "Лондон"
+      ],
+      "description": "Люблю путешествия и активный отдых. Ищу интересного собеседника для совместных приключений.",
+      "photos": [
+        "https://picsum.photos/400/300?1",
+        "https://picsum.photos/400/300?11",
+        "https://picsum.photos/400/300?12"
+      ],
+      "visible": true,
+      "created_at": "2024-01-15T10:00:00",
+      "height": 170,
+      "weight": 55,
+      "chest": 3
+    },
+    {
+      "id": 2,
+      "name": "Максим",
+      "age": 30,
+      "nationality": "Russian",
+      "city": "Санкт-Петербург",
+      "travel_cities": [
+        "Санкт-Петербург",
+        "Москва"
+      ],
+      "description": "Программист, увлекаюсь фотографией и велоспортом. Люблю интеллектуальные беседы.",
+      "photos": [
+        "https://picsum.photos/400/300?2",
+        "https://picsum.photos/400/300?21"
+      ],
+      "visible": true,
+      "created_at": "2024-01-14T15:30:00",
+      "height": 185,
+      "weight": 80,
+      "chest": 1
+    },
+    {
+      "id": 3,
+      "name": "Екатерина",
+      "age": 28,
+      "nationality": "Russian",
+      "city": "Казань",
+      "travel_cities": [
+        "Казань",
+        "Москва",
+        "Сочи"
+      ],
+      "description": "Дизайнер, люблю искусство и хорошую кухню. Мечтаю открыть свою галерею.",
+      "photos": [
+        "https://picsum.photos/400/300?3",
+        "https://picsum.photos/400/300?31",
+        "https://picsum.photos/400/300?32"
+      ],
+      "visible": true,
+      "created_at": "2024-01-13T12:00:00",
+      "height": 165,
+      "weight": 50,
+      "chest": 2
+    },
+    {
+      "id": 4,
+      "name": "Maria",
+      "age": 24,
+      "nationality": "Japanese",
+      "city": "Tokyo",
+      "travel_cities": [
+        "Tokyo",
+        "Osaka",
+        "Seoul"
+      ],
+      "description": "Japanese model and dancer. Love fashion and traditional culture.",
+      "photos": [
+        "https://picsum.photos/400/300?4",
+        "https://picsum.photos/400/300?41"
+      ],
+      "visible": true,
+      "created_at": "2024-01-12T14:20:00",
+      "height": 160,
+      "weight": 48,
+      "chest": 2
+    },
+    {
+      "id": 5,
+      "name": "Sophie",
+      "age": 27,
+      "nationality": "French",
+      "city": "Paris",
+      "travel_cities": [
+        "Paris",
+        "London",
+        "Berlin"
+      ],
+      "description": "Art curator from Paris. Enjoy fine dining and contemporary art.",
+      "photos": [
+        "https://picsum.photos/400/300?5",
+        "https://picsum.photos/400/300?51",
+        "https://picsum.photos/400/300?52"
+      ],
+      "visible": true,
+      "created_at": "2024-01-11T09:15:00",
+      "height": 172,
+      "weight": 58,
+      "chest": 3
+    },
+    {
+      "id": 6,
+      "name": "Luna",
+      "age": 26,
+      "nationality": "Korean",
+      "city": "Seoul",
+      "travel_cities": [
+        "Seoul",
+        "Busan",
+        "Tokyo"
+      ],
+      "description": "K-pop dancer and yoga instructor. Love healthy lifestyle.",
+      "photos": [
+        "https://picsum.photos/400/300?6",
+        "https://picsum.photos/400/300?61"
+      ],
+      "visible": true,
+      "created_at": "2024-01-10T16:45:00",
+      "height": 168,
+      "weight": 52,
+      "chest": 2
+    }
+  ],
+  "chats": [
+    {
+      "id": 1,
+      "profile_id": 2,
+      "profile_name": "Максим",
+      "created_at": "2025-11-11T18:33:48.741625"
+    },
+    {
+      "id": 2,
+      "profile_id": 3,
+      "profile_name": "Екатерина",
+      "created_at": "2025-11-11T19:02:37.847071"
+    },
+    {
+      "id": 3,
+      "profile_id": 1,
+      "profile_name": "Анна",
+      "created_at": "2025-11-11T19:03:28.761686"
+    },
+    {
+      "id": 4,
+      "profile_id": 5,
+      "profile_name": "Sophie",
+      "created_at": "2025-11-15T14:30:15.618137"
+    }
+  ],
+  "messages": [
+    {
+      "id": 1,
+      "chat_id": 1,
+      "text": "Привет! Как дела?",
+      "is_from_user": true,
+      "created_at": "2025-11-11T18:33:48.741656"
+    },
+    {
+      "id": 2,
+      "chat_id": 2,
+      "text": "Здравствуйте!",
+      "is_from_user": true,
+      "created_at": "2025-11-11T19:02:37.847124"
+    },
+    {
+      "id": 3,
+      "chat_id": 3,
+      "text": "Привет",
+      "is_from_user": true,
+      "created_at": "2025-11-11T19:03:28.761762"
+    },
+    {
+      "id": 4,
+      "chat_id": 1,
+      "text": "привет",
+      "is_from_user": false,
+      "created_at": "2025-11-13T22:58:41.193015"
+    },
+    {
+      "id": 5,
+      "chat_id": 1,
+      "text": "как дела твои",
+      "is_from_user": false,
+      "created_at": "2025-11-13T22:58:51.053055"
+    },
+    {
+      "id": 6,
+      "chat_id": 1,
+      "text": "хорошо",
+      "is_from_user": true,
+      "created_at": "2025-11-13T22:58:57.982854"
+    },
+    {
+      "id": 7,
+      "chat_id": 1,
+      "text": "а твои как",
+      "is_from_user": true,
+      "created_at": "2025-11-13T22:59:07.649552"
+    },
+    {
+      "id": 8,
+      "chat_id": 3,
+      "text": "я оплатил",
+      "is_from_user": true,
+      "created_at": "2025-11-14T01:59:21.022310"
+    },
+    {
+      "id": 9,
+      "chat_id": 3,
+      "text": "чек",
+      "is_from_user": true,
+      "created_at": "2025-11-14T01:59:24.240668"
+    },
+    {
+      "id": 10,
+      "chat_id": 3,
+      "text": "хорошо, получила оплату",
+      "is_from_user": false,
+      "created_at": "2025-11-14T01:59:49.316894"
+    },
+    {
+      "id": 11,
+      "chat_id": 1,
+      "text": "Transaction successful, your booking has been confirmed",
+      "is_system": true,
+      "created_at": "2025-11-14T18:22:40.069536"
+    },
+    {
+      "id": 12,
+      "chat_id": 3,
+      "text": "Transaction successful, your booking has been confirmed",
+      "is_system": true,
+      "created_at": "2025-11-14T20:48:33.755008"
+    },
+    {
+      "id": 13,
+      "chat_id": 4,
+      "is_from_user": true,
+      "created_at": "2025-11-15T14:30:15.618204",
+      "text": "hi"
+    },
+    {
+      "id": 14,
+      "chat_id": 4,
+      "text": "hi\r\nI git it",
+      "is_from_user": false,
+      "created_at": "2025-11-15T14:30:51.035776"
+    },
+    {
+      "id": 15,
+      "chat_id": 4,
+      "text": "Transaction successful, your booking has been confirmed",
+      "is_system": true,
+      "created_at": "2025-11-15T14:30:55.150975"
+    },
+    {
+      "id": 16,
+      "chat_id": 1,
+      "text": "Transaction successful, your booking has been confirmed",
+      "is_system": true,
+      "created_at": "2025-11-15T23:44:32.328548"
+    },
+    {
+      "id": 17,
+      "chat_id": 1,
+      "text": "Transaction successful, your booking has been confirmed",
+      "is_system": true,
+      "created_at": "2025-11-17T18:52:35.464537"
+    }
+  ],
+  "comments": [
+    {
+      "id": 1,
+      "profile_id": 1,
+      "user_name": "Alex",
+      "text": "Очень приятная и общительная девушка! Встреча прошла замечательно.",
+      "rating": 5,
+      "created_at": "2025-11-15T10:30:00.000000"
+    },
+    {
+      "id": 2,
+      "profile_id": 1,
+      "user_name": "Mike",
+      "text": "Отличное чувство юмора и интересный собеседник. Рекомендую!",
+      "rating": 5,
+      "created_at": "2025-11-15T14:20:00.000000"
+    },
+    {
+      "id": 3,
+      "profile_id": 2,
+      "user_name": "Anna",
+      "text": "Умный и интересный мужчина. Очень понравилось общение.",
+      "rating": 4,
+      "created_at": "2025-11-15T16:45:00.000000"
+    },
+    {
+      "id": 4,
+      "profile_id": 3,
+      "user_name": "John",
+      "text": "Креативная и талантливая девушка. Отличный вкус в искусстве!",
+      "rating": 5,
+      "created_at": "2025-11-15T18:15:00.000000"
+    },
+    {
+      "id": 5,
+      "profile_id": 2,
+      "user_name": "Anonymous User",
+      "text": "павпва",
+      "created_at": "2025-11-17T20:27:58.863720"
+    }
+  ],
+  "promocodes": [
+    {
+      "id": 1,
+      "code": "WELCOME15",
+      "discount": 15,
+      "is_active": true,
+      "used_by": [],
+      "created_at": "2025-11-15T12:00:00.000000"
+    },
+    {
+      "id": 2,
+      "code": "FIRST10",
+      "discount": 10,
+      "is_active": true,
+      "used_by": [],
+      "created_at": "2025-11-15T12:05:00.000000"
+    },
+    {
+      "id": 3,
+      "code": "VIP20",
+      "discount": 20,
+      "is_active": false,
+      "used_by": [],
+      "created_at": "2025-11-15T12:10:00.000000"
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "telegram_id": 123456,
+      "first_name": "Test",
+      "last_name": "User",
+      "username": "testuser",
+      "created_at": "2025-11-11T20:44:37.379702",
+      "last_seen": "2025-11-15T20:55:24.183541"
+    }
+  ],
+  "payments": [
+    {
+      "id": 1,
+      "profile_id": 3,
+      "amount": 100,
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "completed",
+      "created_at": "2025-11-14T01:59:30.000000"
+    },
+    {
+      "id": 2,
+      "profile_id": 2,
+      "amount": "45000",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "completed",
+      "created_at": "2025-11-15T14:16:09.700094"
+    },
+    {
+      "id": 3,
+      "profile_id": 5,
+      "amount": "45000",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "completed",
+      "created_at": "2025-11-15T14:30:34.496817"
+    },
+    {
+      "id": 4,
+      "profile_id": 2,
+      "amount": "4500",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "completed",
+      "created_at": "2025-11-15T23:45:58.702223"
+    }
+  ],
+  "settings": {
+    "crypto_wallets": {
+      "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
+      "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
+      "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0"
+    },
+    "banner": {
+      "text": "Special Offer: 15% discount with promo code WELCOME15",
+      "link": "https://t.me/yourchannel",
+      "link_text": "Join Channel",
+      "visible": true
+    }
+  }
+}
