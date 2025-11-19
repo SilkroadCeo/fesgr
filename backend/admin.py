@@ -2103,7 +2103,465 @@ async def admin_dashboard():
     return HTMLResponse(content=html_content)
 
 
-# API endpoints
+# Public API endpoints (for frontend)
+@app.get("/api/profiles")
+async def get_profiles(
+    page: int = 0,
+    limit: int = 12,
+    city: str = None,
+    nationality: str = None,
+    travel_city: str = None,
+    age_min: int = None,
+    age_max: int = None,
+    height_min: int = None,
+    height_max: int = None,
+    weight_min: int = None,
+    weight_max: int = None,
+    chest_min: int = None,
+    chest_max: int = None,
+    gender: str = None
+):
+    data = load_data()
+    profiles = [p for p in data["profiles"] if p.get("visible", True)]
+
+    # Фильтрация по городу
+    if city and city != "all":
+        profiles = [p for p in profiles if p.get("city", "").lower() == city.lower()]
+
+    # Фильтрация по национальности
+    if nationality and nationality != "all":
+        profiles = [p for p in profiles if p.get("nationality", "").lower() == nationality.lower()]
+
+    # Фильтрация по городу вылета
+    if travel_city and travel_city != "all":
+        profiles = [p for p in profiles if travel_city.lower() in [c.lower() for c in p.get("travel_cities", [])]]
+
+    # Фильтрация по возрасту
+    if age_min:
+        profiles = [p for p in profiles if p.get("age", 0) >= age_min]
+    if age_max:
+        profiles = [p for p in profiles if p.get("age", 100) <= age_max]
+
+    # Фильтрация по росту
+    if height_min:
+        profiles = [p for p in profiles if p.get("height", 0) >= height_min]
+    if height_max:
+        profiles = [p for p in profiles if p.get("height", 250) <= height_max]
+
+    # Фильтрация по весу
+    if weight_min:
+        profiles = [p for p in profiles if p.get("weight", 0) >= weight_min]
+    if weight_max:
+        profiles = [p for p in profiles if p.get("weight", 200) <= weight_max]
+
+    # Фильтрация по груди
+    if chest_min:
+        profiles = [p for p in profiles if p.get("chest", 0) >= chest_min]
+    if chest_max:
+        profiles = [p for p in profiles if p.get("chest", 12) <= chest_max]
+
+    # Фильтрация по полу
+    if gender and gender != "all":
+        profiles = [p for p in profiles if p.get("gender", "").lower() == gender.lower()]
+
+    # Пагинация
+    start = page * limit
+    end = start + limit
+    paginated_profiles = profiles[start:end]
+
+    return {
+        "profiles": paginated_profiles,
+        "has_more": end < len(profiles),
+        "total": len(profiles)
+    }
+
+
+@app.get("/api/profiles/{profile_id}")
+async def get_profile(profile_id: int):
+    data = load_data()
+    profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Загружаем комментарии для этого профиля
+    comments = [c for c in data.get("comments", []) if c["profile_id"] == profile_id]
+    profile["comments"] = comments
+
+    return profile
+
+
+@app.get("/api/vip-profiles")
+async def get_vip_profiles():
+    """Получить VIP анкеты для каталогов"""
+    data = load_data()
+    vip_profiles = data.get("vip_profiles", [])
+
+    # Перемешиваем для рандомного отображения
+    import random
+    random.shuffle(vip_profiles)
+
+    return {"profiles": vip_profiles}
+
+
+@app.get("/api/vip-catalogs")
+async def get_vip_catalogs():
+    """Получить настройки VIP каталогов"""
+    data = load_data()
+    return data.get("settings", {}).get("vip_catalogs", {})
+
+
+@app.post("/api/vip-catalogs")
+async def update_vip_catalogs(catalogs: dict, _: dict = Depends(verify_token)):
+    """Обновить настройки VIP каталогов"""
+    data = load_data()
+    if "settings" not in data:
+        data["settings"] = {}
+    data["settings"]["vip_catalogs"] = catalogs
+    save_data(data)
+    return {"status": "updated"}
+
+
+@app.post("/api/vip-catalogs/upload-preview-photo")
+async def upload_preview_photo(file: UploadFile = File(...), _: dict = Depends(verify_token)):
+    """Загрузить фото для preview профиля VIP каталога"""
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    if not validate_file_upload(file):
+        raise HTTPException(status_code=400, detail=f"Invalid file: {file.filename}")
+
+    file_path = save_uploaded_file(file)
+    return {"photo_url": file_path}
+
+
+@app.get("/api/filters/cities")
+async def get_cities():
+    """Получить список всех городов для фильтра"""
+    data = load_data()
+    cities = list(set([p.get("city", "") for p in data["profiles"] if p.get("city")]))
+    return {"cities": sorted(cities)}
+
+
+@app.get("/api/filters/nationalities")
+async def get_nationalities():
+    """Получить список всех национальностей для фильтра"""
+    data = load_data()
+    nationalities = list(set([p.get("nationality", "") for p in data["profiles"] if p.get("nationality")]))
+    return {"nationalities": sorted(nationalities)}
+
+
+@app.get("/api/filters/travel_cities")
+async def get_travel_cities():
+    """Получить список всех городов вылета"""
+    data = load_data()
+    travel_cities = set()
+    for profile in data["profiles"]:
+        if "travel_cities" in profile:
+            travel_cities.update(profile["travel_cities"])
+    return {"travel_cities": sorted(list(travel_cities))}
+
+
+@app.get("/api/filters/genders")
+async def get_genders():
+    """Получить список всех полов"""
+    return {"genders": ["male", "female", "transgender"]}
+
+
+@app.post("/api/chats/{profile_id}/messages")
+async def send_message(
+    profile_id: int,
+    text: str = Form(None),
+    file: UploadFile = File(None)
+):
+    """Отправка сообщения с возможностью прикрепления файла"""
+    data = load_data()
+
+    # Находим профиль для имени
+    profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Находим или создаем чат
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        chat = {
+            "id": len(data["chats"]) + 1,
+            "profile_id": profile_id,
+            "profile_name": profile["name"],
+            "created_at": datetime.now().isoformat()
+        }
+        data["chats"].append(chat)
+
+    # Подготавливаем данные сообщения
+    message_data = {
+        "id": len(data["messages"]) + 1,
+        "chat_id": chat["id"],
+        "is_from_user": True,
+        "created_at": datetime.now().isoformat()
+    }
+
+    # Если есть файл
+    if file and file.filename:
+        if not validate_file_upload(file):
+            raise HTTPException(status_code=400, detail=f"Invalid file: {file.filename}")
+        file_url = save_uploaded_file(file)
+        file_type = get_file_type(file.filename)
+
+        message_data.update({
+            "file_url": file_url,
+            "file_type": file_type,
+            "file_name": file.filename,
+            "text": text or ""
+        })
+    else:
+        # Только текст
+        if not text:
+            raise HTTPException(status_code=400, detail="Text or file is required")
+        message_data["text"] = escapeHtml(text)
+
+    data["messages"].append(message_data)
+    save_data(data)
+    return {"status": "sent", "message_id": message_data["id"]}
+
+
+@app.get("/api/chats/{profile_id}/messages")
+async def get_chat_messages(profile_id: int):
+    data = load_data()
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        return {"messages": []}
+
+    messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+    return {"messages": messages}
+
+
+@app.get("/api/chats/{profile_id}/updates")
+async def get_chat_updates(profile_id: int, last_message_id: int = 0):
+    data = load_data()
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        return {"messages": [], "last_message_id": 0}
+
+    messages = [m for m in data["messages"] if m["chat_id"] == chat["id"] and m["id"] > last_message_id]
+    max_id = max([m["id"] for m in data["messages"]]) if data["messages"] else 0
+
+    return {"messages": messages, "last_message_id": max_id}
+
+
+@app.get("/api/profiles/{profile_id}/comments")
+async def get_profile_comments(profile_id: int):
+    data = load_data()
+    comments = [c for c in data.get("comments", []) if c["profile_id"] == profile_id]
+    return {"comments": comments}
+
+
+@app.post("/api/profiles/{profile_id}/comments")
+async def add_profile_comment(profile_id: int, comment_data: dict):
+    data = load_data()
+
+    # Проверяем существование профиля
+    profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Проверяем, есть ли у пользователя доступ к комментариям
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if chat:
+        messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+        has_transaction_completed = any(
+            m.get("is_system") and "transaction successful" in m.get("text", "").lower()
+            for m in messages
+        )
+
+        if not has_transaction_completed:
+            raise HTTPException(
+                status_code=403,
+                detail="You need to complete a transaction to leave comments"
+            )
+
+    new_comment = {
+        "id": len(data.get("comments", [])) + 1,
+        "profile_id": profile_id,
+        "user_name": "Anonymous User",
+        "text": escapeHtml(comment_data["text"]),
+        "created_at": datetime.now().isoformat()
+    }
+
+    if "comments" not in data:
+        data["comments"] = []
+    data["comments"].append(new_comment)
+    save_data(data)
+
+    return {"status": "added", "comment": new_comment}
+
+
+@app.get("/api/settings/crypto_wallets")
+async def get_crypto_wallets():
+    """Получить настройки крипто-кошельков"""
+    data = load_data()
+    return data.get("settings", {}).get("crypto_wallets", {})
+
+
+@app.post("/api/settings/crypto_wallets")
+async def update_crypto_wallets(wallets: dict, _: dict = Depends(verify_token)):
+    """Обновить настройки крипто-кошельков"""
+    data = load_data()
+    if "settings" not in data:
+        data["settings"] = {}
+    data["settings"]["crypto_wallets"] = wallets
+    save_data(data)
+    return {"status": "updated"}
+
+
+@app.get("/api/settings/banner")
+async def get_banner():
+    """Получить настройки баннера"""
+    data = load_data()
+    return data.get("settings", {}).get("banner", {})
+
+
+@app.post("/api/settings/banner")
+async def update_banner(banner: dict, _: dict = Depends(verify_token)):
+    """Обновить настройки баннера"""
+    data = load_data()
+    if "settings" not in data:
+        data["settings"] = {}
+    data["settings"]["banner"] = banner
+    save_data(data)
+    return {"status": "updated"}
+
+
+@app.get("/api/settings/app")
+async def get_app_settings():
+    """Получить настройки приложения"""
+    data = load_data()
+    default_settings = {
+        "app_name": "Muji",
+        "default_age": 25,
+        "default_city": "Moscow",
+        "vip_blurred_count": 3,
+        "extra_vip_blurred_count": 3,
+        "secret_blurred_count": 3
+    }
+    return data.get("settings", {}).get("app", default_settings)
+
+
+@app.post("/api/settings/app")
+async def update_app_settings(settings: dict, _: dict = Depends(verify_token)):
+    """Обновить настройки приложения"""
+    data = load_data()
+    if "settings" not in data:
+        data["settings"] = {}
+    if "app" not in data["settings"]:
+        data["settings"]["app"] = {}
+    data["settings"]["app"].update(settings)
+    save_data(data)
+    return {"status": "updated"}
+
+
+@app.get("/api/promocodes")
+async def get_promocodes():
+    """Получить все промокоды"""
+    data = load_data()
+    return {"promocodes": data.get("promocodes", [])}
+
+
+@app.post("/api/promocodes")
+async def create_promocode(promocode: dict, _: dict = Depends(verify_token)):
+    """Создать новый промокод"""
+    data = load_data()
+
+    new_promocode = {
+        "id": len(data.get("promocodes", [])) + 1,
+        "code": promocode["code"].upper(),
+        "discount": promocode["discount"],
+        "is_active": True,
+        "used_by": [],
+        "created_at": datetime.now().isoformat()
+    }
+
+    if "promocodes" not in data:
+        data["promocodes"] = []
+    data["promocodes"].append(new_promocode)
+    save_data(data)
+    return {"status": "created", "promocode": new_promocode}
+
+
+@app.post("/api/promocodes/{promocode_id}/toggle")
+async def toggle_promocode(promocode_id: int, _: dict = Depends(verify_token)):
+    """Активировать/деактивировать промокод"""
+    data = load_data()
+    promocode = next((p for p in data.get("promocodes", []) if p["id"] == promocode_id), None)
+    if promocode:
+        promocode["is_active"] = not promocode["is_active"]
+        save_data(data)
+    return {"status": "updated"}
+
+
+@app.delete("/api/promocodes/{promocode_id}")
+async def delete_promocode(promocode_id: int, _: dict = Depends(verify_token)):
+    """Удалить промокод"""
+    data = load_data()
+    if "promocodes" in data:
+        data["promocodes"] = [p for p in data["promocodes"] if p["id"] != promocode_id]
+        save_data(data)
+    return {"status": "deleted"}
+
+
+@app.post("/api/promocodes/validate")
+async def validate_promocode(validation: dict):
+    """Проверить промокод"""
+    data = load_data()
+    code = validation["code"].upper()
+
+    promocode = next((p for p in data.get("promocodes", []) if p["code"] == code), None)
+
+    if not promocode:
+        return {"valid": False, "message": "Promocode not found"}
+
+    if not promocode["is_active"]:
+        return {"valid": False, "message": "Promocode is inactive"}
+
+    return {
+        "valid": True,
+        "discount": promocode["discount"],
+        "message": f"Promocode activated! {promocode['discount']}% discount applied"
+    }
+
+
+@app.post("/api/payment/crypto")
+async def process_crypto_payment(payment_data: dict):
+    """Обработка крипто-платежа"""
+    data = load_data()
+
+    # Логируем платеж
+    payment_log = {
+        "id": len(data.get("payments", [])) + 1,
+        "profile_id": payment_data["profile_id"],
+        "amount": payment_data["amount"],
+        "currency": payment_data["currency"],
+        "wallet": payment_data["wallet"],
+        "status": "pending",
+        "created_at": datetime.now().isoformat()
+    }
+
+    if "payments" not in data:
+        data["payments"] = []
+    data["payments"].append(payment_log)
+    save_data(data)
+
+    return {
+        "status": "pending",
+        "message": "Payment is being processed",
+        "payment_id": payment_log["id"]
+    }
+
+
+@app.get("/api/test")
+async def test():
+    return {"status": "ok", "message": "Сервер Muji работает!"}
+
+
+# Admin API endpoints
 @app.get("/api/stats")
 async def get_stats():
     data = load_data()
