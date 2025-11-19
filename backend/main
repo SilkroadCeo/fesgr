@@ -14,9 +14,13 @@ app = FastAPI(title="Muji - Anonymous Dating", version="15.0.0")
 # Разрешаем CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "http://localhost:8002",
+        "http://127.0.0.1:8002"
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Пути
@@ -28,7 +32,7 @@ UPLOAD_DIR = os.path.join(current_dir, "uploads")
 # Создаем папку для загрузок если её нет
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-print("🚀 Запускаем сервер Muji с исправлениями...")
+print("🚀 Запускаем сервер Muji на порту 8002...")
 
 # Раздаем статические файлы
 if os.path.exists(frontend_dir):
@@ -1567,6 +1571,7 @@ async def test():
     return {"status": "ok", "message": "Сервер Muji работает!"}
 
 if __name__ == "__main__":
-    print("🚀 Сервер Muji запущен: http://localhost:8001")
-    print("🎨 Исправления: VIP анкеты, переименование, улучшенные кнопки!")
-    uvicorn.run(app, host="0.0.0.0", port=8001, access_log=False)
+    print("🚀 Сервер Muji запущен на http://localhost:8002")
+    print("📱 Основной сайт: http://localhost:8002")
+    print("⚠️  Внимание: Используйте admin.py для запуска с админ панелью!")
+    uvicorn.run(app, host="0.0.0.0", port=8002, access_log=False)
