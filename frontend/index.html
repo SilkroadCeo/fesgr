@@ -2000,23 +2000,23 @@
 
                 <div class="profile-info">
                     <div class="info-item">
-                        <span class="info-icon">Gender:</span>
+                        <span class="info-icon" id="label-gender">Gender:</span>
                         <span id="modal-profile-gender"> </span>
                     </div>
                     <div class="info-item">
-                        <span class="info-icon">City:</span>
+                        <span class="info-icon" id="label-city">City:</span>
                         <span id="modal-profile-city"> </span>
                     </div>
                     <div class="info-item">
-                        <span class="info-icon">Nationality:</span>
+                        <span class="info-icon" id="label-nationality">Nationality:</span>
                         <span id="modal-profile-nationality"> </span>
                     </div>
                     <div class="info-item">
-                        <span class="info-icon">Travel Cities:</span>
+                        <span class="info-icon" id="label-travel-cities">Travel Cities:</span>
                         <span id="modal-profile-travel-cities"> </span>
                     </div>
                     <div class="info-item">
-                        <span class="info-icon">Description:</span>
+                        <span class="info-icon" id="label-description">Description:</span>
                         <span id="modal-profile-description"> </span>
                     </div>
                 </div>
@@ -2292,7 +2292,12 @@
                 description: "Description",
                 vip_catalog: "VIP Catalog",
                 extra_vip: "Extra VIP",
-                secret_catalog: "Secret Catalog"
+                secret_catalog: "Secret Catalog",
+                label_gender: "Gender:",
+                label_city: "City:",
+                label_nationality: "Nationality:",
+                label_travel_cities: "Travel Cities:",
+                label_description: "Description:"
             },
             ru: {
                 subtitle: "100% Анонимные Знакомства",
@@ -2348,7 +2353,12 @@
                 description: "Описание",
                 vip_catalog: "VIP Каталог",
                 extra_vip: "Extra VIP",
-                secret_catalog: "Секретный Каталог"
+                secret_catalog: "Секретный Каталог",
+                label_gender: "Пол:",
+                label_city: "Город:",
+                label_nationality: "Национальность:",
+                label_travel_cities: "Города поездок:",
+                label_description: "Описание:"
             },
             es: {
                 subtitle: "100% Citas Anónimas",
@@ -2404,7 +2414,12 @@
                 description: "Descripción",
                 vip_catalog: "Catálogo VIP",
                 extra_vip: "Extra VIP",
-                secret_catalog: "Catálogo Secreto"
+                secret_catalog: "Catálogo Secreto",
+                label_gender: "Género:",
+                label_city: "Ciudad:",
+                label_nationality: "Nacionalidad:",
+                label_travel_cities: "Ciudades de viaje:",
+                label_description: "Descripción:"
             },
             ar: {
                 subtitle: "مواعدة مجهولة 100%",
@@ -2460,7 +2475,12 @@
                 description: "الوصف",
                 vip_catalog: "كتالوج VIP",
                 extra_vip: "Extra VIP",
-                secret_catalog: "كتالوج سري"
+                secret_catalog: "كتالوج سري",
+                label_gender: ":الجنس",
+                label_city: ":المدينة",
+                label_nationality: ":الجنسية",
+                label_travel_cities: ":مدن السفر",
+                label_description: ":الوصف"
             },
             de: {
                 subtitle: "100% Anonymes Dating",
@@ -2516,7 +2536,12 @@
                 description: "Beschreibung",
                 vip_catalog: "VIP-Katalog",
                 extra_vip: "Extra VIP",
-                secret_catalog: "Geheimer Katalog"
+                secret_catalog: "Geheimer Katalog",
+                label_gender: "Geschlecht:",
+                label_city: "Stadt:",
+                label_nationality: "Nationalität:",
+                label_travel_cities: "Reisestädte:",
+                label_description: "Beschreibung:"
             },
             ja: {
                 subtitle: "100% 匿名デート",
@@ -2572,7 +2597,12 @@
                 description: "説明",
                 vip_catalog: "VIPカタログ",
                 extra_vip: "エクストラVIP",
-                secret_catalog: "シークレットカタログ"
+                secret_catalog: "シークレットカタログ",
+                label_gender: "性別:",
+                label_city: "都市:",
+                label_nationality: "国籍:",
+                label_travel_cities: "旅行先:",
+                label_description: "説明:"
             },
             ko: {
                 subtitle: "100% 익명 데이트",
@@ -2628,7 +2658,12 @@
                 description: "설명",
                 vip_catalog: "VIP 카탈로그",
                 extra_vip: "엑스트라 VIP",
-                secret_catalog: "시크릿 카탈로그"
+                secret_catalog: "시크릿 카탈로그",
+                label_gender: "성별:",
+                label_city: "도시:",
+                label_nationality: "국적:",
+                label_travel_cities: "여행 도시:",
+                label_description: "설명:"
             },
             zh: {
                 subtitle: "100% 匿名约会",
@@ -2684,7 +2719,12 @@
                 description: "描述",
                 vip_catalog: "VIP目录",
                 extra_vip: "特级VIP",
-                secret_catalog: "秘密目录"
+                secret_catalog: "秘密目录",
+                label_gender: "性别:",
+                label_city: "城市:",
+                label_nationality: "国籍:",
+                label_travel_cities: "旅行城市:",
+                label_description: "描述:"
             }
         };
 
@@ -3079,6 +3119,13 @@
             genderOptions[1].textContent = translations.female;
             genderOptions[2].textContent = translations.male;
             genderOptions[3].textContent = translations.transgender;
+
+            // Обновляем лейблы в модальном окне профиля
+            document.getElementById('label-gender').textContent = translations.label_gender;
+            document.getElementById('label-city').textContent = translations.label_city;
+            document.getElementById('label-nationality').textContent = translations.label_nationality;
+            document.getElementById('label-travel-cities').textContent = translations.label_travel_cities;
+            document.getElementById('label-description').textContent = translations.label_description;
 
             chatInput.placeholder = translations.type_message;
 
