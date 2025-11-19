@@ -3405,6 +3405,18 @@
             if (!currentProfile) return;
 
             try {
+                // Останавливаем таймер, если он запущен
+                if (paymentTimerInterval) {
+                    clearInterval(paymentTimerInterval);
+                    paymentTimerInterval = null;
+                }
+
+                // Сбрасываем отображение таймера
+                const timerDisplay = document.getElementById('timer-display');
+                if (timerDisplay) {
+                    timerDisplay.textContent = '60:00';
+                }
+
                 // Загружаем кошельки
                 const response = await fetch('/api/settings/crypto_wallets');
                 const wallets = await response.json();
@@ -3430,6 +3442,11 @@
 
         // Закрытие модального окна оплаты
         function closePaymentModal() {
+            // Останавливаем таймер при закрытии окна
+            if (paymentTimerInterval) {
+                clearInterval(paymentTimerInterval);
+                paymentTimerInterval = null;
+            }
             paymentModal.style.display = 'none';
         }
 
