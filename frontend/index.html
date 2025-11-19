@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shinei - Anonymous Dating</title>
+    <title>muji - Anonymous Dating</title>
     <style>
         * {
             margin: 0;
@@ -353,14 +353,14 @@
 
         .loading-logo {
             font-size: 48px;
-            font-weight: 800;
+            font-weight: 400;
             background: linear-gradient(45deg, #fff, #ff8fab);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 20px;
-            font-family: 'Arial Rounded MT Bold', 'Helvetica Rounded', Arial, sans-serif;
-            text-shadow: 0 5px 15px rgba(255, 107, 157, 0.5);
-            letter-spacing: 2px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            letter-spacing: 8px;
+            text-transform: lowercase;
         }
 
         .loading-spinner {
@@ -416,27 +416,15 @@
         }
 
         .logo {
-            font-size: 4rem;
-            font-weight: 800;
+            font-size: 3rem;
+            font-weight: 600;
             background: linear-gradient(45deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 15px;
-            text-shadow: 0 5px 15px rgba(255, 107, 157, 0.3);
-            font-family: 'Arial Rounded MT Bold', 'Helvetica Rounded', Arial, sans-serif;
-            letter-spacing: 3px;
-        }
-
-        .logo::before {
-            content: "✨";
-            margin-right: 10px;
-            font-size: 3rem;
-        }
-
-        .logo::after {
-            content: "✨";
-            margin-left: 10px;
-            font-size: 3rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            letter-spacing: 8px;
+            text-transform: lowercase;
         }
 
         .subtitle {
@@ -1496,7 +1484,10 @@
 
         /* Модалка оплаты */
         .payment-modal .modal-content {
-            max-width: 450px;
+            max-width: 500px;
+            background: linear-gradient(135deg, rgba(26, 26, 26, 0.98), rgba(42, 42, 42, 0.98));
+            border: 2px solid var(--primary);
+            box-shadow: 0 20px 60px rgba(255, 107, 157, 0.3);
         }
 
         .crypto-option {
@@ -1577,6 +1568,37 @@
             font-size: 4rem;
             color: var(--success);
             margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .payment-timer {
+            background: linear-gradient(135deg, rgba(255, 107, 157, 0.1), rgba(102, 126, 234, 0.1));
+            border: 2px solid var(--primary);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .timer-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .timer-display {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-family: 'Courier New', monospace;
         }
 
         .profile-info-payment {
@@ -1697,7 +1719,7 @@
     <!-- Экран загрузки -->
     <div class="loading-screen" id="loading-screen">
         <div class="loading-content">
-            <div class="loading-logo">Shinei</div>
+            <div class="loading-logo">muji</div>
             <div class="loading-spinner"></div>
             <div class="loading-text" id="loading-text">Loading premium experience...</div>
         </div>
@@ -1714,6 +1736,10 @@
                 <div class="language-option" data-lang="en">🇺🇸 English</div>
                 <div class="language-option" data-lang="ja">🇯🇵 日本語</div>
                 <div class="language-option" data-lang="ko">🇰🇷 한국어</div>
+                <div class="language-option" data-lang="zh">🇨🇳 中文</div>
+                <div class="language-option" data-lang="ar">🇸🇦 العربية</div>
+                <div class="language-option" data-lang="de">🇩🇪 Deutsch</div>
+                <div class="language-option" data-lang="es">🇪🇸 Español</div>
             </div>
         </div>
 
@@ -1727,7 +1753,7 @@
         <!-- Главный хедер -->
         <header class="main-header fade-in">
             <div class="header-content">
-                <div class="logo">Shinei</div>
+                <div class="logo">muji</div>
                 <div class="subtitle" id="app-subtitle">100% Anonymous Dating</div>
                 <div class="header-stats">
                     <div class="stat-item">
@@ -2073,7 +2099,11 @@
                 <div class="payment-success" id="payment-success">
                     <div class="success-icon">⏳</div>
                     <h3 id="payment-success-title">Awaiting Confirmation</h3>
-                    <p id="payment-success-message">Your reservation will be confirmed in chat, you can close this page.</p>
+                    <p id="payment-success-message">Processing payment... Close the window, you will receive a notification in chat.</p>
+                    <div class="payment-timer">
+                        <div class="timer-label" id="timer-label">Time remaining:</div>
+                        <div class="timer-display" id="timer-display">60:00</div>
+                    </div>
                     <button class="btn btn-primary" id="close-success">
                         <span id="close-success-text">Close</span>
                     </button>
@@ -3420,6 +3450,34 @@
             });
         }
 
+        // Таймер оплаты (60 минут)
+        let paymentTimerInterval = null;
+
+        function startPaymentTimer(seconds) {
+            // Очищаем предыдущий таймер, если есть
+            if (paymentTimerInterval) {
+                clearInterval(paymentTimerInterval);
+            }
+
+            let timeRemaining = seconds;
+            const timerDisplay = document.getElementById('timer-display');
+
+            // Обновляем таймер каждую секунду
+            paymentTimerInterval = setInterval(() => {
+                timeRemaining--;
+
+                const minutes = Math.floor(timeRemaining / 60);
+                const secs = timeRemaining % 60;
+                timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+                // Когда время истекло
+                if (timeRemaining <= 0) {
+                    clearInterval(paymentTimerInterval);
+                    timerDisplay.textContent = '00:00';
+                }
+            }, 1000);
+        }
+
         // Обработка платежа
         async function processPayment() {
             const selectedCrypto = document.querySelector('.crypto-option.selected');
@@ -3457,6 +3515,9 @@
                     // Показываем успех
                     document.getElementById('payment-selection').style.display = 'none';
                     paymentSuccess.style.display = 'block';
+
+                    // Запускаем таймер на 60 минут
+                    startPaymentTimer(60 * 60);
                 } else {
                     throw new Error(result.message || 'Payment failed');
                 }

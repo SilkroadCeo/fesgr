@@ -14,7 +14,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Admin Panel - Shinei")
+app = FastAPI(title="Admin Panel - muji")
 
 app.add_middleware(
     CORSMiddleware,
@@ -207,7 +207,7 @@ async def admin_dashboard():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Admin Panel - Shinei</title>
+        <title>Admin Panel - muji</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
@@ -369,8 +369,8 @@ async def admin_dashboard():
     <body>
         <div class="container">
             <header>
-                <h1>Admin Panel - Shinei</h1>
-                <p>VIP Catalogs | Gender Filter | VIP Profiles Management</p>
+                <h1>Admin Panel - muji</h1>
+                <p>App Configuration | Crypto Wallets | VIP Catalogs</p>
             </header>
 
             <div class="stats">
@@ -384,16 +384,14 @@ async def admin_dashboard():
 
             <div class="tabs">
                 <button class="tab active" onclick="showTab('profiles')">Profiles</button>
-                <button class="tab" onclick="showTab('vip-profiles')">VIP Profiles</button>
                 <button class="tab" onclick="showTab('chats')">Chats</button>
                 <button class="tab" onclick="showTab('comments')">Comments</button>
                 <button class="tab" onclick="showTab('add-profile')">Add Profile</button>
-                <button class="tab" onclick="showTab('add-vip-profile')">Add VIP Profile</button>
                 <button class="tab" onclick="showTab('promocodes')">Promocodes</button>
+                <button class="tab" onclick="showTab('app-settings')">App Settings</button>
                 <button class="tab" onclick="showTab('banner-settings')">Banner Settings</button>
                 <button class="tab" onclick="showTab('crypto-settings')">Crypto Settings</button>
                 <button class="tab" onclick="showTab('vip-catalogs')">VIP Catalogs</button>
-                <button class="tab" onclick="showTab('vip-preview')">VIP Preview Management</button>
             </div>
 
             <div id="profiles" class="content active">
@@ -401,10 +399,6 @@ async def admin_dashboard():
                 <div id="profiles-list" class="profile-grid"></div>
             </div>
 
-            <div id="vip-profiles" class="content">
-                <h3>Manage VIP Profiles</h3>
-                <div id="vip-profiles-list" class="profile-grid"></div>
-            </div>
 
             <div id="chats" class="content">
                 <h3>Manage Chats</h3>
@@ -504,47 +498,6 @@ async def admin_dashboard():
                 </form>
             </div>
 
-            <div id="add-vip-profile" class="content">
-                <h3>Add VIP Profile</h3>
-                <form id="add-vip-profile-form" enctype="multipart/form-data">
-                    <div class="form-group">
-                        <label>Name:</label>
-                        <input type="text" id="vip-name" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Age:</label>
-                        <input type="number" id="vip-age" required min="12" max="100">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Gender:</label>
-                        <select id="vip-gender" required>
-                            <option value="female">Female</option>
-                            <option value="male">Male</option>
-                            <option value="transgender">Transgender</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>City:</label>
-                        <input type="text" id="vip-city" required placeholder="e.g., Moscow">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Upload Photos:</label>
-                        <div class="file-upload">
-                            <input type="file" id="vip-photo-upload" accept="image/*" multiple style="display: none;">
-                            <button type="button" class="btn btn-primary" onclick="document.getElementById('vip-photo-upload').click()">
-                                Select Photos (Multiple)
-                            </button>
-                            <div class="uploaded-photos" id="vip-uploaded-photos"></div>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-success">Add VIP Profile</button>
-                </form>
-            </div>
 
             <div id="promocodes" class="content">
                 <h3>Manage Promocodes</h3>
@@ -557,6 +510,51 @@ async def admin_dashboard():
                     </div>
                 </div>
                 <div id="promocodes-list" class="promocode-grid"></div>
+            </div>
+
+            <div id="app-settings" class="content">
+                <h3>App Configuration Settings</h3>
+                <div class="banner-settings">
+                    <div class="form-group">
+                        <label>App Name:</label>
+                        <input type="text" id="app-name" placeholder="muji" value="muji">
+                        <small style="color: #ff6b9d;">This name will be displayed throughout the app</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Default User Age:</label>
+                        <input type="number" id="default-age" placeholder="25" min="18" max="100" value="25">
+                        <small style="color: #ff6b9d;">Default age for new profiles</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Default City:</label>
+                        <input type="text" id="default-city" placeholder="Moscow" value="Moscow">
+                        <small style="color: #ff6b9d;">Default city for new profiles</small>
+                    </div>
+
+                    <h4 style="margin-top: 30px; margin-bottom: 20px; color: #ff6b9d;">VIP Catalog Preview Settings</h4>
+
+                    <div class="form-group">
+                        <label>VIP Catalog - Blurred Profiles Count:</label>
+                        <input type="number" id="vip-blurred-count" placeholder="3" min="1" max="9" value="3">
+                        <small style="color: #ff6b9d;">Number of blurred preview profiles to show in VIP Catalog</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Extra VIP - Blurred Profiles Count:</label>
+                        <input type="number" id="extra-vip-blurred-count" placeholder="3" min="1" max="9" value="3">
+                        <small style="color: #ff6b9d;">Number of blurred preview profiles to show in Extra VIP Catalog</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Secret Catalog - Blurred Profiles Count:</label>
+                        <input type="number" id="secret-blurred-count" placeholder="3" min="1" max="9" value="3">
+                        <small style="color: #ff6b9d;">Number of blurred preview profiles to show in Secret Catalog</small>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="saveAppSettings()">Save App Settings</button>
+                </div>
             </div>
 
             <div id="banner-settings" class="content">
@@ -701,35 +699,6 @@ async def admin_dashboard():
                 </div>
             </div>
 
-            <div id="vip-preview" class="content">
-                <h3>VIP Preview Management</h3>
-                <div class="vip-preview-management">
-                    <div class="form-group">
-                        <label>Select VIP Catalog:</label>
-                        <select id="vip-catalog-select" class="modern-select" onchange="loadVipPreviewProfiles()">
-                            <option value="vip">VIP Catalog</option>
-                            <option value="extra_vip">Extra VIP</option>
-                            <option value="secret">Secret Catalog</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Available VIP Profiles:</label>
-                        <select id="available-vip-profiles" class="modern-select" multiple style="height: 200px;">
-                            <!-- VIP profiles will be loaded here -->
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Selected Profiles for Preview (max 3):</label>
-                        <div id="selected-preview-profiles" class="profile-grid" style="grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));">
-                            <!-- Selected profiles will be shown here -->
-                        </div>
-                    </div>
-
-                    <button class="btn btn-primary" onclick="saveVipPreview()">Save Preview Settings</button>
-                </div>
-            </div>
         </div>
 
         <script>
@@ -746,14 +715,13 @@ async def admin_dashboard():
                 event.target.classList.add('active');
 
                 if (tabName === 'profiles') loadProfiles();
-                if (tabName === 'vip-profiles') loadVipProfiles();
                 if (tabName === 'chats') loadChats();
                 if (tabName === 'comments') loadCommentsAdmin();
                 if (tabName === 'promocodes') loadPromocodes();
+                if (tabName === 'app-settings') loadAppSettings();
                 if (tabName === 'banner-settings') loadBannerSettings();
                 if (tabName === 'crypto-settings') loadCryptoWallets();
                 if (tabName === 'vip-catalogs') loadVipCatalogs();
-                if (tabName === 'vip-preview') loadVipPreviewManagement();
             }
 
             // Загрузка статистики
@@ -983,6 +951,53 @@ async def admin_dashboard():
                 } catch (error) {
                     console.error('Error saving VIP catalogs:', error);
                     alert('Error saving VIP catalogs settings');
+                }
+            }
+
+            // Загрузка настроек приложения
+            async function loadAppSettings() {
+                try {
+                    const response = await fetch('/api/settings/app');
+                    if (response.ok) {
+                        const settings = await response.json();
+                        document.getElementById('app-name').value = settings.app_name || 'muji';
+                        document.getElementById('default-age').value = settings.default_age || 25;
+                        document.getElementById('default-city').value = settings.default_city || 'Moscow';
+                        document.getElementById('vip-blurred-count').value = settings.vip_blurred_count || 3;
+                        document.getElementById('extra-vip-blurred-count').value = settings.extra_vip_blurred_count || 3;
+                        document.getElementById('secret-blurred-count').value = settings.secret_blurred_count || 3;
+                    }
+                } catch (error) {
+                    console.error('Error loading app settings:', error);
+                }
+            }
+
+            // Сохранение настроек приложения
+            async function saveAppSettings() {
+                try {
+                    const settings = {
+                        app_name: document.getElementById('app-name').value,
+                        default_age: parseInt(document.getElementById('default-age').value),
+                        default_city: document.getElementById('default-city').value,
+                        vip_blurred_count: parseInt(document.getElementById('vip-blurred-count').value),
+                        extra_vip_blurred_count: parseInt(document.getElementById('extra-vip-blurred-count').value),
+                        secret_blurred_count: parseInt(document.getElementById('secret-blurred-count').value)
+                    };
+
+                    const response = await fetch('/api/settings/app', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(settings)
+                    });
+
+                    if (response.ok) {
+                        alert('App settings saved successfully!');
+                    } else {
+                        alert('Error saving app settings');
+                    }
+                } catch (error) {
+                    console.error('Error saving app settings:', error);
+                    alert('Error saving app settings');
                 }
             }
 
@@ -2167,6 +2182,6 @@ async def update_admin_crypto_wallets(wallets: dict):
 
 
 if __name__ == "__main__":
-    print("🚀 Admin panel Shinei запущена: http://localhost:8002")
+    print("🚀 Admin panel muji запущена: http://localhost:8002")
     print("🎨 Исправления: VIP анкеты, переименование, улучшенные кнопки!")
     uvicorn.run(app, host="0.0.0.0", port=8002, access_log=False)
