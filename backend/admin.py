@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -466,6 +466,15 @@ async def login(request: Request, credentials: dict):
 
 
 @app.get("/")
+async def serve_frontend():
+    """Serve the main frontend page"""
+    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "index.html")
+    if not os.path.exists(frontend_path):
+        raise HTTPException(status_code=404, detail="Frontend not found")
+    return FileResponse(frontend_path)
+
+
+@app.get("/admin")
 async def admin_dashboard():
     html_content = """
     <!DOCTYPE html>
@@ -2436,6 +2445,8 @@ async def update_admin_crypto_wallets(wallets: dict, _: dict = Depends(verify_to
 
 
 if __name__ == "__main__":
-    print("🚀 Admin panel Muji запущена: http://localhost:8002")
-    print("🎨 Исправления: VIP анкеты, переименование, улучшенные кнопки!")
+    print("🚀 Сервер Muji запущен на http://localhost:8002")
+    print("📱 Основной сайт: http://localhost:8002")
+    print("🔐 Админ панель: http://localhost:8002/admin")
+    print("🎨 Функции: Безопасная авторизация, мультиязычность, VIP анкеты")
     uvicorn.run(app, host="0.0.0.0", port=8002, access_log=False)
