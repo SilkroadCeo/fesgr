@@ -3063,56 +3063,73 @@
             return codes[lang] || 'EN';
         }
 
+        // Безопасное применение перевода
+        function safeSetText(id, text, isPlaceholder = false) {
+            const element = document.getElementById(id);
+            if (element && text !== undefined) {
+                if (isPlaceholder) {
+                    element.placeholder = text;
+                } else {
+                    element.textContent = text;
+                }
+            }
+        }
+
         // Применение переводов
         function applyTranslations() {
             // Обновляем все тексты
-            document.getElementById('app-subtitle').textContent = translations.subtitle;
-            document.getElementById('premium-profiles-label').textContent = translations.premium_profiles;
-            document.getElementById('online-now-label').textContent = translations.online_now;
-            document.getElementById('anonymous-dating-label').textContent = translations.anonymous_dating;
-            document.getElementById('filters-title').textContent = translations.filters;
-            document.getElementById('filter-city-label').textContent = translations.city;
-            document.getElementById('all-cities').textContent = translations.all_cities;
-            document.getElementById('filter-nationality-label').textContent = translations.nationality;
-            document.getElementById('all-nationalities').textContent = translations.all_nationalities;
-            document.getElementById('filter-gender-label').textContent = translations.gender;
-            document.getElementById('all-genders').textContent = translations.all_genders;
-            document.getElementById('filter-travel-city-label').textContent = translations.travel_city;
-            document.getElementById('all-travel-cities').textContent = translations.all_cities;
-            document.getElementById('filter-age-label').textContent = translations.age;
-            document.getElementById('filter-height-label').textContent = translations.height;
-            document.getElementById('filter-weight-label').textContent = translations.weight;
-            document.getElementById('filter-chest-label').textContent = translations.chest;
-            document.getElementById('reset-text').textContent = translations.reset;
-            document.getElementById('apply-text').textContent = translations.apply;
-            document.getElementById('main-loading').textContent = translations.loading;
-            document.getElementById('loading-more-text').textContent = translations.loading_more;
-            document.getElementById('write-text').textContent = translations.write_message;
-            document.getElementById('pay-text').textContent = translations.book_with_crypto;
-            document.getElementById('promo-text').textContent = translations.promocode;
-            document.getElementById('years-text').textContent = translations.years;
-            document.getElementById('cm-text').textContent = translations.cm;
-            document.getElementById('kg-text').textContent = translations.kg;
-            document.getElementById('apply-promo-text').textContent = translations.apply_promocode;
-            document.getElementById('close-promo-text').textContent = translations.close;
-            document.getElementById('promo-description').textContent = translations.enter_promocode;
-            document.getElementById('comments-title').textContent = translations.comments;
-            document.getElementById('post-comment-text').textContent = translations.post_comment;
-            document.getElementById('no-comments').textContent = translations.no_comments;
-            document.getElementById('comment-input').placeholder = translations.your_comment;
-            document.getElementById('confirm-payment-text').textContent = translations.pay_now;
-            document.getElementById('payment-amount-label').textContent = translations.amount;
-            document.getElementById('payment-description').textContent = translations.select_crypto;
-            document.getElementById('wallet-address-label').textContent = translations.wallet_address;
-            document.getElementById('payment-profile-title').textContent = translations.booking_profile;
-            document.getElementById('payment-success-title').textContent = translations.payment_awaiting;
-            document.getElementById('payment-success-message').textContent = translations.payment_processing;
-            document.getElementById('close-success-text').textContent = translations.close;
-            document.getElementById('timer-label').textContent = translations.timer_label + ':';
-            document.getElementById('chat-title-text').textContent = translations.chat_with;
-            document.getElementById('attach-file-text').textContent = translations.attach_file;
-            document.getElementById('comment-permission-text').textContent = translations.comment_permission_required;
-            document.getElementById('complete-transaction-text').textContent = translations.complete_transaction_to_comment;
+            safeSetText('app-subtitle', translations.subtitle);
+            safeSetText('premium-profiles-label', translations.premium_profiles);
+            safeSetText('online-now-label', translations.online_now);
+            safeSetText('anonymous-dating-label', translations.anonymous_dating);
+            safeSetText('filters-title', translations.filters);
+            safeSetText('filter-city-label', translations.city);
+            safeSetText('all-cities', translations.all_cities);
+            safeSetText('filter-nationality-label', translations.nationality);
+            safeSetText('all-nationalities', translations.all_nationalities);
+            safeSetText('filter-gender-label', translations.gender);
+            safeSetText('all-genders', translations.all_genders);
+            safeSetText('filter-travel-city-label', translations.travel_city);
+            safeSetText('all-travel-cities', translations.all_cities);
+            safeSetText('filter-age-label', translations.age);
+            safeSetText('filter-height-label', translations.height);
+            safeSetText('filter-weight-label', translations.weight);
+            safeSetText('filter-chest-label', translations.chest);
+            safeSetText('reset-text', translations.reset);
+            safeSetText('apply-text', translations.apply);
+            safeSetText('main-loading', translations.loading);
+            safeSetText('loading-more-text', translations.loading_more);
+            safeSetText('write-text', translations.write_message);
+            safeSetText('pay-text', translations.book_with_crypto);
+            safeSetText('promo-text', translations.promocode);
+            safeSetText('years-text', translations.years);
+            safeSetText('cm-text', translations.cm);
+            safeSetText('kg-text', translations.kg);
+            safeSetText('apply-promo-text', translations.apply_promocode);
+            safeSetText('close-promo-text', translations.close);
+            safeSetText('promo-description', translations.enter_promocode);
+            safeSetText('comments-title', translations.comments);
+            safeSetText('post-comment-text', translations.post_comment);
+            safeSetText('no-comments', translations.no_comments);
+            safeSetText('comment-input', translations.your_comment, true);
+            safeSetText('confirm-payment-text', translations.pay_now);
+            safeSetText('payment-amount-label', translations.amount);
+            safeSetText('payment-description', translations.select_crypto);
+            safeSetText('wallet-address-label', translations.wallet_address);
+            safeSetText('payment-profile-title', translations.booking_profile);
+            safeSetText('payment-success-title', translations.payment_awaiting);
+            safeSetText('payment-success-message', translations.payment_processing);
+            safeSetText('close-success-text', translations.close);
+
+            const timerLabel = document.getElementById('timer-label');
+            if (timerLabel && translations.timer_label) {
+                timerLabel.textContent = translations.timer_label + ':';
+            }
+
+            safeSetText('chat-title-text', translations.chat_with);
+            safeSetText('attach-file-text', translations.attach_file);
+            safeSetText('comment-permission-text', translations.comment_permission_required);
+            safeSetText('complete-transaction-text', translations.complete_transaction_to_comment);
 
             // Обновляем опции гендера
             const genderOptions = document.querySelectorAll('#filter-gender option');
@@ -3121,13 +3138,15 @@
             genderOptions[3].textContent = translations.transgender;
 
             // Обновляем лейблы в модальном окне профиля
-            document.getElementById('label-gender').textContent = translations.label_gender;
-            document.getElementById('label-city').textContent = translations.label_city;
-            document.getElementById('label-nationality').textContent = translations.label_nationality;
-            document.getElementById('label-travel-cities').textContent = translations.label_travel_cities;
-            document.getElementById('label-description').textContent = translations.label_description;
+            safeSetText('label-gender', translations.label_gender);
+            safeSetText('label-city', translations.label_city);
+            safeSetText('label-nationality', translations.label_nationality);
+            safeSetText('label-travel-cities', translations.label_travel_cities);
+            safeSetText('label-description', translations.label_description);
 
-            chatInput.placeholder = translations.type_message;
+            if (chatInput && translations.type_message) {
+                chatInput.placeholder = translations.type_message;
+            }
 
             updateActiveFilters();
         }
