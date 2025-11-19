@@ -1787,7 +1787,6 @@
             </button>
             <div class="language-dropdown" id="language-dropdown">
                 <div class="language-option" data-lang="en">English</div>
-                <div class="language-option" data-lang="ru">Русский</div>
                 <div class="language-option" data-lang="ja">日本語</div>
                 <div class="language-option" data-lang="ko">한국어</div>
                 <div class="language-option" data-lang="zh">中文</div>
@@ -2299,67 +2298,6 @@
                 label_travel_cities: "Travel Cities:",
                 label_description: "Description:"
             },
-            ru: {
-                subtitle: "100% Анонимные Знакомства",
-                premium_profiles: "Премиум Анкеты",
-                online_now: "Онлайн Сейчас",
-                anonymous_dating: "Анонимные Знакомства",
-                filters: "Фильтры",
-                city: "Город",
-                all_cities: "Все города",
-                nationality: "Национальность",
-                all_nationalities: "Все национальности",
-                gender: "Пол",
-                all_genders: "Все",
-                travel_city: "Город поездки",
-                age: "Возраст",
-                height: "Рост (см)",
-                weight: "Вес (кг)",
-                chest: "Грудь",
-                reset: "Сбросить",
-                apply: "Применить",
-                loading: "Загрузка...",
-                loading_more: "Загрузка еще...",
-                write_message: "Написать",
-                book_with_crypto: "Оплатить",
-                promocode: "Промокод",
-                years: "лет",
-                cm: "см",
-                kg: "кг",
-                chest_size: "грудь",
-                apply_promocode: "Применить",
-                close: "Закрыть",
-                enter_promocode: "Введите промокод для получения скидки",
-                comments: "Комментарии",
-                post_comment: "Отправить комментарий",
-                no_comments: "Пока нет комментариев",
-                your_comment: "Ваш комментарий...",
-                pay_now: "Подтвердить оплату",
-                amount: "Сумма:",
-                select_crypto: "Выберите криптовалюту:",
-                wallet_address: "Адрес кошелька:",
-                booking_profile: "Бронирование анкеты:",
-                payment_awaiting: "Обработка платежа",
-                payment_processing: "Ваш платеж обрабатывается. Пожалуйста, подождите...",
-                timer_label: "Осталось времени",
-                chat_with: "Чат с",
-                attach_file: "Прикрепить файл",
-                comment_permission_required: "Требуется оплата",
-                complete_transaction_to_comment: "Завершите оплату, чтобы оставлять комментарии",
-                type_message: "Введите сообщение...",
-                female: "Женщина",
-                male: "Мужчина",
-                transgender: "Трансгендер",
-                description: "Описание",
-                vip_catalog: "VIP Каталог",
-                extra_vip: "Extra VIP",
-                secret_catalog: "Секретный Каталог",
-                label_gender: "Пол:",
-                label_city: "Город:",
-                label_nationality: "Национальность:",
-                label_travel_cities: "Города поездок:",
-                label_description: "Описание:"
-            },
             es: {
                 subtitle: "100% Citas Anónimas",
                 premium_profiles: "Perfiles Premium",
@@ -2847,9 +2785,8 @@
                     loadingScreen.style.display = 'none';
                     mainContent.style.display = 'block';
 
-                    // Загружаем сохраненный язык или английский по умолчанию
-                    const savedLanguage = localStorage.getItem('preferred_language') || 'en';
-                    loadTranslations(savedLanguage);
+                    // Всегда загружаем английский язык по умолчанию
+                    loadTranslations('en');
 
                     loadVipCatalogs();
                     loadMoreProfiles();
@@ -3043,7 +2980,6 @@
                 translations = allTranslations[lang];
                 currentLanguage = lang;
                 languageText.textContent = getLanguageCode(lang);
-                localStorage.setItem('preferred_language', lang);
                 applyTranslations();
             }
         }
@@ -3052,7 +2988,6 @@
         function getLanguageCode(lang) {
             const codes = {
                 'en': 'EN',
-                'ru': 'RU',
                 'ja': 'JA',
                 'ko': 'KO',
                 'zh': 'ZH',

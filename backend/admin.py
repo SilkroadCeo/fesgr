@@ -54,9 +54,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:8002",
-        "http://127.0.0.1:8002",
-        "http://localhost:8001",
-        "http://127.0.0.1:8001"
+        "http://127.0.0.1:8002"
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -1193,7 +1191,7 @@ async def admin_dashboard():
                         }
                     };
 
-                    const response = await fetch('http://localhost:8001/api/vip-catalogs', {
+                    const response = await fetch('http://localhost:8002/api/vip-catalogs', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(catalogs)
@@ -1236,7 +1234,7 @@ async def admin_dashboard():
                                     formData.append('file', file);
 
                                     try {
-                                        const response = await fetch('http://localhost:8001/api/vip-catalogs/upload-preview-photo', {
+                                        const response = await fetch('http://localhost:8002/api/vip-catalogs/upload-preview-photo', {
                                             method: 'POST',
                                             body: formData
                                         });
