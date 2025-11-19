@@ -1,26 +1,66 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 import uvicorn
 import os
 import json
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 import logging
+import secrets
+import re
+import mimetypes
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Security Configuration
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production-" + secrets.token_urlsafe(32))
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
+
+# Admin credentials (in production, store in environment variables)
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYAiYeu3u6i")  # Default: "admin123"
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Security scheme
+security = HTTPBearer()
+
+# Rate limiting
+limiter = Limiter(key_func=get_remote_address)
+
+# Login attempts tracking (in-memory, use Redis in production)
+login_attempts = {}
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_DURATION = timedelta(minutes=15)
+
 app = FastAPI(title="Admin Panel - Muji")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "http://localhost:8002",
+        "http://127.0.0.1:8002",
+        "http://localhost:8001",
+        "http://127.0.0.1:8001"
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -199,6 +239,230 @@ def get_file_type(filename: str) -> str:
         return 'video'
     else:
         return 'file'
+
+
+# Security Functions
+def validate_file_upload(file: UploadFile) -> bool:
+    """Validate uploaded file for security"""
+    if not file.filename:
+        return False
+
+    # Allowed extensions
+    allowed_extensions = {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'mp4', 'avi', 'mov', 'mkv', 'webm'}
+    extension = file.filename.lower().split('.')[-1]
+
+    if extension not in allowed_extensions:
+        return False
+
+    # Check MIME type
+    mime_type = file.content_type
+    allowed_mimes = {
+        'image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp',
+        'video/mp4', 'video/x-msvideo', 'video/quicktime', 'video/x-matroska', 'video/webm'
+    }
+
+    if mime_type not in allowed_mimes:
+        return False
+
+    return True
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against its hash"""
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def create_access_token(data: dict) -> str:
+    """Create JWT access token"""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def check_login_attempts(username: str, ip: str) -> bool:
+    """Check if user/IP is locked out due to too many failed attempts"""
+    key = f"{username}:{ip}"
+    if key in login_attempts:
+        attempts, lockout_until = login_attempts[key]
+        if lockout_until and datetime.utcnow() < lockout_until:
+            return False
+        if datetime.utcnow() >= lockout_until:
+            # Reset after lockout period
+            del login_attempts[key]
+    return True
+
+
+def record_failed_login(username: str, ip: str):
+    """Record a failed login attempt"""
+    key = f"{username}:{ip}"
+    if key in login_attempts:
+        attempts, _ = login_attempts[key]
+        attempts += 1
+        if attempts >= MAX_LOGIN_ATTEMPTS:
+            lockout_until = datetime.utcnow() + LOCKOUT_DURATION
+            login_attempts[key] = (attempts, lockout_until)
+            logger.warning(f"Account locked for {username} from {ip} until {lockout_until}")
+        else:
+            login_attempts[key] = (attempts, None)
+    else:
+        login_attempts[key] = (1, None)
+
+
+def reset_login_attempts(username: str, ip: str):
+    """Reset login attempts after successful login"""
+    key = f"{username}:{ip}"
+    if key in login_attempts:
+        del login_attempts[key]
+
+
+async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """Verify JWT token and return payload"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+
+
+# Authentication Routes
+@app.get("/login")
+async def login_page():
+    """Login page"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Admin Login - Muji</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+            body { background: #1a1a1a; color: #ffffff; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+            .login-container { background: rgba(255, 107, 157, 0.1); padding: 40px; border-radius: 20px; border: 1px solid #ff6b9d; width: 90%; max-width: 400px; }
+            h1 { text-align: center; margin-bottom: 30px; background: linear-gradient(135deg, #ff6b9d 0%, #8b225e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+            .form-group { margin-bottom: 20px; }
+            .form-group label { display: block; margin-bottom: 8px; color: #ff6b9d; font-weight: 600; }
+            .form-group input { width: 100%; padding: 12px; background: rgba(255, 107, 157, 0.1); border: 1px solid #ff6b9d; border-radius: 8px; color: #fff; font-size: 14px; }
+            .btn { width: 100%; padding: 14px; background: #ff6b9d; border: none; border-radius: 8px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+            .btn:hover { background: #ff8fab; transform: translateY(-2px); }
+            .error { color: #dc3545; margin-top: 10px; text-align: center; display: none; }
+            .attempts-warning { color: #ffc107; margin-top: 10px; text-align: center; font-size: 12px; }
+        </style>
+    </head>
+    <body>
+        <div class="login-container">
+            <h1>Admin Panel Login</h1>
+            <form id="login-form">
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" id="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn">Login</button>
+                <div id="error-message" class="error"></div>
+                <div id="attempts-warning" class="attempts-warning"></div>
+            </form>
+        </div>
+
+        <script>
+            document.getElementById('login-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                const errorDiv = document.getElementById('error-message');
+                const attemptsDiv = document.getElementById('attempts-warning');
+
+                errorDiv.style.display = 'none';
+                attemptsDiv.textContent = '';
+
+                try {
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        localStorage.setItem('admin_token', data.access_token);
+                        window.location.href = '/';
+                    } else {
+                        errorDiv.textContent = data.detail || 'Login failed';
+                        errorDiv.style.display = 'block';
+
+                        if (data.attempts_left !== undefined) {
+                            attemptsDiv.textContent = `Attempts left: ${data.attempts_left}`;
+                        }
+                        if (data.lockout_until) {
+                            attemptsDiv.textContent = `Account locked until ${new Date(data.lockout_until).toLocaleString()}`;
+                        }
+                    }
+                } catch (error) {
+                    errorDiv.textContent = 'Network error. Please try again.';
+                    errorDiv.style.display = 'block';
+                }
+            });
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@app.post("/api/login")
+@limiter.limit("10/minute")
+async def login(request: Request, credentials: dict):
+    """Login endpoint with brute-force protection"""
+    username = credentials.get("username", "")
+    password = credentials.get("password", "")
+    client_ip = request.client.host
+
+    # Check if locked out
+    if not check_login_attempts(username, client_ip):
+        key = f"{username}:{client_ip}"
+        _, lockout_until = login_attempts[key]
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "detail": "Too many failed attempts. Account locked.",
+                "lockout_until": lockout_until.isoformat() if lockout_until else None
+            }
+        )
+
+    # Verify credentials
+    if username != ADMIN_USERNAME or not verify_password(password, ADMIN_PASSWORD_HASH):
+        record_failed_login(username, client_ip)
+        key = f"{username}:{client_ip}"
+        attempts_left = MAX_LOGIN_ATTEMPTS - login_attempts.get(key, (0, None))[0]
+
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "detail": "Invalid username or password",
+                "attempts_left": max(0, attempts_left)
+            }
+        )
+
+    # Success - reset attempts and create token
+    reset_login_attempts(username, client_ip)
+    access_token = create_access_token(data={"sub": username})
+
+    logger.info(f"Successful login for {username} from {client_ip}")
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
 
 
 @app.get("/")
@@ -564,6 +828,43 @@ async def admin_dashboard():
         </div>
 
         <script>
+            // HTML Escaping Function to prevent XSS attacks
+            function escapeHtml(unsafe) {
+                if (typeof unsafe !== 'string') return unsafe;
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            // JWT Token storage
+            let authToken = localStorage.getItem('admin_token');
+
+            // Add token to all API requests
+            async function fetchWithAuth(url, options = {}) {
+                if (!authToken) {
+                    window.location.href = '/login';
+                    throw new Error('Not authenticated');
+                }
+
+                const headers = {
+                    ...options.headers,
+                    'Authorization': `Bearer ${authToken}`
+                };
+
+                const response = await fetch(url, { ...options, headers });
+
+                if (response.status === 401) {
+                    localStorage.removeItem('admin_token');
+                    window.location.href = '/login';
+                    throw new Error('Authentication failed');
+                }
+
+                return response;
+            }
+
             let uploadedPhotoFiles = [];
 
             // Функции для переключения вкладок
@@ -601,15 +902,15 @@ async def admin_dashboard():
             // Загрузка анкет
             async function loadProfiles() {
                 try {
-                    const response = await fetch('/api/admin/profiles');
+                    const response = await fetchWithAuth('/api/admin/profiles');
                     const data = await response.json();
                     const list = document.getElementById('profiles-list');
                     list.innerHTML = '';
 
                     data.profiles.forEach(profile => {
                         const travelCities = profile.travel_cities ? profile.travel_cities.join(', ') : 'None';
-                        const photosHtml = profile.photos.map(photo => 
-                            `<img src="http://localhost:8002${photo}" alt="Profile photo" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #ff6b9d;">`
+                        const photosHtml = profile.photos.map(photo =>
+                            `<img src="http://localhost:8002${escapeHtml(photo)}" alt="Profile photo" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #ff6b9d;">`
                         ).join('');
 
                         const profileDiv = document.createElement('div');
@@ -617,18 +918,18 @@ async def admin_dashboard():
                         profileDiv.innerHTML = `
                             <div class="profile-header">
                                 <span class="profile-id">ID: ${profile.id}</span>
-                                <span class="profile-name">${profile.name}</span>
+                                <span class="profile-name">${escapeHtml(profile.name)}</span>
                             </div>
-                            <p><strong>Gender:</strong> ${profile.gender || 'Not specified'}</p>
-                            <p><strong>Nationality:</strong> ${profile.nationality || 'Not specified'}</p>
-                            <p><strong>City:</strong> ${profile.city}</p>
-                            <p><strong>Travel Cities:</strong> ${travelCities}</p>
+                            <p><strong>Gender:</strong> ${escapeHtml(profile.gender || 'Not specified')}</p>
+                            <p><strong>Nationality:</strong> ${escapeHtml(profile.nationality || 'Not specified')}</p>
+                            <p><strong>City:</strong> ${escapeHtml(profile.city)}</p>
+                            <p><strong>Travel Cities:</strong> ${escapeHtml(travelCities)}</p>
                             <div class="profile-stats">
                                 <span class="stat-badge">Height: ${profile.height} cm</span>
                                 <span class="stat-badge">Weight: ${profile.weight} kg</span>
                                 <span class="stat-badge">Chest: ${profile.chest}</span>
                             </div>
-                            <p><strong>Description:</strong> ${profile.description}</p>
+                            <p><strong>Description:</strong> ${escapeHtml(profile.description)}</p>
                             <p><strong>Status:</strong> ${profile.visible ? 'Visible' : 'Hidden'}</p>
                             <p><strong>Photos:</strong></p>
                             <div class="photo-preview">
@@ -655,7 +956,7 @@ async def admin_dashboard():
             // Загрузка VIP анкет
             async function loadVipProfiles() {
                 try {
-                    const response = await fetch('/api/admin/vip-profiles');
+                    const response = await fetchWithAuth('/api/admin/vip-profiles');
                     const data = await response.json();
                     const list = document.getElementById('vip-profiles-list');
                     list.innerHTML = '';
@@ -669,11 +970,11 @@ async def admin_dashboard():
                         profileDiv.className = 'vip-profile-card';
                         profileDiv.innerHTML = `
                             <div class="vip-profile-header">
-                                <span class="vip-profile-name">${profile.name}</span>
+                                <span class="vip-profile-name">${escapeHtml(profile.name)}</span>
                                 <span class="vip-profile-age">${profile.age} y.o.</span>
                             </div>
-                            <p><strong>Gender:</strong> ${profile.gender || 'Not specified'}</p>
-                            <p><strong>City:</strong> ${profile.city}</p>
+                            <p><strong>Gender:</strong> ${escapeHtml(profile.gender || 'Not specified')}</p>
+                            <p><strong>City:</strong> ${escapeHtml(profile.city)}</p>
                             <p><strong>Photos:</strong></p>
                             <div class="photo-preview">
                                 ${photosHtml}
@@ -698,7 +999,7 @@ async def admin_dashboard():
                 if (!confirm('Delete VIP profile? This action cannot be undone!')) return;
 
                 try {
-                    const response = await fetch(`/api/admin/vip-profiles/${profileId}`, {method: 'DELETE'});
+                    const response = await fetchWithAuth(`/api/admin/vip-profiles/${profileId}`, {method: 'DELETE'});
                     if (response.ok) {
                         alert('VIP Profile deleted!');
                         loadVipProfiles();
@@ -716,7 +1017,7 @@ async def admin_dashboard():
                 if (!confirm(visible ? 'Show profile?' : 'Hide profile?')) return;
 
                 try {
-                    await fetch(`/api/admin/profiles/${profileId}/toggle`, {
+                    await fetchWithAuth(`/api/admin/profiles/${profileId}/toggle`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ visible: visible })
@@ -733,7 +1034,7 @@ async def admin_dashboard():
                 if (!confirm('Delete profile? This action cannot be undone!')) return;
 
                 try {
-                    const response = await fetch(`/api/admin/profiles/${profileId}`, {method: 'DELETE'});
+                    const response = await fetchWithAuth(`/api/admin/profiles/${profileId}`, {method: 'DELETE'});
                     if (response.ok) {
                         alert('Profile deleted!');
                         loadProfiles();
@@ -749,7 +1050,7 @@ async def admin_dashboard():
             // Загрузка чатов
             async function loadChats() {
                 try {
-                    const response = await fetch('/api/admin/chats');
+                    const response = await fetchWithAuth('/api/admin/chats');
                             if (profile.photo) {
                                 showPhotoPreview(`vip-preview-${i+1}-photo-preview`, profile.photo);
                             }
@@ -958,7 +1259,7 @@ async def admin_dashboard():
             // Загрузка доступных VIP анкет
             async function loadAvailableVipProfiles() {
                 try {
-                    const response = await fetch('/api/admin/vip-profiles');
+                    const response = await fetchWithAuth('/api/admin/vip-profiles');
                     const data = await response.json();
                     availableVipProfiles = data.profiles;
 
@@ -997,12 +1298,12 @@ async def admin_dashboard():
                         profileDiv.className = 'vip-preview-item';
                         profileDiv.innerHTML = `
                             <div class="vip-preview-header">
-                                <span class="vip-preview-name">${profile.name}</span>
+                                <span class="vip-preview-name">${escapeHtml(profile.name)}</span>
                                 <button class="btn btn-danger" onclick="removePreviewProfile(${profile.id})">Remove</button>
                             </div>
                             <p>Age: ${profile.age}</p>
-                            <p>City: ${profile.city}</p>
-                            <img src="http://localhost:8002${profile.photos[0]}" alt="${profile.name}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;">
+                            <p>City: ${escapeHtml(profile.city)}</p>
+                            <img src="http://localhost:8002${profile.photos[0]}" alt="${escapeHtml(profile.name)}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;">
                         `;
                         container.appendChild(profileDiv);
                     }
@@ -1042,7 +1343,7 @@ async def admin_dashboard():
             // Загрузка чатов
             async function loadChats() {
                 try {
-                    const response = await fetch('/api/admin/chats');
+                    const response = await fetchWithAuth('/api/admin/chats');
                     const data = await response.json();
                     const list = document.getElementById('chats-list');
                     list.innerHTML = '';
@@ -1058,7 +1359,7 @@ async def admin_dashboard():
                         chatDiv.innerHTML = `
                             <div class="profile-header">
                                 <span class="profile-id">ID: ${chat.profile_id}</span>
-                                <span class="profile-name">${chat.profile_name}</span>
+                                <span class="profile-name">${escapeHtml(chat.profile_name)}</span>
                             </div>
                             <p><strong>Created:</strong> ${new Date(chat.created_at).toLocaleString()}</p>
                             <button class="btn btn-primary" onclick="openChat(${chat.profile_id})">
@@ -1075,7 +1376,7 @@ async def admin_dashboard():
             // Открытие чата
             async function openChat(profileId) {
                 try {
-                    const response = await fetch(`/api/admin/chats/${profileId}/messages`);
+                    const response = await fetchWithAuth(`/api/admin/chats/${profileId}/messages`);
                     const messages = await response.json();
 
                     const list = document.getElementById('chats-list');
@@ -1086,7 +1387,7 @@ async def admin_dashboard():
                             // Системное сообщение
                             messagesHtml += `
                                 <div class="system-message">
-                                    <div class="system-bubble">${msg.text}</div>
+                                    <div class="system-bubble">${escapeHtml(msg.text)}</div>
                                 </div>
                             `;
                         } else if (msg.file_url) {
@@ -1100,7 +1401,7 @@ async def admin_dashboard():
                                         <div class="chat-attachment">
                                             <img src="http://localhost:8002${msg.file_url}" alt="Image" class="attachment-preview">
                                             <div>
-                                                <div>${msg.text || ''}</div>
+                                                <div>${escapeHtml(msg.text || '')}</div>
                                             </div>
                                         </div>
                                         <small style="color: #ff6b9d; font-size: 12px;">
@@ -1120,7 +1421,7 @@ async def admin_dashboard():
                                                 Your browser does not support video.
                                             </video>
                                             <div>
-                                                <div>${msg.text || ''}</div>
+                                                <div>${escapeHtml(msg.text || '')}</div>
                                             </div>
                                         </div>
                                         <small style="color: #ff6b9d; font-size: 12px;">
@@ -1135,8 +1436,8 @@ async def admin_dashboard():
                                             ${msg.is_from_user ? 'User' : 'Admin'}:
                                         </div>
                                         <div class="file-message">
-                                            <strong>File: ${msg.file_name}</strong>
-                                            <div>${msg.text || ''}</div>
+                                            <strong>File: ${escapeHtml(msg.file_name)}</strong>
+                                            <div>${escapeHtml(msg.text || '')}</div>
                                             <a href="http://localhost:8002${msg.file_url}" target="_blank" style="color: #ff6b9d;">Download file</a>
                                         </div>
                                         <small style="color: #ff6b9d; font-size: 12px;">
@@ -1152,7 +1453,7 @@ async def admin_dashboard():
                                     <div class="message-sender">
                                         ${msg.is_from_user ? 'User' : 'Admin'}:
                                     </div>
-                                    <div>${msg.text}</div>
+                                    <div>${escapeHtml(msg.text)}</div>
                                     <small style="color: #ff6b9d; font-size: 12px;">
                                         ${new Date(msg.created_at).toLocaleString()}
                                     </small>
@@ -1209,7 +1510,7 @@ async def admin_dashboard():
                 if (!confirm('Send transaction success message?')) return;
 
                 try {
-                    const response = await fetch(`/api/admin/chats/${profileId}/system-message`, {
+                    const response = await fetchWithAuth(`/api/admin/chats/${profileId}/system-message`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
@@ -1246,7 +1547,7 @@ async def admin_dashboard():
                         const fileItem = document.createElement('div');
                         fileItem.className = 'file-item';
                         fileItem.innerHTML = `
-                            <span>${file.name}</span>
+                            <span>${escapeHtml(file.name)}</span>
                             <span class="remove-file" onclick="removeChatFile(${index})">×</span>
                         `;
                         fileList.appendChild(fileItem);
@@ -1295,7 +1596,7 @@ async def admin_dashboard():
 
                     console.log('FormData entries:', Array.from(formData.entries()));
 
-                    const response = await fetch(`/api/admin/chats/${profileId}/reply`, {
+                    const response = await fetchWithAuth(`/api/admin/chats/${profileId}/reply`, {
                         method: 'POST',
                         body: formData
                     });
@@ -1319,7 +1620,7 @@ async def admin_dashboard():
             // Управление комментариями
             async function loadCommentsAdmin() {
                 try {
-                    const response = await fetch('/api/admin/comments');
+                    const response = await fetchWithAuth('/api/admin/comments');
                     const data = await response.json();
                     const list = document.getElementById('comments-list-admin');
                     list.innerHTML = '';
@@ -1338,9 +1639,9 @@ async def admin_dashboard():
                                 <span class="comment-date">${new Date(comment.created_at).toLocaleString()}</span>
                             </div>
                             <div class="comment-header">
-                                <span class="comment-author">${comment.user_name}</span>
+                                <span class="comment-author">${escapeHtml(comment.user_name)}</span>
                             </div>
-                            <div class="comment-text">${comment.text}</div>
+                            <div class="comment-text">${escapeHtml(comment.text)}</div>
                             <div class="comment-actions">
                                 <button class="delete-comment" onclick="deleteComment(${comment.profile_id}, ${comment.id})">
                                     Delete Comment
@@ -1380,7 +1681,7 @@ async def admin_dashboard():
             // Промокоды
             async function loadPromocodes() {
                 try {
-                    const response = await fetch('/api/admin/promocodes');
+                    const response = await fetchWithAuth('/api/admin/promocodes');
                     const data = await response.json();
                     const list = document.getElementById('promocodes-list');
                     list.innerHTML = '';
@@ -1390,7 +1691,7 @@ async def admin_dashboard():
                         promoDiv.className = 'promocode-card';
                         promoDiv.innerHTML = `
                             <div class="promocode-header">
-                                <span class="promocode-code">${promo.code}</span>
+                                <span class="promocode-code">${escapeHtml(promo.code)}</span>
                                 <span class="promocode-discount">${promo.discount}% OFF</span>
                             </div>
                             <p><strong>Created:</strong> ${new Date(promo.created_at).toLocaleString()}</p>
@@ -1433,7 +1734,7 @@ async def admin_dashboard():
                 }
 
                 try {
-                    const response = await fetch('/api/admin/promocodes', {
+                    const response = await fetchWithAuth('/api/admin/promocodes', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
@@ -1457,7 +1758,7 @@ async def admin_dashboard():
 
             async function togglePromocode(promocodeId, active) {
                 try {
-                    await fetch(`/api/admin/promocodes/${promocodeId}/toggle`, {
+                    await fetchWithAuth(`/api/admin/promocodes/${promocodeId}/toggle`, {
                         method: 'POST'
                     });
                     loadPromocodes();
@@ -1471,7 +1772,7 @@ async def admin_dashboard():
                 if (!confirm('Delete promocode? This action cannot be undone!')) return;
 
                 try {
-                    const response = await fetch(`/api/admin/promocodes/${promocodeId}`, {method: 'DELETE'});
+                    const response = await fetchWithAuth(`/api/admin/promocodes/${promocodeId}`, {method: 'DELETE'});
                     if (response.ok) {
                         alert('Promocode deleted!');
                         loadPromocodes();
@@ -1487,7 +1788,7 @@ async def admin_dashboard():
             // Баннер
             async function loadBannerSettings() {
                 try {
-                    const response = await fetch('/api/admin/banner');
+                    const response = await fetchWithAuth('/api/admin/banner');
                     const banner = await response.json();
 
                     document.getElementById('banner-text').value = banner.text || '';
@@ -1520,7 +1821,7 @@ async def admin_dashboard():
                         visible: document.getElementById('banner-visible').checked
                     };
 
-                    const response = await fetch('/api/admin/banner', {
+                    const response = await fetchWithAuth('/api/admin/banner', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(banner)
@@ -1677,7 +1978,7 @@ async def admin_dashboard():
                 });
 
                 try {
-                    const response = await fetch('/api/admin/profiles', {
+                    const response = await fetchWithAuth('/api/admin/profiles', {
                         method: 'POST',
                         body: formData
                     });
@@ -1720,7 +2021,7 @@ async def admin_dashboard():
                 });
 
                 try {
-                    const response = await fetch('/api/admin/vip-profiles', {
+                    const response = await fetchWithAuth('/api/admin/vip-profiles', {
                         method: 'POST',
                         body: formData
                     });
@@ -1744,7 +2045,7 @@ async def admin_dashboard():
             // Загрузка крипто-кошельков
             async function loadCryptoWallets() {
                 try {
-                    const response = await fetch('/api/admin/crypto_wallets');
+                    const response = await fetchWithAuth('/api/admin/crypto_wallets');
                     const wallets = await response.json();
 
                     document.getElementById('trc20-wallet').value = wallets.trc20 || '';
@@ -1764,7 +2065,7 @@ async def admin_dashboard():
                         bnb: document.getElementById('bnb-wallet').value
                     };
 
-                    const response = await fetch('/api/admin/crypto_wallets', {
+                    const response = await fetchWithAuth('/api/admin/crypto_wallets', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(wallets)
@@ -1810,7 +2111,7 @@ async def get_stats():
 
 
 @app.get("/api/admin/profiles")
-async def get_admin_profiles():
+async def get_admin_profiles(_: dict = Depends(verify_token)):
     data = load_data()
     return {"profiles": data["profiles"]}
 
@@ -1827,7 +2128,8 @@ async def create_profile(
         height: int = Form(...),
         weight: int = Form(...),
         chest: int = Form(...),
-        photos: list[UploadFile] = File(...)
+        photos: list[UploadFile] = File(...),
+        _: dict = Depends(verify_token)
 ):
     data = load_data()
 
@@ -1838,6 +2140,9 @@ async def create_profile(
     photo_urls = []
     for photo in photos:
         if photo.filename:
+            # Validate file upload
+            if not validate_file_upload(photo):
+                raise HTTPException(status_code=400, detail=f"Invalid file: {photo.filename}")
             photo_url = save_uploaded_file(photo)
             if photo_url:
                 photo_urls.append(photo_url)
@@ -1874,7 +2179,7 @@ async def create_profile(
 
 
 @app.post("/api/admin/profiles/{profile_id}/toggle")
-async def toggle_profile(profile_id: int, visible_data: dict):
+async def toggle_profile(profile_id: int, visible_data: dict, _: dict = Depends(verify_token)):
     data = load_data()
     profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
     if profile:
@@ -1884,7 +2189,7 @@ async def toggle_profile(profile_id: int, visible_data: dict):
 
 
 @app.delete("/api/admin/profiles/{profile_id}")
-async def delete_profile(profile_id: int):
+async def delete_profile(profile_id: int, _: dict = Depends(verify_token)):
     data = load_data()
 
     # Удаляем анкету
@@ -1908,13 +2213,13 @@ async def delete_profile(profile_id: int):
 
 
 @app.get("/api/admin/chats")
-async def get_admin_chats():
+async def get_admin_chats(_: dict = Depends(verify_token)):
     data = load_data()
     return {"chats": data["chats"]}
 
 
 @app.get("/api/admin/chats/{profile_id}/messages")
-async def get_chat_messages_admin(profile_id: int):
+async def get_chat_messages_admin(profile_id: int, _: dict = Depends(verify_token)):
     data = load_data()
     chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
     if not chat:
@@ -1926,7 +2231,8 @@ async def get_chat_messages_admin(profile_id: int):
 @app.post("/api/admin/chats/{profile_id}/reply")
 async def send_admin_reply(
         profile_id: int,
-        request: Request
+        request: Request,
+        _: dict = Depends(verify_token)
 ):
     data = load_data()
 
@@ -2007,7 +2313,7 @@ async def send_admin_reply(
 
 
 @app.post("/api/admin/chats/{profile_id}/system-message")
-async def send_system_message(profile_id: int, message_data: dict):
+async def send_system_message(profile_id: int, message_data: dict, _: dict = Depends(verify_token)):
     """Отправка системного сообщения"""
     data = load_data()
 
@@ -2043,20 +2349,20 @@ async def send_system_message(profile_id: int, message_data: dict):
 
 # Комментарии API для админки
 @app.get("/api/admin/comments")
-async def get_admin_comments():
+async def get_admin_comments(_: dict = Depends(verify_token)):
     data = load_data()
     return {"comments": data.get("comments", [])}
 
 
 # Промокоды API
 @app.get("/api/admin/promocodes")
-async def get_admin_promocodes():
+async def get_admin_promocodes(_: dict = Depends(verify_token)):
     data = load_data()
     return {"promocodes": data.get("promocodes", [])}
 
 
 @app.post("/api/admin/promocodes")
-async def create_admin_promocode(promocode: dict):
+async def create_admin_promocode(promocode: dict, _: dict = Depends(verify_token)):
     data = load_data()
 
     # Проверяем, существует ли уже такой промокод
@@ -2079,7 +2385,7 @@ async def create_admin_promocode(promocode: dict):
 
 
 @app.post("/api/admin/promocodes/{promocode_id}/toggle")
-async def toggle_admin_promocode(promocode_id: int):
+async def toggle_admin_promocode(promocode_id: int, _: dict = Depends(verify_token)):
     data = load_data()
     promocode = next((p for p in data["promocodes"] if p["id"] == promocode_id), None)
     if promocode:
@@ -2089,7 +2395,7 @@ async def toggle_admin_promocode(promocode_id: int):
 
 
 @app.delete("/api/admin/promocodes/{promocode_id}")
-async def delete_admin_promocode(promocode_id: int):
+async def delete_admin_promocode(promocode_id: int, _: dict = Depends(verify_token)):
     data = load_data()
     data["promocodes"] = [p for p in data["promocodes"] if p["id"] != promocode_id]
     save_data(data)
@@ -2098,13 +2404,13 @@ async def delete_admin_promocode(promocode_id: int):
 
 # Баннер API
 @app.get("/api/admin/banner")
-async def get_admin_banner():
+async def get_admin_banner(_: dict = Depends(verify_token)):
     data = load_data()
     return data.get("settings", {}).get("banner", {})
 
 
 @app.post("/api/admin/banner")
-async def update_admin_banner(banner: dict):
+async def update_admin_banner(banner: dict, _: dict = Depends(verify_token)):
     data = load_data()
     if "settings" not in data:
         data["settings"] = {}
@@ -2114,13 +2420,13 @@ async def update_admin_banner(banner: dict):
 
 
 @app.get("/api/admin/crypto_wallets")
-async def get_admin_crypto_wallets():
+async def get_admin_crypto_wallets(_: dict = Depends(verify_token)):
     data = load_data()
     return data.get("settings", {}).get("crypto_wallets", {})
 
 
 @app.post("/api/admin/crypto_wallets")
-async def update_admin_crypto_wallets(wallets: dict):
+async def update_admin_crypto_wallets(wallets: dict, _: dict = Depends(verify_token)):
     data = load_data()
     if "settings" not in data:
         data["settings"] = {}
