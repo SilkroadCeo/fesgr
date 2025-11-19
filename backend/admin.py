@@ -14,7 +14,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Admin Panel - muji")
+app = FastAPI(title="Admin Panel - Muji")
 
 app.add_middleware(
     CORSMiddleware,
@@ -207,7 +207,7 @@ async def admin_dashboard():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Admin Panel - muji</title>
+        <title>Admin Panel - Muji</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
@@ -369,7 +369,7 @@ async def admin_dashboard():
     <body>
         <div class="container">
             <header>
-                <h1>Admin Panel - muji</h1>
+                <h1>Admin Panel - Muji</h1>
                 <p>App Configuration | Crypto Wallets | VIP Catalogs</p>
             </header>
 
@@ -388,7 +388,6 @@ async def admin_dashboard():
                 <button class="tab" onclick="showTab('comments')">Comments</button>
                 <button class="tab" onclick="showTab('add-profile')">Add Profile</button>
                 <button class="tab" onclick="showTab('promocodes')">Promocodes</button>
-                <button class="tab" onclick="showTab('app-settings')">App Settings</button>
                 <button class="tab" onclick="showTab('banner-settings')">Banner Settings</button>
                 <button class="tab" onclick="showTab('crypto-settings')">Crypto Settings</button>
                 <button class="tab" onclick="showTab('vip-catalogs')">VIP Catalogs</button>
@@ -512,51 +511,6 @@ async def admin_dashboard():
                 <div id="promocodes-list" class="promocode-grid"></div>
             </div>
 
-            <div id="app-settings" class="content">
-                <h3>App Configuration Settings</h3>
-                <div class="banner-settings">
-                    <div class="form-group">
-                        <label>App Name:</label>
-                        <input type="text" id="app-name" placeholder="muji" value="muji">
-                        <small style="color: #ff6b9d;">This name will be displayed throughout the app</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Default User Age:</label>
-                        <input type="number" id="default-age" placeholder="25" min="18" max="100" value="25">
-                        <small style="color: #ff6b9d;">Default age for new profiles</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Default City:</label>
-                        <input type="text" id="default-city" placeholder="Moscow" value="Moscow">
-                        <small style="color: #ff6b9d;">Default city for new profiles</small>
-                    </div>
-
-                    <h4 style="margin-top: 30px; margin-bottom: 20px; color: #ff6b9d;">VIP Catalog Preview Settings</h4>
-
-                    <div class="form-group">
-                        <label>VIP Catalog - Blurred Profiles Count:</label>
-                        <input type="number" id="vip-blurred-count" placeholder="3" min="1" max="9" value="3">
-                        <small style="color: #ff6b9d;">Number of blurred preview profiles to show in VIP Catalog</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Extra VIP - Blurred Profiles Count:</label>
-                        <input type="number" id="extra-vip-blurred-count" placeholder="3" min="1" max="9" value="3">
-                        <small style="color: #ff6b9d;">Number of blurred preview profiles to show in Extra VIP Catalog</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Secret Catalog - Blurred Profiles Count:</label>
-                        <input type="number" id="secret-blurred-count" placeholder="3" min="1" max="9" value="3">
-                        <small style="color: #ff6b9d;">Number of blurred preview profiles to show in Secret Catalog</small>
-                    </div>
-
-                    <button class="btn btn-primary" onclick="saveAppSettings()">Save App Settings</button>
-                </div>
-            </div>
-
             <div id="banner-settings" class="content">
                 <h3>Banner Settings</h3>
                 <div class="banner-settings">
@@ -629,6 +583,11 @@ async def admin_dashboard():
                             <input type="text" id="vip-catalog-url" class="catalog-input" value="https://t.me/vip_channel">
                         </div>
                         <div class="form-group">
+                            <label>Preview Profiles Count:</label>
+                            <input type="number" id="vip-catalog-preview-count" class="catalog-input" value="3" min="1" max="9">
+                            <small style="color: #ff6b9d;">Number of blurred profiles to show in preview</small>
+                        </div>
+                        <div class="form-group">
                             <label style="display: flex; align-items: center;">
                                 Show Catalog:
                                 <label class="switch">
@@ -657,6 +616,11 @@ async def admin_dashboard():
                             <input type="text" id="extra-vip-catalog-url" class="catalog-input" value="https://t.me/extra_vip_channel">
                         </div>
                         <div class="form-group">
+                            <label>Preview Profiles Count:</label>
+                            <input type="number" id="extra-vip-catalog-preview-count" class="catalog-input" value="3" min="1" max="9">
+                            <small style="color: #ff6b9d;">Number of blurred profiles to show in preview</small>
+                        </div>
+                        <div class="form-group">
                             <label style="display: flex; align-items: center;">
                                 Show Catalog:
                                 <label class="switch">
@@ -683,6 +647,11 @@ async def admin_dashboard():
                         <div class="form-group">
                             <label>Redirect URL:</label>
                             <input type="text" id="secret-catalog-url" class="catalog-input" value="https://t.me/secret_channel">
+                        </div>
+                        <div class="form-group">
+                            <label>Preview Profiles Count:</label>
+                            <input type="number" id="secret-catalog-preview-count" class="catalog-input" value="3" min="1" max="9">
+                            <small style="color: #ff6b9d;">Number of blurred profiles to show in preview</small>
                         </div>
                         <div class="form-group">
                             <label style="display: flex; align-items: center;">
@@ -718,7 +687,6 @@ async def admin_dashboard():
                 if (tabName === 'chats') loadChats();
                 if (tabName === 'comments') loadCommentsAdmin();
                 if (tabName === 'promocodes') loadPromocodes();
-                if (tabName === 'app-settings') loadAppSettings();
                 if (tabName === 'banner-settings') loadBannerSettings();
                 if (tabName === 'crypto-settings') loadCryptoWallets();
                 if (tabName === 'vip-catalogs') loadVipCatalogs();
@@ -897,16 +865,19 @@ async def admin_dashboard():
                     document.getElementById('vip-catalog-name').value = catalogs.vip?.name || 'VIP Catalog';
                     document.getElementById('vip-catalog-price').value = catalogs.vip?.price || 100;
                     document.getElementById('vip-catalog-url').value = catalogs.vip?.redirect_url || 'https://t.me/vip_channel';
+                    document.getElementById('vip-catalog-preview-count').value = catalogs.vip?.preview_count || 3;
                     document.getElementById('vip-catalog-visible').checked = catalogs.vip?.visible !== false;
 
                     document.getElementById('extra-vip-catalog-name').value = catalogs.extra_vip?.name || 'Extra VIP';
                     document.getElementById('extra-vip-catalog-price').value = catalogs.extra_vip?.price || 200;
                     document.getElementById('extra-vip-catalog-url').value = catalogs.extra_vip?.redirect_url || 'https://t.me/extra_vip_channel';
+                    document.getElementById('extra-vip-catalog-preview-count').value = catalogs.extra_vip?.preview_count || 3;
                     document.getElementById('extra-vip-catalog-visible').checked = catalogs.extra_vip?.visible !== false;
 
                     document.getElementById('secret-catalog-name').value = catalogs.secret?.name || 'Secret Catalog';
                     document.getElementById('secret-catalog-price').value = catalogs.secret?.price || 300;
                     document.getElementById('secret-catalog-url').value = catalogs.secret?.redirect_url || 'https://t.me/secret_channel';
+                    document.getElementById('secret-catalog-preview-count').value = catalogs.secret?.preview_count || 3;
                     document.getElementById('secret-catalog-visible').checked = catalogs.secret?.visible !== false;
                 } catch (error) {
                     console.error('Error loading VIP catalogs:', error);
@@ -921,18 +892,21 @@ async def admin_dashboard():
                             name: document.getElementById('vip-catalog-name').value,
                             price: parseInt(document.getElementById('vip-catalog-price').value),
                             redirect_url: document.getElementById('vip-catalog-url').value,
+                            preview_count: parseInt(document.getElementById('vip-catalog-preview-count').value),
                             visible: document.getElementById('vip-catalog-visible').checked
                         },
                         extra_vip: {
                             name: document.getElementById('extra-vip-catalog-name').value,
                             price: parseInt(document.getElementById('extra-vip-catalog-price').value),
                             redirect_url: document.getElementById('extra-vip-catalog-url').value,
+                            preview_count: parseInt(document.getElementById('extra-vip-catalog-preview-count').value),
                             visible: document.getElementById('extra-vip-catalog-visible').checked
                         },
                         secret: {
                             name: document.getElementById('secret-catalog-name').value,
                             price: parseInt(document.getElementById('secret-catalog-price').value),
                             redirect_url: document.getElementById('secret-catalog-url').value,
+                            preview_count: parseInt(document.getElementById('secret-catalog-preview-count').value),
                             visible: document.getElementById('secret-catalog-visible').checked
                         }
                     };
@@ -951,53 +925,6 @@ async def admin_dashboard():
                 } catch (error) {
                     console.error('Error saving VIP catalogs:', error);
                     alert('Error saving VIP catalogs settings');
-                }
-            }
-
-            // Загрузка настроек приложения
-            async function loadAppSettings() {
-                try {
-                    const response = await fetch('/api/settings/app');
-                    if (response.ok) {
-                        const settings = await response.json();
-                        document.getElementById('app-name').value = settings.app_name || 'muji';
-                        document.getElementById('default-age').value = settings.default_age || 25;
-                        document.getElementById('default-city').value = settings.default_city || 'Moscow';
-                        document.getElementById('vip-blurred-count').value = settings.vip_blurred_count || 3;
-                        document.getElementById('extra-vip-blurred-count').value = settings.extra_vip_blurred_count || 3;
-                        document.getElementById('secret-blurred-count').value = settings.secret_blurred_count || 3;
-                    }
-                } catch (error) {
-                    console.error('Error loading app settings:', error);
-                }
-            }
-
-            // Сохранение настроек приложения
-            async function saveAppSettings() {
-                try {
-                    const settings = {
-                        app_name: document.getElementById('app-name').value,
-                        default_age: parseInt(document.getElementById('default-age').value),
-                        default_city: document.getElementById('default-city').value,
-                        vip_blurred_count: parseInt(document.getElementById('vip-blurred-count').value),
-                        extra_vip_blurred_count: parseInt(document.getElementById('extra-vip-blurred-count').value),
-                        secret_blurred_count: parseInt(document.getElementById('secret-blurred-count').value)
-                    };
-
-                    const response = await fetch('/api/settings/app', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify(settings)
-                    });
-
-                    if (response.ok) {
-                        alert('App settings saved successfully!');
-                    } else {
-                        alert('Error saving app settings');
-                    }
-                } catch (error) {
-                    console.error('Error saving app settings:', error);
-                    alert('Error saving app settings');
                 }
             }
 
@@ -2182,6 +2109,6 @@ async def update_admin_crypto_wallets(wallets: dict):
 
 
 if __name__ == "__main__":
-    print("🚀 Admin panel muji запущена: http://localhost:8002")
+    print("🚀 Admin panel Muji запущена: http://localhost:8002")
     print("🎨 Исправления: VIP анкеты, переименование, улучшенные кнопки!")
     uvicorn.run(app, host="0.0.0.0", port=8002, access_log=False)

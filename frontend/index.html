@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>muji - Anonymous Dating</title>
+    <title>Muji - Anonymous Dating</title>
     <style>
         * {
             margin: 0;
@@ -1719,7 +1719,7 @@
     <!-- Экран загрузки -->
     <div class="loading-screen" id="loading-screen">
         <div class="loading-content">
-            <div class="loading-logo">muji</div>
+            <div class="loading-logo">Muji</div>
             <div class="loading-spinner"></div>
             <div class="loading-text" id="loading-text">Loading premium experience...</div>
         </div>
@@ -1733,13 +1733,13 @@
                 <span id="language-text">EN</span>
             </button>
             <div class="language-dropdown" id="language-dropdown">
-                <div class="language-option" data-lang="en">🇺🇸 English</div>
-                <div class="language-option" data-lang="ja">🇯🇵 日本語</div>
-                <div class="language-option" data-lang="ko">🇰🇷 한국어</div>
-                <div class="language-option" data-lang="zh">🇨🇳 中文</div>
-                <div class="language-option" data-lang="ar">🇸🇦 العربية</div>
-                <div class="language-option" data-lang="de">🇩🇪 Deutsch</div>
-                <div class="language-option" data-lang="es">🇪🇸 Español</div>
+                <div class="language-option" data-lang="en">English</div>
+                <div class="language-option" data-lang="ja">日本語</div>
+                <div class="language-option" data-lang="ko">한국어</div>
+                <div class="language-option" data-lang="zh">中文</div>
+                <div class="language-option" data-lang="ar">العربية</div>
+                <div class="language-option" data-lang="de">Deutsch</div>
+                <div class="language-option" data-lang="es">Español</div>
             </div>
         </div>
 
@@ -1753,7 +1753,7 @@
         <!-- Главный хедер -->
         <header class="main-header fade-in">
             <div class="header-content">
-                <div class="logo">muji</div>
+                <div class="logo">Muji</div>
                 <div class="subtitle" id="app-subtitle">100% Anonymous Dating</div>
                 <div class="header-stats">
                     <div class="stat-item">
@@ -2085,14 +2085,8 @@
                         </div>
                     </div>
 
-                    <div class="wallet-address" id="wallet-address">
-                        <strong id="wallet-address-label">Wallet Address:</strong>
-                        <div id="address-text" style="margin: 10px 0; word-break: break-all;"></div>
-                        <button class="copy-btn" id="copy-address">Copy Address</button>
-                    </div>
-
                     <button class="btn btn-primary" id="confirm-payment" style="width: 100%; margin-top: 20px;">
-                        <span id="confirm-payment-text">I Paid</span>
+                        <span id="confirm-payment-text">Pay</span>
                     </button>
                 </div>
 
@@ -2100,6 +2094,13 @@
                     <div class="success-icon">⏳</div>
                     <h3 id="payment-success-title">Awaiting Confirmation</h3>
                     <p id="payment-success-message">Processing payment... Close the window, you will receive a notification in chat.</p>
+
+                    <div class="wallet-address" id="wallet-address" style="margin: 20px 0;">
+                        <strong id="wallet-address-label">Wallet Address:</strong>
+                        <div id="address-text" style="margin: 10px 0; word-break: break-all; background: rgba(255,107,157,0.1); padding: 15px; border-radius: 8px; font-size: 14px;"></div>
+                        <button class="copy-btn" id="copy-address" style="margin-top: 10px;">Copy Address</button>
+                    </div>
+
                     <div class="payment-timer">
                         <div class="timer-label" id="timer-label">Time remaining:</div>
                         <div class="timer-display" id="timer-display">60:00</div>
