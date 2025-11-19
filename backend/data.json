@@ -4,6 +4,7 @@
       "id": 1,
       "name": "Анна",
       "age": 25,
+      "gender": "female",
       "nationality": "Russian",
       "city": "Москва",
       "travel_cities": [
@@ -27,6 +28,7 @@
       "id": 2,
       "name": "Максим",
       "age": 30,
+      "gender": "male",
       "nationality": "Russian",
       "city": "Санкт-Петербург",
       "travel_cities": [
@@ -46,93 +48,133 @@
     },
     {
       "id": 3,
-      "name": "Екатерина",
-      "age": 28,
-      "nationality": "Russian",
-      "city": "Казань",
+      "name": "fdsf",
+      "age": 18,
+      "gender": "female",
+      "nationality": "fdsdf",
+      "city": "fdsfds",
       "travel_cities": [
-        "Казань",
-        "Москва",
-        "Сочи"
+        "dsfsddsfs"
       ],
-      "description": "Дизайнер, люблю искусство и хорошую кухню. Мечтаю открыть свою галерею.",
+      "description": "seeds",
       "photos": [
-        "https://picsum.photos/400/300?3",
-        "https://picsum.photos/400/300?31",
-        "https://picsum.photos/400/300?32"
+        "/uploads/20251118_231650_928620_grafico_frecuencia.png"
       ],
-      "visible": true,
-      "created_at": "2024-01-13T12:00:00",
       "height": 165,
-      "weight": 50,
-      "chest": 2
+      "weight": 55,
+      "chest": 3,
+      "visible": true,
+      "created_at": "2025-11-18T23:16:50.929645"
+    }
+  ],
+  "vip_profiles": [
+    {
+      "id": 1,
+      "name": "Виктория",
+      "age": 19,
+      "gender": "female",
+      "city": "Москва",
+      "photos": [
+        "https://picsum.photos/400/300?100",
+        "https://picsum.photos/400/300?101"
+      ],
+      "created_at": "2024-01-15T10:00:00"
+    },
+    {
+      "id": 2,
+      "name": "Александр",
+      "age": 22,
+      "gender": "male",
+      "city": "Санкт-Петербург",
+      "photos": [
+        "https://picsum.photos/400/300?102",
+        "https://picsum.photos/400/300?103"
+      ],
+      "created_at": "2024-01-15T11:00:00"
+    },
+    {
+      "id": 3,
+      "name": "София",
+      "age": 17,
+      "gender": "female",
+      "city": "Казань",
+      "photos": [
+        "https://picsum.photos/400/300?104",
+        "https://picsum.photos/400/300?105"
+      ],
+      "created_at": "2024-01-15T12:00:00"
     },
     {
       "id": 4,
-      "name": "Maria",
-      "age": 24,
-      "nationality": "Japanese",
-      "city": "Tokyo",
-      "travel_cities": [
-        "Tokyo",
-        "Osaka",
-        "Seoul"
-      ],
-      "description": "Japanese model and dancer. Love fashion and traditional culture.",
+      "name": "Марк",
+      "age": 16,
+      "gender": "male",
+      "city": "Новосибирск",
       "photos": [
-        "https://picsum.photos/400/300?4",
-        "https://picsum.photos/400/300?41"
+        "https://picsum.photos/400/300?106",
+        "https://picsum.photos/400/300?107"
       ],
-      "visible": true,
-      "created_at": "2024-01-12T14:20:00",
-      "height": 160,
-      "weight": 48,
-      "chest": 2
+      "created_at": "2024-01-15T13:00:00"
     },
     {
       "id": 5,
-      "name": "Sophie",
-      "age": 27,
-      "nationality": "French",
-      "city": "Paris",
-      "travel_cities": [
-        "Paris",
-        "London",
-        "Berlin"
-      ],
-      "description": "Art curator from Paris. Enjoy fine dining and contemporary art.",
+      "name": "Алиса",
+      "age": 15,
+      "gender": "female",
+      "city": "Екатеринбург",
       "photos": [
-        "https://picsum.photos/400/300?5",
-        "https://picsum.photos/400/300?51",
-        "https://picsum.photos/400/300?52"
+        "https://picsum.photos/400/300?108",
+        "https://picsum.photos/400/300?109"
       ],
-      "visible": true,
-      "created_at": "2024-01-11T09:15:00",
-      "height": 172,
-      "weight": 58,
-      "chest": 3
+      "created_at": "2024-01-15T14:00:00"
     },
     {
       "id": 6,
-      "name": "Luna",
-      "age": 26,
-      "nationality": "Korean",
-      "city": "Seoul",
-      "travel_cities": [
-        "Seoul",
-        "Busan",
-        "Tokyo"
-      ],
-      "description": "K-pop dancer and yoga instructor. Love healthy lifestyle.",
+      "name": "Дмитрий",
+      "age": 14,
+      "gender": "male",
+      "city": "Краснодар",
       "photos": [
-        "https://picsum.photos/400/300?6",
-        "https://picsum.photos/400/300?61"
+        "https://picsum.photos/400/300?110",
+        "https://picsum.photos/400/300?111"
       ],
-      "visible": true,
-      "created_at": "2024-01-10T16:45:00",
-      "height": 168,
-      "weight": 52,
-      "chest": 2
+      "created_at": "2024-01-15T15:00:00"
+    },
+    {
+      "id": 7,
+      "name": "Кристина",
+      "age": 13,
+      "gender": "female",
+      "city": "Сочи",
+      "photos": [
+        "https://picsum.photos/400/300?112",
+        "https://picsum.photos/400/300?113"
+      ],
+      "created_at": "2024-01-15T16:00:00"
+    },
+    {
+      "id": 8,
+      "name": "Артем",
+      "age": 12,
+      "gender": "male",
+      "city": "Ростов-на-Дону",
+      "photos": [
+        "https://picsum.photos/400/300?114",
+        "https://picsum.photos/400/300?115"
+      ],
+      "created_at": "2024-01-15T17:00:00"
+    },
+    {
+      "id": 9,
+      "name": "Ангелина",
+      "age": 18,
+      "gender": "female",
+      "city": "Уфа",
+      "photos": [
+        "https://picsum.photos/400/300?116",
+        "https://picsum.photos/400/300?117"
+      ],
+      "created_at": "2024-01-15T18:00:00"
     }
   ],
   "chats": [
@@ -144,21 +186,9 @@
     },
     {
       "id": 2,
-      "profile_id": 3,
-      "profile_name": "Екатерина",
-      "created_at": "2025-11-11T19:02:37.847071"
-    },
-    {
-      "id": 3,
       "profile_id": 1,
       "profile_name": "Анна",
-      "created_at": "2025-11-11T19:03:28.761686"
-    },
-    {
-      "id": 4,
-      "profile_id": 5,
-      "profile_name": "Sophie",
-      "created_at": "2025-11-15T14:30:15.618137"
+      "created_at": "2025-11-18T23:19:52.123578"
     }
   ],
   "messages": [
@@ -171,115 +201,24 @@
     },
     {
       "id": 2,
-      "chat_id": 2,
-      "text": "Здравствуйте!",
-      "is_from_user": true,
-      "created_at": "2025-11-11T19:02:37.847124"
+      "chat_id": 1,
+      "text": "Transaction successful, your booking has been confirmed",
+      "is_system": true,
+      "created_at": "2025-11-18T02:49:44.280566"
     },
     {
       "id": 3,
-      "chat_id": 3,
-      "text": "Привет",
+      "chat_id": 2,
       "is_from_user": true,
-      "created_at": "2025-11-11T19:03:28.761762"
+      "created_at": "2025-11-18T23:19:52.123630",
+      "text": "fdsfds"
     },
     {
       "id": 4,
-      "chat_id": 1,
-      "text": "привет",
-      "is_from_user": false,
-      "created_at": "2025-11-13T22:58:41.193015"
-    },
-    {
-      "id": 5,
-      "chat_id": 1,
-      "text": "как дела твои",
-      "is_from_user": false,
-      "created_at": "2025-11-13T22:58:51.053055"
-    },
-    {
-      "id": 6,
-      "chat_id": 1,
-      "text": "хорошо",
-      "is_from_user": true,
-      "created_at": "2025-11-13T22:58:57.982854"
-    },
-    {
-      "id": 7,
-      "chat_id": 1,
-      "text": "а твои как",
-      "is_from_user": true,
-      "created_at": "2025-11-13T22:59:07.649552"
-    },
-    {
-      "id": 8,
-      "chat_id": 3,
-      "text": "я оплатил",
-      "is_from_user": true,
-      "created_at": "2025-11-14T01:59:21.022310"
-    },
-    {
-      "id": 9,
-      "chat_id": 3,
-      "text": "чек",
-      "is_from_user": true,
-      "created_at": "2025-11-14T01:59:24.240668"
-    },
-    {
-      "id": 10,
-      "chat_id": 3,
-      "text": "хорошо, получила оплату",
-      "is_from_user": false,
-      "created_at": "2025-11-14T01:59:49.316894"
-    },
-    {
-      "id": 11,
-      "chat_id": 1,
+      "chat_id": 2,
       "text": "Transaction successful, your booking has been confirmed",
       "is_system": true,
-      "created_at": "2025-11-14T18:22:40.069536"
-    },
-    {
-      "id": 12,
-      "chat_id": 3,
-      "text": "Transaction successful, your booking has been confirmed",
-      "is_system": true,
-      "created_at": "2025-11-14T20:48:33.755008"
-    },
-    {
-      "id": 13,
-      "chat_id": 4,
-      "is_from_user": true,
-      "created_at": "2025-11-15T14:30:15.618204",
-      "text": "hi"
-    },
-    {
-      "id": 14,
-      "chat_id": 4,
-      "text": "hi\r\nI git it",
-      "is_from_user": false,
-      "created_at": "2025-11-15T14:30:51.035776"
-    },
-    {
-      "id": 15,
-      "chat_id": 4,
-      "text": "Transaction successful, your booking has been confirmed",
-      "is_system": true,
-      "created_at": "2025-11-15T14:30:55.150975"
-    },
-    {
-      "id": 16,
-      "chat_id": 1,
-      "text": "Transaction successful, your booking has been confirmed",
-      "is_system": true,
-      "created_at": "2025-11-15T23:44:32.328548"
-    },
-    {
-      "id": 17,
-      "chat_id": 1,
-      "text": "Transaction successful, your booking has been confirmed",
-      "is_system": true,
-      "created_at": "2025-11-17T18:52:35.464537"
+      "created_at": "2025-11-18T23:20:13.525178"
     }
   ],
   "comments": [
@@ -294,33 +233,9 @@
     {
       "id": 2,
       "profile_id": 1,
-      "user_name": "Mike",
-      "text": "Отличное чувство юмора и интересный собеседник. Рекомендую!",
-      "rating": 5,
-      "created_at": "2025-11-15T14:20:00.000000"
-    },
-    {
-      "id": 3,
-      "profile_id": 2,
-      "user_name": "Anna",
-      "text": "Умный и интересный мужчина. Очень понравилось общение.",
-      "rating": 4,
-      "created_at": "2025-11-15T16:45:00.000000"
-    },
-    {
-      "id": 4,
-      "profile_id": 3,
-      "user_name": "John",
-      "text": "Креативная и талантливая девушка. Отличный вкус в искусстве!",
-      "rating": 5,
-      "created_at": "2025-11-15T18:15:00.000000"
-    },
-    {
-      "id": 5,
-      "profile_id": 2,
       "user_name": "Anonymous User",
-      "text": "павпва",
-      "created_at": "2025-11-17T20:27:58.863720"
+      "text": "fvf",
+      "created_at": "2025-11-19T03:27:57.118863"
     }
   ],
   "promocodes": [
@@ -331,71 +246,6 @@
       "is_active": true,
       "used_by": [],
       "created_at": "2025-11-15T12:00:00.000000"
-    },
-    {
-      "id": 2,
-      "code": "FIRST10",
-      "discount": 10,
-      "is_active": true,
-      "used_by": [],
-      "created_at": "2025-11-15T12:05:00.000000"
-    },
-    {
-      "id": 3,
-      "code": "VIP20",
-      "discount": 20,
-      "is_active": false,
-      "used_by": [],
-      "created_at": "2025-11-15T12:10:00.000000"
-    }
-  ],
-  "users": [
-    {
-      "id": 1,
-      "telegram_id": 123456,
-      "first_name": "Test",
-      "last_name": "User",
-      "username": "testuser",
-      "created_at": "2025-11-11T20:44:37.379702",
-      "last_seen": "2025-11-15T20:55:24.183541"
-    }
-  ],
-  "payments": [
-    {
-      "id": 1,
-      "profile_id": 3,
-      "amount": 100,
-      "currency": "USD",
-      "wallet": "trc20",
-      "status": "completed",
-      "created_at": "2025-11-14T01:59:30.000000"
-    },
-    {
-      "id": 2,
-      "profile_id": 2,
-      "amount": "45000",
-      "currency": "USD",
-      "wallet": "trc20",
-      "status": "completed",
-      "created_at": "2025-11-15T14:16:09.700094"
-    },
-    {
-      "id": 3,
-      "profile_id": 5,
-      "amount": "45000",
-      "currency": "USD",
-      "wallet": "trc20",
-      "status": "completed",
-      "created_at": "2025-11-15T14:30:34.496817"
-    },
-    {
-      "id": 4,
-      "profile_id": 2,
-      "amount": "4500",
-      "currency": "USD",
-      "wallet": "trc20",
-      "status": "completed",
-      "created_at": "2025-11-15T23:45:58.702223"
     }
   ],
   "settings": {
@@ -409,6 +259,145 @@
       "link": "https://t.me/yourchannel",
       "link_text": "Join Channel",
       "visible": true
+    },
+    "vip_catalogs": {
+      "vip": {
+        "name": "VIP Catalog",
+        "price": 100,
+        "redirect_url": "https://t.me/vip_channel",
+        "visible": true
+      },
+      "extra_vip": {
+        "name": "Extra VIP",
+        "price": 200,
+        "redirect_url": "https://t.me/extra_vip_channel",
+        "visible": true
+      },
+      "secret": {
+        "name": "Secret Catalog",
+        "price": 300,
+        "redirect_url": "https://t.me/secret_channel",
+        "visible": true
+      }
     }
-  }
+  },
+  "payments": [
+    {
+      "id": 1,
+      "profile_id": 2,
+      "amount": "300",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-18T02:48:08.246763"
+    },
+    {
+      "id": 2,
+      "profile_id": 2,
+      "amount": "300",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-18T02:48:37.023064"
+    },
+    {
+      "id": 3,
+      "profile_id": 2,
+      "amount": "300",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-18T02:49:27.625748"
+    },
+    {
+      "id": 4,
+      "profile_id": 2,
+      "amount": "300",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-18T02:50:33.625586"
+    },
+    {
+      "id": 5,
+      "profile_id": 1,
+      "amount": "300",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-18T02:53:16.535736"
+    },
+    {
+      "id": 6,
+      "profile_id": 1,
+      "amount": "300",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-18T15:55:53.682456"
+    },
+    {
+      "id": 7,
+      "profile_id": 1,
+      "amount": "300",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-18T15:57:10.118296"
+    },
+    {
+      "id": 8,
+      "profile_id": 2,
+      "amount": "100",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-18T16:48:35.047906"
+    },
+    {
+      "id": 9,
+      "profile_id": 2,
+      "amount": "100",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-18T16:48:46.681448"
+    },
+    {
+      "id": 10,
+      "profile_id": 2,
+      "amount": "100",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-18T18:05:59.533072"
+    },
+    {
+      "id": 11,
+      "profile_id": 3,
+      "amount": "100",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-18T23:19:19.979603"
+    },
+    {
+      "id": 12,
+      "profile_id": 2,
+      "amount": "100",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-18T23:23:16.872887"
+    },
+    {
+      "id": 13,
+      "profile_id": 3,
+      "amount": "100",
+      "currency": "USD",
+      "wallet": "trc20",
+      "status": "pending",
+      "created_at": "2025-11-19T02:37:03.538749"
+    }
+  ]
 }
