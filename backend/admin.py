@@ -587,6 +587,47 @@ async def admin_dashboard():
                             <input type="number" id="vip-catalog-preview-count" class="catalog-input" value="3" min="1" max="9">
                             <small style="color: #ff6b9d;">Number of blurred profiles to show in preview</small>
                         </div>
+
+                        <h4 style="margin-top: 20px; color: #ff6b9d;">Preview Profiles</h4>
+                        <div class="form-group">
+                            <label>Profile 1 Name:</label>
+                            <input type="text" id="vip-preview-1-name" class="catalog-input" placeholder="Anna">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 1 Age:</label>
+                            <input type="number" id="vip-preview-1-age" class="catalog-input" placeholder="23" min="18" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 1 City:</label>
+                            <input type="text" id="vip-preview-1-city" class="catalog-input" placeholder="Moscow">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Profile 2 Name:</label>
+                            <input type="text" id="vip-preview-2-name" class="catalog-input" placeholder="Sofia">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 2 Age:</label>
+                            <input type="number" id="vip-preview-2-age" class="catalog-input" placeholder="21" min="18" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 2 City:</label>
+                            <input type="text" id="vip-preview-2-city" class="catalog-input" placeholder="Saint Petersburg">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Profile 3 Name:</label>
+                            <input type="text" id="vip-preview-3-name" class="catalog-input" placeholder="Maria">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 3 Age:</label>
+                            <input type="number" id="vip-preview-3-age" class="catalog-input" placeholder="25" min="18" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 3 City:</label>
+                            <input type="text" id="vip-preview-3-city" class="catalog-input" placeholder="Kazan">
+                        </div>
+
                         <div class="form-group">
                             <label style="display: flex; align-items: center;">
                                 Show Catalog:
@@ -620,6 +661,47 @@ async def admin_dashboard():
                             <input type="number" id="extra-vip-catalog-preview-count" class="catalog-input" value="3" min="1" max="9">
                             <small style="color: #ff6b9d;">Number of blurred profiles to show in preview</small>
                         </div>
+
+                        <h4 style="margin-top: 20px; color: #ff6b9d;">Preview Profiles</h4>
+                        <div class="form-group">
+                            <label>Profile 1 Name:</label>
+                            <input type="text" id="extra-vip-preview-1-name" class="catalog-input" placeholder="Elena">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 1 Age:</label>
+                            <input type="number" id="extra-vip-preview-1-age" class="catalog-input" placeholder="22" min="18" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 1 City:</label>
+                            <input type="text" id="extra-vip-preview-1-city" class="catalog-input" placeholder="Novosibirsk">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Profile 2 Name:</label>
+                            <input type="text" id="extra-vip-preview-2-name" class="catalog-input" placeholder="Victoria">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 2 Age:</label>
+                            <input type="number" id="extra-vip-preview-2-age" class="catalog-input" placeholder="24" min="18" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 2 City:</label>
+                            <input type="text" id="extra-vip-preview-2-city" class="catalog-input" placeholder="Yekaterinburg">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Profile 3 Name:</label>
+                            <input type="text" id="extra-vip-preview-3-name" class="catalog-input" placeholder="Daria">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 3 Age:</label>
+                            <input type="number" id="extra-vip-preview-3-age" class="catalog-input" placeholder="20" min="18" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 3 City:</label>
+                            <input type="text" id="extra-vip-preview-3-city" class="catalog-input" placeholder="Krasnoyarsk">
+                        </div>
+
                         <div class="form-group">
                             <label style="display: flex; align-items: center;">
                                 Show Catalog:
@@ -653,6 +735,47 @@ async def admin_dashboard():
                             <input type="number" id="secret-catalog-preview-count" class="catalog-input" value="3" min="1" max="9">
                             <small style="color: #ff6b9d;">Number of blurred profiles to show in preview</small>
                         </div>
+
+                        <h4 style="margin-top: 20px; color: #ff6b9d;">Preview Profiles</h4>
+                        <div class="form-group">
+                            <label>Profile 1 Name:</label>
+                            <input type="text" id="secret-preview-1-name" class="catalog-input" placeholder="Anastasia">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 1 Age:</label>
+                            <input type="number" id="secret-preview-1-age" class="catalog-input" placeholder="26" min="18" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 1 City:</label>
+                            <input type="text" id="secret-preview-1-city" class="catalog-input" placeholder="Vladivostok">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Profile 2 Name:</label>
+                            <input type="text" id="secret-preview-2-name" class="catalog-input" placeholder="Polina">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 2 Age:</label>
+                            <input type="number" id="secret-preview-2-age" class="catalog-input" placeholder="23" min="18" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 2 City:</label>
+                            <input type="text" id="secret-preview-2-city" class="catalog-input" placeholder="Rostov">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Profile 3 Name:</label>
+                            <input type="text" id="secret-preview-3-name" class="catalog-input" placeholder="Alina">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 3 Age:</label>
+                            <input type="number" id="secret-preview-3-age" class="catalog-input" placeholder="21" min="18" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 3 City:</label>
+                            <input type="text" id="secret-preview-3-city" class="catalog-input" placeholder="Sochi">
+                        </div>
+
                         <div class="form-group">
                             <label style="display: flex; align-items: center;">
                                 Show Catalog:
@@ -867,18 +990,42 @@ async def admin_dashboard():
                     document.getElementById('vip-catalog-url').value = catalogs.vip?.redirect_url || 'https://t.me/vip_channel';
                     document.getElementById('vip-catalog-preview-count').value = catalogs.vip?.preview_count || 3;
                     document.getElementById('vip-catalog-visible').checked = catalogs.vip?.visible !== false;
+                    if (catalogs.vip?.preview_profiles) {
+                        for (let i = 0; i < 3; i++) {
+                            const profile = catalogs.vip.preview_profiles[i] || {};
+                            document.getElementById(`vip-preview-${i+1}-name`).value = profile.name || '';
+                            document.getElementById(`vip-preview-${i+1}-age`).value = profile.age || '';
+                            document.getElementById(`vip-preview-${i+1}-city`).value = profile.city || '';
+                        }
+                    }
 
                     document.getElementById('extra-vip-catalog-name').value = catalogs.extra_vip?.name || 'Extra VIP';
                     document.getElementById('extra-vip-catalog-price').value = catalogs.extra_vip?.price || 200;
                     document.getElementById('extra-vip-catalog-url').value = catalogs.extra_vip?.redirect_url || 'https://t.me/extra_vip_channel';
                     document.getElementById('extra-vip-catalog-preview-count').value = catalogs.extra_vip?.preview_count || 3;
                     document.getElementById('extra-vip-catalog-visible').checked = catalogs.extra_vip?.visible !== false;
+                    if (catalogs.extra_vip?.preview_profiles) {
+                        for (let i = 0; i < 3; i++) {
+                            const profile = catalogs.extra_vip.preview_profiles[i] || {};
+                            document.getElementById(`extra-vip-preview-${i+1}-name`).value = profile.name || '';
+                            document.getElementById(`extra-vip-preview-${i+1}-age`).value = profile.age || '';
+                            document.getElementById(`extra-vip-preview-${i+1}-city`).value = profile.city || '';
+                        }
+                    }
 
                     document.getElementById('secret-catalog-name').value = catalogs.secret?.name || 'Secret Catalog';
                     document.getElementById('secret-catalog-price').value = catalogs.secret?.price || 300;
                     document.getElementById('secret-catalog-url').value = catalogs.secret?.redirect_url || 'https://t.me/secret_channel';
                     document.getElementById('secret-catalog-preview-count').value = catalogs.secret?.preview_count || 3;
                     document.getElementById('secret-catalog-visible').checked = catalogs.secret?.visible !== false;
+                    if (catalogs.secret?.preview_profiles) {
+                        for (let i = 0; i < 3; i++) {
+                            const profile = catalogs.secret.preview_profiles[i] || {};
+                            document.getElementById(`secret-preview-${i+1}-name`).value = profile.name || '';
+                            document.getElementById(`secret-preview-${i+1}-age`).value = profile.age || '';
+                            document.getElementById(`secret-preview-${i+1}-city`).value = profile.city || '';
+                        }
+                    }
                 } catch (error) {
                     console.error('Error loading VIP catalogs:', error);
                 }
@@ -893,21 +1040,72 @@ async def admin_dashboard():
                             price: parseInt(document.getElementById('vip-catalog-price').value),
                             redirect_url: document.getElementById('vip-catalog-url').value,
                             preview_count: parseInt(document.getElementById('vip-catalog-preview-count').value),
-                            visible: document.getElementById('vip-catalog-visible').checked
+                            visible: document.getElementById('vip-catalog-visible').checked,
+                            preview_profiles: [
+                                {
+                                    name: document.getElementById('vip-preview-1-name').value,
+                                    age: parseInt(document.getElementById('vip-preview-1-age').value) || 0,
+                                    city: document.getElementById('vip-preview-1-city').value
+                                },
+                                {
+                                    name: document.getElementById('vip-preview-2-name').value,
+                                    age: parseInt(document.getElementById('vip-preview-2-age').value) || 0,
+                                    city: document.getElementById('vip-preview-2-city').value
+                                },
+                                {
+                                    name: document.getElementById('vip-preview-3-name').value,
+                                    age: parseInt(document.getElementById('vip-preview-3-age').value) || 0,
+                                    city: document.getElementById('vip-preview-3-city').value
+                                }
+                            ]
                         },
                         extra_vip: {
                             name: document.getElementById('extra-vip-catalog-name').value,
                             price: parseInt(document.getElementById('extra-vip-catalog-price').value),
                             redirect_url: document.getElementById('extra-vip-catalog-url').value,
                             preview_count: parseInt(document.getElementById('extra-vip-catalog-preview-count').value),
-                            visible: document.getElementById('extra-vip-catalog-visible').checked
+                            visible: document.getElementById('extra-vip-catalog-visible').checked,
+                            preview_profiles: [
+                                {
+                                    name: document.getElementById('extra-vip-preview-1-name').value,
+                                    age: parseInt(document.getElementById('extra-vip-preview-1-age').value) || 0,
+                                    city: document.getElementById('extra-vip-preview-1-city').value
+                                },
+                                {
+                                    name: document.getElementById('extra-vip-preview-2-name').value,
+                                    age: parseInt(document.getElementById('extra-vip-preview-2-age').value) || 0,
+                                    city: document.getElementById('extra-vip-preview-2-city').value
+                                },
+                                {
+                                    name: document.getElementById('extra-vip-preview-3-name').value,
+                                    age: parseInt(document.getElementById('extra-vip-preview-3-age').value) || 0,
+                                    city: document.getElementById('extra-vip-preview-3-city').value
+                                }
+                            ]
                         },
                         secret: {
                             name: document.getElementById('secret-catalog-name').value,
                             price: parseInt(document.getElementById('secret-catalog-price').value),
                             redirect_url: document.getElementById('secret-catalog-url').value,
                             preview_count: parseInt(document.getElementById('secret-catalog-preview-count').value),
-                            visible: document.getElementById('secret-catalog-visible').checked
+                            visible: document.getElementById('secret-catalog-visible').checked,
+                            preview_profiles: [
+                                {
+                                    name: document.getElementById('secret-preview-1-name').value,
+                                    age: parseInt(document.getElementById('secret-preview-1-age').value) || 0,
+                                    city: document.getElementById('secret-preview-1-city').value
+                                },
+                                {
+                                    name: document.getElementById('secret-preview-2-name').value,
+                                    age: parseInt(document.getElementById('secret-preview-2-age').value) || 0,
+                                    city: document.getElementById('secret-preview-2-city').value
+                                },
+                                {
+                                    name: document.getElementById('secret-preview-3-name').value,
+                                    age: parseInt(document.getElementById('secret-preview-3-age').value) || 0,
+                                    city: document.getElementById('secret-preview-3-city').value
+                                }
+                            ]
                         }
                     };
 
