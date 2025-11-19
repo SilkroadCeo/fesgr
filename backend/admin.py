@@ -601,6 +601,12 @@ async def admin_dashboard():
                             <label>Profile 1 City:</label>
                             <input type="text" id="vip-preview-1-city" class="catalog-input" placeholder="Moscow">
                         </div>
+                        <div class="form-group">
+                            <label>Profile 1 Photo:</label>
+                            <input type="file" id="vip-preview-1-photo" accept="image/*" style="display: none;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('vip-preview-1-photo').click()">Choose Photo</button>
+                            <div id="vip-preview-1-photo-preview" style="margin-top: 10px;"></div>
+                        </div>
 
                         <div class="form-group">
                             <label>Profile 2 Name:</label>
@@ -614,6 +620,12 @@ async def admin_dashboard():
                             <label>Profile 2 City:</label>
                             <input type="text" id="vip-preview-2-city" class="catalog-input" placeholder="Saint Petersburg">
                         </div>
+                        <div class="form-group">
+                            <label>Profile 2 Photo:</label>
+                            <input type="file" id="vip-preview-2-photo" accept="image/*" style="display: none;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('vip-preview-2-photo').click()">Choose Photo</button>
+                            <div id="vip-preview-2-photo-preview" style="margin-top: 10px;"></div>
+                        </div>
 
                         <div class="form-group">
                             <label>Profile 3 Name:</label>
@@ -626,6 +638,12 @@ async def admin_dashboard():
                         <div class="form-group">
                             <label>Profile 3 City:</label>
                             <input type="text" id="vip-preview-3-city" class="catalog-input" placeholder="Kazan">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 3 Photo:</label>
+                            <input type="file" id="vip-preview-3-photo" accept="image/*" style="display: none;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('vip-preview-3-photo').click()">Choose Photo</button>
+                            <div id="vip-preview-3-photo-preview" style="margin-top: 10px;"></div>
                         </div>
 
                         <div class="form-group">
@@ -675,6 +693,12 @@ async def admin_dashboard():
                             <label>Profile 1 City:</label>
                             <input type="text" id="extra-vip-preview-1-city" class="catalog-input" placeholder="Novosibirsk">
                         </div>
+                        <div class="form-group">
+                            <label>Profile 1 Photo:</label>
+                            <input type="file" id="extra-vip-preview-1-photo" accept="image/*" style="display: none;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('extra-vip-preview-1-photo').click()">Choose Photo</button>
+                            <div id="extra-vip-preview-1-photo-preview" style="margin-top: 10px;"></div>
+                        </div>
 
                         <div class="form-group">
                             <label>Profile 2 Name:</label>
@@ -688,6 +712,12 @@ async def admin_dashboard():
                             <label>Profile 2 City:</label>
                             <input type="text" id="extra-vip-preview-2-city" class="catalog-input" placeholder="Yekaterinburg">
                         </div>
+                        <div class="form-group">
+                            <label>Profile 2 Photo:</label>
+                            <input type="file" id="extra-vip-preview-2-photo" accept="image/*" style="display: none;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('extra-vip-preview-2-photo').click()">Choose Photo</button>
+                            <div id="extra-vip-preview-2-photo-preview" style="margin-top: 10px;"></div>
+                        </div>
 
                         <div class="form-group">
                             <label>Profile 3 Name:</label>
@@ -700,6 +730,12 @@ async def admin_dashboard():
                         <div class="form-group">
                             <label>Profile 3 City:</label>
                             <input type="text" id="extra-vip-preview-3-city" class="catalog-input" placeholder="Krasnoyarsk">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 3 Photo:</label>
+                            <input type="file" id="extra-vip-preview-3-photo" accept="image/*" style="display: none;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('extra-vip-preview-3-photo').click()">Choose Photo</button>
+                            <div id="extra-vip-preview-3-photo-preview" style="margin-top: 10px;"></div>
                         </div>
 
                         <div class="form-group">
@@ -749,6 +785,12 @@ async def admin_dashboard():
                             <label>Profile 1 City:</label>
                             <input type="text" id="secret-preview-1-city" class="catalog-input" placeholder="Vladivostok">
                         </div>
+                        <div class="form-group">
+                            <label>Profile 1 Photo:</label>
+                            <input type="file" id="secret-preview-1-photo" accept="image/*" style="display: none;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('secret-preview-1-photo').click()">Choose Photo</button>
+                            <div id="secret-preview-1-photo-preview" style="margin-top: 10px;"></div>
+                        </div>
 
                         <div class="form-group">
                             <label>Profile 2 Name:</label>
@@ -762,6 +804,12 @@ async def admin_dashboard():
                             <label>Profile 2 City:</label>
                             <input type="text" id="secret-preview-2-city" class="catalog-input" placeholder="Rostov">
                         </div>
+                        <div class="form-group">
+                            <label>Profile 2 Photo:</label>
+                            <input type="file" id="secret-preview-2-photo" accept="image/*" style="display: none;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('secret-preview-2-photo').click()">Choose Photo</button>
+                            <div id="secret-preview-2-photo-preview" style="margin-top: 10px;"></div>
+                        </div>
 
                         <div class="form-group">
                             <label>Profile 3 Name:</label>
@@ -774,6 +822,12 @@ async def admin_dashboard():
                         <div class="form-group">
                             <label>Profile 3 City:</label>
                             <input type="text" id="secret-preview-3-city" class="catalog-input" placeholder="Sochi">
+                        </div>
+                        <div class="form-group">
+                            <label>Profile 3 Photo:</label>
+                            <input type="file" id="secret-preview-3-photo" accept="image/*" style="display: none;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('secret-preview-3-photo').click()">Choose Photo</button>
+                            <div id="secret-preview-3-photo-preview" style="margin-top: 10px;"></div>
                         </div>
 
                         <div class="form-group">
@@ -798,6 +852,11 @@ async def admin_dashboard():
             let uploadedVipPhotoFiles = [];
             let availableVipProfiles = [];
             let selectedPreviewProfiles = [];
+            let vipPreviewPhotos = {
+                vip: ['', '', ''],
+                extra_vip: ['', '', ''],
+                secret: ['', '', '']
+            };
 
             // Функции для переключения вкладок
             function showTab(tabName) {
@@ -996,6 +1055,10 @@ async def admin_dashboard():
                             document.getElementById(`vip-preview-${i+1}-name`).value = profile.name || '';
                             document.getElementById(`vip-preview-${i+1}-age`).value = profile.age || '';
                             document.getElementById(`vip-preview-${i+1}-city`).value = profile.city || '';
+                            vipPreviewPhotos.vip[i] = profile.photo || '';
+                            if (profile.photo) {
+                                showPhotoPreview(`vip-preview-${i+1}-photo-preview`, profile.photo);
+                            }
                         }
                     }
 
@@ -1010,6 +1073,10 @@ async def admin_dashboard():
                             document.getElementById(`extra-vip-preview-${i+1}-name`).value = profile.name || '';
                             document.getElementById(`extra-vip-preview-${i+1}-age`).value = profile.age || '';
                             document.getElementById(`extra-vip-preview-${i+1}-city`).value = profile.city || '';
+                            vipPreviewPhotos.extra_vip[i] = profile.photo || '';
+                            if (profile.photo) {
+                                showPhotoPreview(`extra-vip-preview-${i+1}-photo-preview`, profile.photo);
+                            }
                         }
                     }
 
@@ -1024,6 +1091,10 @@ async def admin_dashboard():
                             document.getElementById(`secret-preview-${i+1}-name`).value = profile.name || '';
                             document.getElementById(`secret-preview-${i+1}-age`).value = profile.age || '';
                             document.getElementById(`secret-preview-${i+1}-city`).value = profile.city || '';
+                            vipPreviewPhotos.secret[i] = profile.photo || '';
+                            if (profile.photo) {
+                                showPhotoPreview(`secret-preview-${i+1}-photo-preview`, profile.photo);
+                            }
                         }
                     }
                 } catch (error) {
@@ -1045,17 +1116,20 @@ async def admin_dashboard():
                                 {
                                     name: document.getElementById('vip-preview-1-name').value,
                                     age: parseInt(document.getElementById('vip-preview-1-age').value) || 0,
-                                    city: document.getElementById('vip-preview-1-city').value
+                                    city: document.getElementById('vip-preview-1-city').value,
+                                    photo: vipPreviewPhotos.vip[0] || ''
                                 },
                                 {
                                     name: document.getElementById('vip-preview-2-name').value,
                                     age: parseInt(document.getElementById('vip-preview-2-age').value) || 0,
-                                    city: document.getElementById('vip-preview-2-city').value
+                                    city: document.getElementById('vip-preview-2-city').value,
+                                    photo: vipPreviewPhotos.vip[1] || ''
                                 },
                                 {
                                     name: document.getElementById('vip-preview-3-name').value,
                                     age: parseInt(document.getElementById('vip-preview-3-age').value) || 0,
-                                    city: document.getElementById('vip-preview-3-city').value
+                                    city: document.getElementById('vip-preview-3-city').value,
+                                    photo: vipPreviewPhotos.vip[2] || ''
                                 }
                             ]
                         },
@@ -1069,17 +1143,20 @@ async def admin_dashboard():
                                 {
                                     name: document.getElementById('extra-vip-preview-1-name').value,
                                     age: parseInt(document.getElementById('extra-vip-preview-1-age').value) || 0,
-                                    city: document.getElementById('extra-vip-preview-1-city').value
+                                    city: document.getElementById('extra-vip-preview-1-city').value,
+                                    photo: vipPreviewPhotos.extra_vip[0] || ''
                                 },
                                 {
                                     name: document.getElementById('extra-vip-preview-2-name').value,
                                     age: parseInt(document.getElementById('extra-vip-preview-2-age').value) || 0,
-                                    city: document.getElementById('extra-vip-preview-2-city').value
+                                    city: document.getElementById('extra-vip-preview-2-city').value,
+                                    photo: vipPreviewPhotos.extra_vip[1] || ''
                                 },
                                 {
                                     name: document.getElementById('extra-vip-preview-3-name').value,
                                     age: parseInt(document.getElementById('extra-vip-preview-3-age').value) || 0,
-                                    city: document.getElementById('extra-vip-preview-3-city').value
+                                    city: document.getElementById('extra-vip-preview-3-city').value,
+                                    photo: vipPreviewPhotos.extra_vip[2] || ''
                                 }
                             ]
                         },
@@ -1093,17 +1170,20 @@ async def admin_dashboard():
                                 {
                                     name: document.getElementById('secret-preview-1-name').value,
                                     age: parseInt(document.getElementById('secret-preview-1-age').value) || 0,
-                                    city: document.getElementById('secret-preview-1-city').value
+                                    city: document.getElementById('secret-preview-1-city').value,
+                                    photo: vipPreviewPhotos.secret[0] || ''
                                 },
                                 {
                                     name: document.getElementById('secret-preview-2-name').value,
                                     age: parseInt(document.getElementById('secret-preview-2-age').value) || 0,
-                                    city: document.getElementById('secret-preview-2-city').value
+                                    city: document.getElementById('secret-preview-2-city').value,
+                                    photo: vipPreviewPhotos.secret[1] || ''
                                 },
                                 {
                                     name: document.getElementById('secret-preview-3-name').value,
                                     age: parseInt(document.getElementById('secret-preview-3-age').value) || 0,
-                                    city: document.getElementById('secret-preview-3-city').value
+                                    city: document.getElementById('secret-preview-3-city').value,
+                                    photo: vipPreviewPhotos.secret[2] || ''
                                 }
                             ]
                         }
@@ -1125,6 +1205,55 @@ async def admin_dashboard():
                     alert('Error saving VIP catalogs settings');
                 }
             }
+
+            // Функция отображения превью фото
+            function showPhotoPreview(previewId, photoUrl) {
+                const previewDiv = document.getElementById(previewId);
+                if (previewDiv) {
+                    previewDiv.innerHTML = `<img src="http://localhost:8002${photoUrl}" style="max-width: 200px; max-height: 150px; border-radius: 8px;">`;
+                }
+            }
+
+            // Обработчики загрузки фото для preview профилей
+            document.addEventListener('DOMContentLoaded', () => {
+                // VIP catalog
+                ['vip', 'extra-vip', 'secret'].forEach(catalog => {
+                    for (let i = 1; i <= 3; i++) {
+                        const inputId = `${catalog}-preview-${i}-photo`;
+                        const previewId = `${catalog}-preview-${i}-photo-preview`;
+                        const catalogKey = catalog.replace('-', '_');
+
+                        const input = document.getElementById(inputId);
+                        if (input) {
+                            input.addEventListener('change', async function(e) {
+                                const file = e.target.files[0];
+                                if (file) {
+                                    const formData = new FormData();
+                                    formData.append('file', file);
+
+                                    try {
+                                        const response = await fetch('/api/vip-catalogs/upload-preview-photo', {
+                                            method: 'POST',
+                                            body: formData
+                                        });
+
+                                        if (response.ok) {
+                                            const data = await response.json();
+                                            vipPreviewPhotos[catalogKey][i-1] = data.photo_url;
+                                            showPhotoPreview(previewId, data.photo_url);
+                                        } else {
+                                            alert('Error uploading photo');
+                                        }
+                                    } catch (error) {
+                                        console.error('Error uploading photo:', error);
+                                        alert('Error uploading photo');
+                                    }
+                                }
+                            });
+                        }
+                    }
+                });
+            });
 
             // Загрузка управления VIP превью
             async function loadVipPreviewManagement() {

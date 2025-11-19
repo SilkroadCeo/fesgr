@@ -2371,11 +2371,16 @@
 
                 const profileDiv = document.createElement('div');
                 profileDiv.className = 'vip-profile-preview';
-                // Используем placeholder изображение для preview профилей
-                profileDiv.innerHTML = `
-                    <div class="vip-profile-image" style="background: linear-gradient(135deg, rgba(255,107,157,0.3), rgba(102,126,234,0.3)); display: flex; align-items: center; justify-content: center; filter: blur(8px);">
+
+                // Отображаем фото если оно загружено, иначе показываем placeholder
+                const imageHtml = profile.photo
+                    ? `<div class="vip-profile-image" style="background-image: url('http://localhost:8001${profile.photo}'); background-size: cover; background-position: center; filter: blur(8px);"></div>`
+                    : `<div class="vip-profile-image" style="background: linear-gradient(135deg, rgba(255,107,157,0.3), rgba(102,126,234,0.3)); display: flex; align-items: center; justify-content: center; filter: blur(8px);">
                         <div style="font-size: 48px; color: rgba(255,255,255,0.5);">?</div>
-                    </div>
+                    </div>`;
+
+                profileDiv.innerHTML = `
+                    ${imageHtml}
                     <div class="vip-profile-overlay">
                         <div class="vip-profile-info">
                             <div class="vip-profile-name">${capitalize(profile.name)}</div>

@@ -75,9 +75,9 @@ def load_data():
                         "visible": True,
                         "preview_count": 3,
                         "preview_profiles": [
-                            {"name": "Anna", "age": 23, "city": "Moscow"},
-                            {"name": "Sofia", "age": 21, "city": "Saint Petersburg"},
-                            {"name": "Maria", "age": 25, "city": "Kazan"}
+                            {"name": "Anna", "age": 23, "city": "Moscow", "photo": ""},
+                            {"name": "Sofia", "age": 21, "city": "Saint Petersburg", "photo": ""},
+                            {"name": "Maria", "age": 25, "city": "Kazan", "photo": ""}
                         ]
                     },
                     "extra_vip": {
@@ -87,9 +87,9 @@ def load_data():
                         "visible": True,
                         "preview_count": 3,
                         "preview_profiles": [
-                            {"name": "Elena", "age": 22, "city": "Novosibirsk"},
-                            {"name": "Victoria", "age": 24, "city": "Yekaterinburg"},
-                            {"name": "Daria", "age": 20, "city": "Krasnoyarsk"}
+                            {"name": "Elena", "age": 22, "city": "Novosibirsk", "photo": ""},
+                            {"name": "Victoria", "age": 24, "city": "Yekaterinburg", "photo": ""},
+                            {"name": "Daria", "age": 20, "city": "Krasnoyarsk", "photo": ""}
                         ]
                     },
                     "secret": {
@@ -99,9 +99,9 @@ def load_data():
                         "visible": True,
                         "preview_count": 3,
                         "preview_profiles": [
-                            {"name": "Anastasia", "age": 26, "city": "Vladivostok"},
-                            {"name": "Polina", "age": 23, "city": "Rostov"},
-                            {"name": "Alina", "age": 21, "city": "Sochi"}
+                            {"name": "Anastasia", "age": 26, "city": "Vladivostok", "photo": ""},
+                            {"name": "Polina", "age": 23, "city": "Rostov", "photo": ""},
+                            {"name": "Alina", "age": 21, "city": "Sochi", "photo": ""}
                         ]
                     }
                 }
@@ -192,9 +192,9 @@ def load_data():
                         "visible": True,
                         "preview_count": 3,
                         "preview_profiles": [
-                            {"name": "Anna", "age": 23, "city": "Moscow"},
-                            {"name": "Sofia", "age": 21, "city": "Saint Petersburg"},
-                            {"name": "Maria", "age": 25, "city": "Kazan"}
+                            {"name": "Anna", "age": 23, "city": "Moscow", "photo": ""},
+                            {"name": "Sofia", "age": 21, "city": "Saint Petersburg", "photo": ""},
+                            {"name": "Maria", "age": 25, "city": "Kazan", "photo": ""}
                         ]
                     },
                     "extra_vip": {
@@ -204,9 +204,9 @@ def load_data():
                         "visible": True,
                         "preview_count": 3,
                         "preview_profiles": [
-                            {"name": "Elena", "age": 22, "city": "Novosibirsk"},
-                            {"name": "Victoria", "age": 24, "city": "Yekaterinburg"},
-                            {"name": "Daria", "age": 20, "city": "Krasnoyarsk"}
+                            {"name": "Elena", "age": 22, "city": "Novosibirsk", "photo": ""},
+                            {"name": "Victoria", "age": 24, "city": "Yekaterinburg", "photo": ""},
+                            {"name": "Daria", "age": 20, "city": "Krasnoyarsk", "photo": ""}
                         ]
                     },
                     "secret": {
@@ -216,9 +216,9 @@ def load_data():
                         "visible": True,
                         "preview_count": 3,
                         "preview_profiles": [
-                            {"name": "Anastasia", "age": 26, "city": "Vladivostok"},
-                            {"name": "Polina", "age": 23, "city": "Rostov"},
-                            {"name": "Alina", "age": 21, "city": "Sochi"}
+                            {"name": "Anastasia", "age": 26, "city": "Vladivostok", "photo": ""},
+                            {"name": "Polina", "age": 23, "city": "Rostov", "photo": ""},
+                            {"name": "Alina", "age": 21, "city": "Sochi", "photo": ""}
                         ]
                     }
                 }
@@ -367,6 +367,15 @@ async def update_vip_catalogs(catalogs: dict):
     data["settings"]["vip_catalogs"] = catalogs
     save_data(data)
     return {"status": "updated"}
+
+@app.post("/api/vip-catalogs/upload-preview-photo")
+async def upload_preview_photo(file: UploadFile = File(...)):
+    """Загрузить фото для preview профиля VIP каталога"""
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    file_path = save_uploaded_file(file)
+    return {"photo_url": file_path}
 
 @app.get("/api/filters/cities")
 async def get_cities():
