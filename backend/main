@@ -48,6 +48,14 @@ def load_data():
             "comments": [],
             "promocodes": [],
             "settings": {
+                "app": {
+                    "app_name": "muji",
+                    "default_age": 25,
+                    "default_city": "Moscow",
+                    "vip_blurred_count": 3,
+                    "extra_vip_blurred_count": 3,
+                    "secret_blurred_count": 3
+                },
                 "crypto_wallets": {
                     "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
                     "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
@@ -142,6 +150,14 @@ def load_data():
             "comments": [],
             "promocodes": [],
             "settings": {
+                "app": {
+                    "app_name": "muji",
+                    "default_age": 25,
+                    "default_city": "Moscow",
+                    "vip_blurred_count": 3,
+                    "extra_vip_blurred_count": 3,
+                    "secret_blurred_count": 3
+                },
                 "crypto_wallets": {
                     "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
                     "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
@@ -647,6 +663,32 @@ async def update_banner(banner: dict):
     save_data(data)
     return {"status": "updated"}
 
+@app.get("/api/settings/app")
+async def get_app_settings():
+    """Получить настройки приложения"""
+    data = load_data()
+    default_settings = {
+        "app_name": "muji",
+        "default_age": 25,
+        "default_city": "Moscow",
+        "vip_blurred_count": 3,
+        "extra_vip_blurred_count": 3,
+        "secret_blurred_count": 3
+    }
+    return data.get("settings", {}).get("app", default_settings)
+
+@app.post("/api/settings/app")
+async def update_app_settings(settings: dict):
+    """Обновить настройки приложения"""
+    data = load_data()
+    if "settings" not in data:
+        data["settings"] = {}
+    if "app" not in data["settings"]:
+        data["settings"]["app"] = {}
+    data["settings"]["app"].update(settings)
+    save_data(data)
+    return {"status": "updated"}
+
 # Промокоды
 @app.get("/api/promocodes")
 async def get_promocodes():
@@ -805,6 +847,7 @@ async def get_translations(lang: str):
             "close": "Close",
             "payment_awaiting": "Awaiting Confirmation",
             "payment_processing": "Your reservation will be confirmed in chat, you can close this page.",
+            "timer_label": "Time remaining",
             "travel_cities": "Travel Cities",
             "description": "Description",
             "welcome_message": "Hello! Write me a message",
@@ -909,6 +952,7 @@ async def get_translations(lang: str):
             "close": "閉じる",
             "payment_awaiting": "確認待ち",
             "payment_processing": "予約はチャットで確認されます。このページを閉じてください。",
+            "timer_label": "残り時間",
             "travel_cities": "旅行先都市",
             "description": "説明",
             "welcome_message": "こんにちは！メッセージをお待ちしています",
@@ -1013,6 +1057,7 @@ async def get_translations(lang: str):
             "close": "닫기",
             "payment_awaiting": "확인 대기 중",
             "payment_processing": "예약은 채팅에서 확인됩니다. 이 페이지를 닫으셔도 됩니다.",
+            "timer_label": "남은 시간",
             "travel_cities": "여행 도시",
             "description": "설명",
             "welcome_message": "안녕하세요! 메시지를 보내주세요",
@@ -1117,6 +1162,7 @@ async def get_translations(lang: str):
             "close": "关闭",
             "payment_awaiting": "等待确认",
             "payment_processing": "您的预订将在聊天中确认，您可以关闭此页面。",
+            "timer_label": "剩余时间",
             "travel_cities": "旅行城市",
             "description": "描述",
             "welcome_message": "你好！给我发消息",
@@ -1221,6 +1267,7 @@ async def get_translations(lang: str):
             "close": "إغلاق",
             "payment_awaiting": "بانتظار التأكيد",
             "payment_processing": "سيتم تأكيد حجزك في الدردشة، يمكنك إغلاق هذه الصفحة.",
+            "timer_label": "الوقت المتبقي",
             "travel_cities": "مدن السفر",
             "description": "الوصف",
             "welcome_message": "مرحباً! اكتب لي رسالة",
@@ -1325,6 +1372,7 @@ async def get_translations(lang: str):
             "close": "Schließen",
             "payment_awaiting": "Warte auf Bestätigung",
             "payment_processing": "Ihre Buchung wird im Chat bestätigt, Sie können diese Seite schließen.",
+            "timer_label": "Verbleibende Zeit",
             "travel_cities": "Reisestädte",
             "description": "Beschreibung",
             "welcome_message": "Hallo! Schreiben Sie mir eine Nachricht",
@@ -1429,6 +1477,7 @@ async def get_translations(lang: str):
             "close": "Cerrar",
             "payment_awaiting": "Esperando Confirmación",
             "payment_processing": "Su reserva será confirmada en el chat, puede cerrar esta página.",
+            "timer_label": "Tiempo restante",
             "travel_cities": "Ciudades de Viaje",
             "description": "Descripción",
             "welcome_message": "¡Hola! Escríbeme un mensaje",
