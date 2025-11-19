@@ -437,12 +437,12 @@
         /* Иконка незавершенной оплаты */
         .pending-payment-icon {
             position: fixed;
-            top: 20px;
-            right: 20px;
+            bottom: 80px;
+            left: 20px;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            width: 60px;
+            height: 60px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -2369,15 +2369,48 @@
             }
         });
 
-        // Загрузка VIP каталогов
+        // Загрузка VIP каталогов (хардкоженные данные)
         async function loadVipCatalogs() {
-            try {
-                const response = await fetch('/api/vip-catalogs');
-                vipCatalogs = await response.json();
-                renderVipCatalogs();
-            } catch (error) {
-                console.error('Error loading VIP catalogs:', error);
-            }
+            // Хардкоженные VIP каталоги
+            vipCatalogs = {
+                vip: {
+                    name: "VIP Catalog",
+                    price: 100,
+                    redirect_url: "https://t.me/vip_channel",
+                    visible: true,
+                    preview_count: 250,
+                    preview_profiles: [
+                        {name: "Diana", age: 16, city: "Moscow"},
+                        {name: "Mary", age: 18, city: "Guangzhou"},
+                        {name: "Lexy", age: 17, city: "London"}
+                    ]
+                },
+                extra_vip: {
+                    name: "Extra VIP",
+                    price: 200,
+                    redirect_url: "https://t.me/extra_vip_channel",
+                    visible: true,
+                    preview_count: 300,
+                    preview_profiles: [
+                        {name: "Julia", age: 22, city: "Tokyo"},
+                        {name: "Yu Chen", age: 16, city: "Shanghai"},
+                        {name: "Ying", age: 19, city: "Beijing"}
+                    ]
+                },
+                secret: {
+                    name: "Secret Catalog",
+                    price: 300,
+                    redirect_url: "https://t.me/secret_channel",
+                    visible: true,
+                    preview_count: 500,
+                    preview_profiles: [
+                        {name: "Sandy", age: 16, city: "Miami"},
+                        {name: "Lana", age: 21, city: "Dubai"},
+                        {name: "Benny", age: 20, city: "Seoul"}
+                    ]
+                }
+            };
+            renderVipCatalogs();
         }
 
         // Отрисовка VIP каталогов
@@ -2399,7 +2432,7 @@
                         <!-- VIP анкеты будут добавлены через JS -->
                     </div>
                     <div class="vip-catalog-stats">
-                        <span>${previewProfiles.length} ${translations.premium_profiles_count || 'premium profiles'}</span>
+                        <span>${catalog.preview_count} ${translations.premium_profiles_count || 'premium profiles'}</span>
                         <span>${translations.blurred_preview || 'Blurred Preview'}</span>
                     </div>
                     <a href="${catalog.redirect_url}" target="_blank" class="unlock-btn">
@@ -2438,18 +2471,30 @@
                 return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
             }
 
+            // Функция для генерации случайного градиента
+            function getRandomGradient() {
+                const gradients = [
+                    'linear-gradient(135deg, rgba(255,107,157,0.4), rgba(102,126,234,0.4))',
+                    'linear-gradient(135deg, rgba(102,126,234,0.4), rgba(118,75,162,0.4))',
+                    'linear-gradient(135deg, rgba(255,107,157,0.4), rgba(118,75,162,0.4))',
+                    'linear-gradient(135deg, rgba(118,75,162,0.4), rgba(255,107,157,0.4))',
+                    'linear-gradient(45deg, rgba(255,107,157,0.3), rgba(102,126,234,0.5))',
+                    'linear-gradient(225deg, rgba(102,126,234,0.4), rgba(255,107,157,0.3))',
+                    'radial-gradient(circle, rgba(255,107,157,0.4), rgba(102,126,234,0.3))',
+                    'radial-gradient(circle, rgba(118,75,162,0.4), rgba(255,107,157,0.3))'
+                ];
+                return gradients[Math.floor(Math.random() * gradients.length)];
+            }
+
             previewProfiles.forEach(profile => {
                 if (!profile.name) return;
 
                 const profileDiv = document.createElement('div');
                 profileDiv.className = 'vip-profile-preview';
 
-                // Отображаем фото если оно загружено, иначе показываем placeholder
-                const imageHtml = profile.photo
-                    ? `<div class="vip-profile-image" style="background-image: url('http://localhost:8001${profile.photo}'); background-size: cover; background-position: center; filter: blur(8px);"></div>`
-                    : `<div class="vip-profile-image" style="background: linear-gradient(135deg, rgba(255,107,157,0.3), rgba(102,126,234,0.3)); display: flex; align-items: center; justify-content: center; filter: blur(8px);">
-                        <div style="font-size: 48px; color: rgba(255,255,255,0.5);">?</div>
-                    </div>`;
+                // Генерируем случайный заблюренный градиент вместо реального фото
+                const randomGradient = getRandomGradient();
+                const imageHtml = `<div class="vip-profile-image" style="background: ${randomGradient}; background-size: cover; background-position: center; filter: blur(10px);"></div>`;
 
                 profileDiv.innerHTML = `
                     ${imageHtml}
@@ -2787,9 +2832,16 @@
                 const data = await response.json();
 
                 // Пользователь может комментировать, если есть системное сообщение о завершенной транзакции
-                canComment = data.messages.some(msg =>
+                const hasSuccessfulTransaction = data.messages.some(msg =>
                     msg.is_system && msg.text && msg.text.toLowerCase().includes('transaction successful')
                 );
+
+                canComment = hasSuccessfulTransaction;
+
+                // Если транзакция завершена, очищаем незавершенный платеж
+                if (hasSuccessfulTransaction && pendingPayment) {
+                    clearPendingPayment();
+                }
 
                 // Показываем или скрываем форму комментариев
                 commentForm.style.display = canComment ? 'block' : 'none';
