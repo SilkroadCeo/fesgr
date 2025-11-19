@@ -9,7 +9,7 @@ import shutil
 from datetime import datetime
 from typing import Optional
 
-app = FastAPI(title="Telegram Mini App", version="12.0.0")
+app = FastAPI(title="Muji - Anonymous Dating", version="15.0.0")
 
 # Разрешаем CORS
 app.add_middleware(
@@ -28,7 +28,7 @@ UPLOAD_DIR = os.path.join(current_dir, "uploads")
 # Создаем папку для загрузок если её нет
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-print("🚀 Запускаем сервер с исправленными фичами...")
+print("🚀 Запускаем сервер Muji с исправлениями...")
 
 # Раздаем статические файлы
 if os.path.exists(frontend_dir):
@@ -42,6 +42,7 @@ def load_data():
     if not os.path.exists(DATA_FILE):
         return {
             "profiles": [],
+            "vip_profiles": [],
             "chats": [],
             "messages": [],
             "comments": [],
@@ -57,6 +58,29 @@ def load_data():
                     "visible": True,
                     "link": "https://t.me/yourchannel",
                     "link_text": "Join Channel"
+                },
+                "vip_catalogs": {
+                    "vip": {
+                        "name": "VIP Catalog",
+                        "price": 100,
+                        "redirect_url": "https://t.me/vip_channel",
+                        "visible": True,
+                        "preview_count": 3
+                    },
+                    "extra_vip": {
+                        "name": "Extra VIP",
+                        "price": 200,
+                        "redirect_url": "https://t.me/extra_vip_channel",
+                        "visible": True,
+                        "preview_count": 3
+                    },
+                    "secret": {
+                        "name": "Secret Catalog",
+                        "price": 300,
+                        "redirect_url": "https://t.me/secret_channel",
+                        "visible": True,
+                        "preview_count": 3
+                    }
                 }
             }
         }
@@ -76,16 +100,43 @@ def load_data():
                         "visible": True,
                         "link": "https://t.me/yourchannel",
                         "link_text": "Join Channel"
+                    },
+                    "vip_catalogs": {
+                        "vip": {
+                            "name": "VIP Catalog",
+                            "price": 100,
+                            "redirect_url": "https://t.me/vip_channel",
+                            "visible": True,
+                            "preview_count": 3
+                        },
+                        "extra_vip": {
+                            "name": "Extra VIP",
+                            "price": 200,
+                            "redirect_url": "https://t.me/extra_vip_channel",
+                            "visible": True,
+                            "preview_count": 3
+                        },
+                        "secret": {
+                            "name": "Secret Catalog",
+                            "price": 300,
+                            "redirect_url": "https://t.me/secret_channel",
+                            "visible": True,
+                            "preview_count": 3
+                        }
                     }
                 }
             if "promocodes" not in data:
                 data["promocodes"] = []
             if "comments" not in data:
                 data["comments"] = []
+            if "vip_profiles" not in data:
+                data["vip_profiles"] = []
             return data
-    except:
+    except Exception as e:
+        print(f"Error loading data: {e}")
         return {
             "profiles": [],
+            "vip_profiles": [],
             "chats": [],
             "messages": [],
             "comments": [],
@@ -101,6 +152,29 @@ def load_data():
                     "visible": True,
                     "link": "https://t.me/yourchannel",
                     "link_text": "Join Channel"
+                },
+                "vip_catalogs": {
+                    "vip": {
+                        "name": "VIP Catalog",
+                        "price": 100,
+                        "redirect_url": "https://t.me/vip_channel",
+                        "visible": True,
+                        "preview_count": 3
+                    },
+                    "extra_vip": {
+                        "name": "Extra VIP",
+                        "price": 200,
+                        "redirect_url": "https://t.me/extra_vip_channel",
+                        "visible": True,
+                        "preview_count": 3
+                    },
+                    "secret": {
+                        "name": "Secret Catalog",
+                        "price": 300,
+                        "redirect_url": "https://t.me/secret_channel",
+                        "visible": True,
+                        "preview_count": 3
+                    }
                 }
             }
         }
@@ -111,20 +185,25 @@ def save_data(data):
         with open(DATA_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return True
-    except:
+    except Exception as e:
+        print(f"Error saving data: {e}")
         return False
 
 # Сохранение файла
 def save_uploaded_file(file: UploadFile) -> str:
     """Сохраняет загруженный файл и возвращает путь к нему"""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    filename = f"{timestamp}_{file.filename}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        filename = f"{timestamp}_{file.filename}"
+        file_path = os.path.join(UPLOAD_DIR, filename)
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    return f"/uploads/{filename}"
+        return f"/uploads/{filename}"
+    except Exception as e:
+        print(f"Error saving file: {e}")
+        return ""
 
 # Определяем тип файла по расширению
 def get_file_type(filename: str) -> str:
@@ -158,7 +237,8 @@ async def get_profiles(
     weight_min: int = None,
     weight_max: int = None,
     chest_min: int = None,
-    chest_max: int = None
+    chest_max: int = None,
+    gender: str = None
 ):
     data = load_data()
     profiles = [p for p in data["profiles"] if p.get("visible", True)]
@@ -199,6 +279,10 @@ async def get_profiles(
     if chest_max:
         profiles = [p for p in profiles if p.get("chest", 12) <= chest_max]
 
+    # Фильтрация по полу
+    if gender and gender != "all":
+        profiles = [p for p in profiles if p.get("gender", "").lower() == gender.lower()]
+
     # Пагинация
     start = page * limit
     end = start + limit
@@ -209,6 +293,34 @@ async def get_profiles(
         "has_more": end < len(profiles),
         "total": len(profiles)
     }
+
+@app.get("/api/vip-profiles")
+async def get_vip_profiles():
+    """Получить VIP анкеты для каталогов"""
+    data = load_data()
+    vip_profiles = data.get("vip_profiles", [])
+
+    # Перемешиваем для рандомного отображения
+    import random
+    random.shuffle(vip_profiles)
+
+    return {"profiles": vip_profiles}
+
+@app.get("/api/vip-catalogs")
+async def get_vip_catalogs():
+    """Получить настройки VIP каталогов"""
+    data = load_data()
+    return data.get("settings", {}).get("vip_catalogs", {})
+
+@app.post("/api/vip-catalogs")
+async def update_vip_catalogs(catalogs: dict):
+    """Обновить настройки VIP каталогов"""
+    data = load_data()
+    if "settings" not in data:
+        data["settings"] = {}
+    data["settings"]["vip_catalogs"] = catalogs
+    save_data(data)
+    return {"status": "updated"}
 
 @app.get("/api/filters/cities")
 async def get_cities():
@@ -234,6 +346,11 @@ async def get_travel_cities():
             travel_cities.update(profile["travel_cities"])
     return {"travel_cities": sorted(list(travel_cities))}
 
+@app.get("/api/filters/genders")
+async def get_genders():
+    """Получить список всех полов"""
+    return {"genders": ["male", "female", "transgender"]}
+
 @app.get("/api/profiles/{profile_id}")
 async def get_profile(profile_id: int):
     data = load_data()
@@ -246,6 +363,115 @@ async def get_profile(profile_id: int):
     profile["comments"] = comments
 
     return profile
+
+@app.post("/api/admin/profiles")
+async def create_profile(
+        name: str = Form(...),
+        age: int = Form(...),
+        nationality: str = Form(...),
+        city: str = Form(...),
+        travel_cities: str = Form(...),
+        description: str = Form(...),
+        height: int = Form(...),
+        weight: int = Form(...),
+        chest: int = Form(...),
+        gender: str = Form("female"),
+        photos: list[UploadFile] = File(...)
+):
+    data = load_data()
+
+    # Находим максимальный ID
+    max_id = max([p["id"] for p in data["profiles"]]) if data["profiles"] else 0
+
+    # Сохраняем загруженные фото
+    photo_urls = []
+    for photo in photos:
+        if photo.filename:
+            photo_url = save_uploaded_file(photo)
+            if photo_url:
+                photo_urls.append(photo_url)
+
+    if not photo_urls:
+        raise HTTPException(status_code=400, detail="At least one photo is required")
+
+    # Парсим travel cities
+    try:
+        travel_cities_list = json.loads(travel_cities)
+    except:
+        travel_cities_list = [city.strip() for city in travel_cities.split(',') if city.strip()]
+
+    new_profile = {
+        "id": max_id + 1,
+        "name": name,
+        "age": age,
+        "nationality": nationality,
+        "city": city,
+        "travel_cities": travel_cities_list,
+        "description": description,
+        "photos": photo_urls,
+        "height": height,
+        "weight": weight,
+        "chest": chest,
+        "gender": gender,
+        "visible": True,
+        "created_at": datetime.now().isoformat()
+    }
+
+    data["profiles"].append(new_profile)
+    save_data(data)
+    return {"status": "created", "profile": new_profile}
+
+@app.post("/api/admin/vip-profiles")
+async def create_vip_profile(
+        name: str = Form(...),
+        age: int = Form(...),
+        city: str = Form(...),
+        gender: str = Form("female"),
+        photos: list[UploadFile] = File(...)
+):
+    data = load_data()
+
+    # Находим максимальный ID
+    max_id = max([p["id"] for p in data.get("vip_profiles", [])]) if data.get("vip_profiles") else 0
+
+    # Сохраняем загруженные фото
+    photo_urls = []
+    for photo in photos:
+        if photo.filename:
+            photo_url = save_uploaded_file(photo)
+            if photo_url:
+                photo_urls.append(photo_url)
+
+    if not photo_urls:
+        raise HTTPException(status_code=400, detail="At least one photo is required")
+
+    new_profile = {
+        "id": max_id + 1,
+        "name": name,
+        "age": age,
+        "city": city,
+        "gender": gender,
+        "photos": photo_urls,
+        "created_at": datetime.now().isoformat()
+    }
+
+    if "vip_profiles" not in data:
+        data["vip_profiles"] = []
+    data["vip_profiles"].append(new_profile)
+    save_data(data)
+    return {"status": "created", "profile": new_profile}
+
+@app.get("/api/admin/vip-profiles")
+async def get_admin_vip_profiles():
+    data = load_data()
+    return {"profiles": data.get("vip_profiles", [])}
+
+@app.delete("/api/admin/vip-profiles/{profile_id}")
+async def delete_vip_profile(profile_id: int):
+    data = load_data()
+    data["vip_profiles"] = [p for p in data.get("vip_profiles", []) if p["id"] != profile_id]
+    save_data(data)
+    return {"status": "deleted"}
 
 @app.post("/api/chats/{profile_id}/messages")
 async def send_message(
@@ -338,6 +564,21 @@ async def add_profile_comment(profile_id: int, comment_data: dict):
     profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Проверяем, есть ли у пользователя доступ к комментариям
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if chat:
+        messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+        has_transaction_completed = any(
+            m.get("is_system") and "transaction successful" in m.get("text", "").lower()
+            for m in messages
+        )
+
+        if not has_transaction_completed:
+            raise HTTPException(
+                status_code=403,
+                detail="You need to complete a transaction to leave comments"
+            )
 
     new_comment = {
         "id": len(data.get("comments", [])) + 1,
@@ -502,7 +743,7 @@ async def get_translations(lang: str):
     """Получить переводы для указанного языка"""
     translations = {
         "en": {
-            "app_name": "Ashoo",
+            "app_name": "Muji",
             "subtitle": "100% Anonymous Dating",
             "premium_profiles": "Premium Profiles",
             "online_now": "Online Now",
@@ -517,6 +758,11 @@ async def get_translations(lang: str):
             "height": "Height (cm)",
             "weight": "Weight (kg)",
             "chest": "Chest",
+            "gender": "Gender",
+            "all_genders": "All genders",
+            "male": "Male",
+            "female": "Female",
+            "transgender": "Transgender",
             "chest_sizes": {
                 "1": "1 chest",
                 "2": "2 chest",
@@ -558,7 +804,7 @@ async def get_translations(lang: str):
             "copied": "Copied!",
             "close": "Close",
             "payment_awaiting": "Awaiting Confirmation",
-            "payment_processing": "Your payment is being processed. Please wait for confirmation message.",
+            "payment_processing": "Your reservation will be confirmed in chat, you can close this page.",
             "travel_cities": "Travel Cities",
             "description": "Description",
             "welcome_message": "Hello! Write me a message",
@@ -570,7 +816,7 @@ async def get_translations(lang: str):
             "promocode_invalid": "Invalid promo code",
             "discount": "Discount",
             "banner_join": "Join Channel",
-            "attach_file": "Attach File",
+            "attach_file": "📎",
             "file": "File",
             "photo": "Photo",
             "video": "Video",
@@ -584,11 +830,24 @@ async def get_translations(lang: str):
             "select_crypto": "Select Cryptocurrency",
             "amount": "Amount",
             "usd": "USD",
-            "pay_now": "Pay Now",
-            "booking_profile": "Booking Profile"
+            "pay_now": "I Paid",
+            "booking_profile": "Booking Profile",
+            "vip_catalog": "VIP Catalog",
+            "extra_vip_catalog": "Extra VIP",
+            "secret_catalog": "Secret Catalog",
+            "unlock_access": "Unlock Access",
+            "premium_profiles_count": "premium profiles",
+            "blurred_preview": "Blurred Preview",
+            "access_denied": "Access Denied",
+            "pay_to_unlock": "Pay to unlock full access",
+            "view_all_profiles": "View All Profiles",
+            "from_age": "from",
+            "years_short": "y.o",
+            "comment_permission_required": "To leave comments, you need to use our services first",
+            "complete_transaction_to_comment": "Complete a transaction to unlock comments"
         },
         "ja": {
-            "app_name": "Ashoo",
+            "app_name": "Muji",
             "subtitle": "100% 匿名デート",
             "premium_profiles": "プレミアムプロフィール",
             "online_now": "オンライン",
@@ -603,6 +862,11 @@ async def get_translations(lang: str):
             "height": "身長 (cm)",
             "weight": "体重 (kg)",
             "chest": "バスト",
+            "gender": "性別",
+            "all_genders": "すべての性別",
+            "male": "男性",
+            "female": "女性",
+            "transgender": "トランスジェンダー",
             "chest_sizes": {
                 "1": "1 バスト",
                 "2": "2 バスト",
@@ -644,7 +908,7 @@ async def get_translations(lang: str):
             "copied": "コピーしました！",
             "close": "閉じる",
             "payment_awaiting": "確認待ち",
-            "payment_processing": "お支払いを処理中です。確認メッセージをお待ちください。",
+            "payment_processing": "予約はチャットで確認されます。このページを閉じてください。",
             "travel_cities": "旅行先都市",
             "description": "説明",
             "welcome_message": "こんにちは！メッセージをお待ちしています",
@@ -656,7 +920,7 @@ async def get_translations(lang: str):
             "promocode_invalid": "無効なプロモコード",
             "discount": "割引",
             "banner_join": "チャンネルに参加",
-            "attach_file": "ファイルを添付",
+            "attach_file": "📎",
             "file": "ファイル",
             "photo": "写真",
             "video": "ビデオ",
@@ -670,11 +934,24 @@ async def get_translations(lang: str):
             "select_crypto": "暗号通貨を選択",
             "amount": "金額",
             "usd": "USD",
-            "pay_now": "今すぐ支払う",
-            "booking_profile": "予約プロフィール"
+            "pay_now": "支払い済み",
+            "booking_profile": "予約プロフィール",
+            "vip_catalog": "VIPカタログ",
+            "extra_vip_catalog": "エクストラVIP",
+            "secret_catalog": "シークレットカタログ",
+            "unlock_access": "アクセスを解除",
+            "premium_profiles_count": "プレミアムプロフィール",
+            "blurred_preview": "ぼかしプレビュー",
+            "access_denied": "アクセス拒否",
+            "pay_to_unlock": "フルアクセスを解除するには支払いが必要です",
+            "view_all_profiles": "すべてのプロフィールを見る",
+            "from_age": "から",
+            "years_short": "歳",
+            "comment_permission_required": "コメントを投稿するには、まずサービスをご利用ください",
+            "complete_transaction_to_comment": "取引を完了してコメントを解除してください"
         },
         "ko": {
-            "app_name": "Ashoo",
+            "app_name": "Muji",
             "subtitle": "100% 익명 데이트",
             "premium_profiles": "프리미엄 프로필",
             "online_now": "온라인",
@@ -689,6 +966,11 @@ async def get_translations(lang: str):
             "height": "키 (cm)",
             "weight": "체중 (kg)",
             "chest": "가슴",
+            "gender": "성별",
+            "all_genders": "모든 성별",
+            "male": "남성",
+            "female": "여성",
+            "transgender": "트랜스젠더",
             "chest_sizes": {
                 "1": "1 가슴",
                 "2": "2 가슴",
@@ -730,7 +1012,7 @@ async def get_translations(lang: str):
             "copied": "복사되었습니다!",
             "close": "닫기",
             "payment_awaiting": "확인 대기 중",
-            "payment_processing": "결제가 처리 중입니다. 확인 메시지를 기다려 주세요.",
+            "payment_processing": "예약은 채팅에서 확인됩니다. 이 페이지를 닫으셔도 됩니다.",
             "travel_cities": "여행 도시",
             "description": "설명",
             "welcome_message": "안녕하세요! 메시지를 보내주세요",
@@ -742,7 +1024,7 @@ async def get_translations(lang: str):
             "promocode_invalid": "유효하지 않은 프로모 코드",
             "discount": "할인",
             "banner_join": "채널 참여",
-            "attach_file": "파일 첨부",
+            "attach_file": "📎",
             "file": "파일",
             "photo": "사진",
             "video": "동영상",
@@ -756,13 +1038,130 @@ async def get_translations(lang: str):
             "select_crypto": "암호화폐 선택",
             "amount": "금액",
             "usd": "USD",
-            "pay_now": "지금 결제",
-            "booking_profile": "예약 프로필"
+            "pay_now": "결제 완료",
+            "booking_profile": "예약 프로필",
+            "vip_catalog": "VIP 카탈로그",
+            "extra_vip_catalog": "익스트라 VIP",
+            "secret_catalog": "시크릿 카탈로그",
+            "unlock_access": "액세스 잠금 해제",
+            "premium_profiles_count": "프리미엄 프로필",
+            "blurred_preview": "흐릿한 미리보기",
+            "access_denied": "액세스 거부",
+            "pay_to_unlock": "전체 액세스를 해제하려면 결제가 필요합니다",
+            "view_all_profiles": "모든 프로필 보기",
+            "from_age": "부터",
+            "years_short": "세",
+            "comment_permission_required": "댓글을 남기려면 먼저 서비스를 이용해야 합니다",
+            "complete_transaction_to_comment": "거래를 완료하여 댓글을 잠금 해제하세요"
+        },
+        "zh": {
+            "app_name": "Muji",
+            "subtitle": "100% 匿名约会",
+            "premium_profiles": "高级资料",
+            "online_now": "在线",
+            "anonymous_dating": "匿名约会",
+            "filters": "筛选",
+            "city": "城市",
+            "nationality": "国籍",
+            "travel_city": "旅行城市",
+            "all_cities": "所有城市",
+            "all_nationalities": "所有国籍",
+            "age": "年龄",
+            "height": "身高 (厘米)",
+            "weight": "体重 (公斤)",
+            "chest": "胸围",
+            "gender": "性别",
+            "all_genders": "所有性别",
+            "male": "男性",
+            "female": "女性",
+            "transgender": "跨性别",
+            "chest_sizes": {
+                "1": "1 胸围",
+                "2": "2 胸围",
+                "3": "3 胸围",
+                "4": "4 胸围",
+                "5": "5 胸围",
+                "6": "6 胸围",
+                "7": "7 胸围",
+                "8": "8 胸围",
+                "9": "9 胸围",
+                "10": "10 胸围",
+                "11": "11 胸围",
+                "12": "12 胸围"
+            },
+            "reset": "重置",
+            "apply": "应用",
+            "loading": "正在加载资料...",
+            "loading_more": "正在加载更多资料...",
+            "view_profile": "查看资料",
+            "write_message": "发送消息",
+            "book_with_crypto": "用加密货币预订",
+            "more": "更多",
+            "share": "分享",
+            "chat_with": "与聊天",
+            "type_message": "输入消息...",
+            "send": "➤",
+            "no_chats": "没有活跃聊天",
+            "no_profiles": "未找到资料",
+            "new": "新",
+            "years": "岁",
+            "cm": "厘米",
+            "kg": "公斤",
+            "download": "下载",
+            "pay_with_crypto": "用加密货币支付",
+            "crypto_payment": "加密货币支付",
+            "select_network": "选择网络",
+            "wallet_address": "钱包地址",
+            "copy": "复制",
+            "copied": "已复制！",
+            "close": "关闭",
+            "payment_awaiting": "等待确认",
+            "payment_processing": "您的预订将在聊天中确认，您可以关闭此页面。",
+            "travel_cities": "旅行城市",
+            "description": "描述",
+            "welcome_message": "你好！给我发消息",
+            "error_sending": "发送消息错误",
+            "promocode": "优惠码",
+            "enter_promocode": "输入优惠码",
+            "apply_promocode": "应用",
+            "promocode_applied": "优惠码已应用！",
+            "promocode_invalid": "无效的优惠码",
+            "discount": "折扣",
+            "banner_join": "加入频道",
+            "attach_file": "📎",
+            "file": "文件",
+            "photo": "照片",
+            "video": "视频",
+            "add_comment": "添加评论",
+            "comments": "评论",
+            "no_comments": "暂无评论",
+            "your_comment": "您的评论",
+            "post_comment": "发表评论",
+            "rating": "评分",
+            "payment_processing": "处理付款中...",
+            "select_crypto": "选择加密货币",
+            "amount": "金额",
+            "usd": "美元",
+            "pay_now": "我已支付",
+            "booking_profile": "预订资料",
+            "vip_catalog": "VIP目录",
+            "extra_vip_catalog": "额外VIP",
+            "secret_catalog": "秘密目录",
+            "unlock_access": "解锁访问",
+            "premium_profiles_count": "高级资料",
+            "blurred_preview": "模糊预览",
+            "access_denied": "访问被拒绝",
+            "pay_to_unlock": "支付以解锁完整访问",
+            "view_all_profiles": "查看所有资料",
+            "from_age": "从",
+            "years_short": "岁",
+            "comment_permission_required": "要发表评论，您需要先使用我们的服务",
+            "complete_transaction_to_comment": "完成交易以解锁评论"
         },
         "ar": {
-            "app_name": "Ashoo",
-            "subtitle": "100% مواعدة مجهولة",
-            "premium_profiles": "ملفات مميزة",
+            "app_name": "Muji",
+            "subtitle": "مواعدة مجهولة 100%",
+            "premium_profiles": "الملفات المميزة",
             "online_now": "متصل الآن",
             "anonymous_dating": "مواعدة مجهولة",
             "filters": "الفلاتر",
@@ -775,6 +1174,11 @@ async def get_translations(lang: str):
             "height": "الطول (سم)",
             "weight": "الوزن (كجم)",
             "chest": "الصدر",
+            "gender": "الجنس",
+            "all_genders": "جميع الأجناس",
+            "male": "ذكر",
+            "female": "أنثى",
+            "transgender": "متحول جنسي",
             "chest_sizes": {
                 "1": "1 صدر",
                 "2": "2 صدر",
@@ -791,32 +1195,32 @@ async def get_translations(lang: str):
             },
             "reset": "إعادة تعيين",
             "apply": "تطبيق",
-            "loading": "جاري تحميل الملفات الشخصية...",
+            "loading": "جاري تحميل الملفات...",
             "loading_more": "جاري تحميل المزيد...",
-            "view_profile": "عرض الملف الشخصي",
+            "view_profile": "عرض الملف",
             "write_message": "كتابة رسالة",
-            "book_with_crypto": "الحجز بالعملات المشفرة",
+            "book_with_crypto": "حجز بالعملة المشفرة",
             "more": "المزيد",
             "share": "مشاركة",
             "chat_with": "الدردشة مع",
             "type_message": "اكتب رسالة...",
             "send": "➤",
-            "no_chats": "لا توجد محادثات نشطة",
-            "no_profiles": "لم يتم العثور على ملفات شخصية",
+            "no_chats": "لا توجد دردشات نشطة",
+            "no_profiles": "لم يتم العثور على ملفات",
             "new": "جديد",
             "years": "سنة",
             "cm": "سم",
             "kg": "كجم",
             "download": "تحميل",
-            "pay_with_crypto": "الدفع بالعملات المشفرة",
-            "crypto_payment": "الدفع بالعملات المشفرة",
+            "pay_with_crypto": "الدفع بالعملة المشفرة",
+            "crypto_payment": "دفع بالعملة المشفرة",
             "select_network": "اختر الشبكة",
             "wallet_address": "عنوان المحفظة",
             "copy": "نسخ",
             "copied": "تم النسخ!",
             "close": "إغلاق",
-            "payment_awaiting": "في انتظار التأكيد",
-            "payment_processing": "جاري معالجة دفعتك. يرجى انتظار رسالة التأكيد.",
+            "payment_awaiting": "بانتظار التأكيد",
+            "payment_processing": "سيتم تأكيد حجزك في الدردشة، يمكنك إغلاق هذه الصفحة.",
             "travel_cities": "مدن السفر",
             "description": "الوصف",
             "welcome_message": "مرحباً! اكتب لي رسالة",
@@ -827,8 +1231,8 @@ async def get_translations(lang: str):
             "promocode_applied": "تم تطبيق كود الخصم!",
             "promocode_invalid": "كود خصم غير صالح",
             "discount": "خصم",
-            "banner_join": "انضم للقناة",
-            "attach_file": "إرفاق ملف",
+            "banner_join": "انضم إلى القناة",
+            "attach_file": "📎",
             "file": "ملف",
             "photo": "صورة",
             "video": "فيديو",
@@ -841,95 +1245,230 @@ async def get_translations(lang: str):
             "payment_processing": "جاري معالجة الدفع...",
             "select_crypto": "اختر العملة المشفرة",
             "amount": "المبلغ",
-            "usd": "USD",
-            "pay_now": "ادفع الآن",
-            "booking_profile": "ملف الحجز"
+            "usd": "دولار",
+            "pay_now": "لقد دفعت",
+            "booking_profile": "حجز الملف",
+            "vip_catalog": "كتالوج VIP",
+            "extra_vip_catalog": "VIP الإضافي",
+            "secret_catalog": "الكتالوج السري",
+            "unlock_access": "فتح الوصول",
+            "premium_profiles_count": "الملفات المميزة",
+            "blurred_preview": "معاينة ضبابية",
+            "access_denied": "تم رفض الوصول",
+            "pay_to_unlock": "ادفع لفتح الوصول الكامل",
+            "view_all_profiles": "عرض جميع الملفات",
+            "from_age": "من",
+            "years_short": "سنة",
+            "comment_permission_required": "لترك تعليقات، تحتاج إلى استخدام خدماتنا أولاً",
+            "complete_transaction_to_comment": "أكمل معاملة لفتح التعليقات"
         },
-        "zh": {
-            "app_name": "Ashoo",
-            "subtitle": "100% 匿名约会",
-            "premium_profiles": "高级资料",
-            "online_now": "在线",
-            "anonymous_dating": "匿名约会",
-            "filters": "筛选",
-            "city": "城市",
-            "nationality": "国籍",
-            "travel_city": "出发城市",
-            "all_cities": "所有城市",
-            "all_nationalities": "所有国籍",
-            "age": "年龄",
-            "height": "身高 (厘米)",
-            "weight": "体重 (公斤)",
-            "chest": "胸围",
+        "de": {
+            "app_name": "Muji",
+            "subtitle": "100% Anonymes Dating",
+            "premium_profiles": "Premium Profile",
+            "online_now": "Jetzt online",
+            "anonymous_dating": "Anonymes Dating",
+            "filters": "Filter",
+            "city": "Stadt",
+            "nationality": "Nationalität",
+            "travel_city": "Reisestadt",
+            "all_cities": "Alle Städte",
+            "all_nationalities": "Alle Nationalitäten",
+            "age": "Alter",
+            "height": "Größe (cm)",
+            "weight": "Gewicht (kg)",
+            "chest": "Brust",
+            "gender": "Geschlecht",
+            "all_genders": "Alle Geschlechter",
+            "male": "Männlich",
+            "female": "Weiblich",
+            "transgender": "Transgender",
             "chest_sizes": {
-                "1": "1胸围",
-                "2": "2胸围",
-                "3": "3胸围",
-                "4": "4胸围",
-                "5": "5胸围",
-                "6": "6胸围",
-                "7": "7胸围",
-                "8": "8胸围",
-                "9": "9胸围",
-                "10": "10胸围",
-                "11": "11胸围",
-                "12": "12胸围"
+                "1": "1 Brust",
+                "2": "2 Brust",
+                "3": "3 Brust",
+                "4": "4 Brust",
+                "5": "5 Brust",
+                "6": "6 Brust",
+                "7": "7 Brust",
+                "8": "8 Brust",
+                "9": "9 Brust",
+                "10": "10 Brust",
+                "11": "11 Brust",
+                "12": "12 Brust"
             },
-            "reset": "重置",
-            "apply": "应用",
-            "loading": "加载个人资料...",
-            "loading_more": "加载更多个人资料...",
-            "view_profile": "查看资料",
-            "write_message": "发送消息",
-            "book_with_crypto": "加密货币预订",
-            "more": "更多",
-            "share": "分享",
-            "chat_with": "与聊天",
-            "type_message": "输入消息...",
+            "reset": "Zurücksetzen",
+            "apply": "Anwenden",
+            "loading": "Profile werden geladen...",
+            "loading_more": "Weitere Profile werden geladen...",
+            "view_profile": "Profil anzeigen",
+            "write_message": "Nachricht schreiben",
+            "book_with_crypto": "Mit Krypto buchen",
+            "more": "Mehr",
+            "share": "Teilen",
+            "chat_with": "Chat mit",
+            "type_message": "Nachricht eingeben...",
             "send": "➤",
-            "no_chats": "没有活跃聊天",
-            "no_profiles": "未找到个人资料",
-            "new": "新",
-            "years": "岁",
-            "cm": "厘米",
-            "kg": "公斤",
-            "download": "下载",
-            "pay_with_crypto": "加密货币支付",
-            "crypto_payment": "加密货币支付",
-            "select_network": "选择网络",
-            "wallet_address": "钱包地址",
-            "copy": "复制",
-            "copied": "已复制！",
-            "close": "关闭",
-            "payment_awaiting": "等待确认",
-            "payment_processing": "您的付款正在处理中。请等待确认消息。",
-            "travel_cities": "出发城市",
-            "description": "描述",
-            "welcome_message": "你好！给我发消息吧",
-            "error_sending": "发送消息错误",
-            "promocode": "优惠码",
-            "enter_promocode": "输入优惠码",
-            "apply_promocode": "应用",
-            "promocode_applied": "优惠码已应用！",
-            "promocode_invalid": "无效优惠码",
-            "discount": "折扣",
-            "banner_join": "加入频道",
-            "attach_file": "附加文件",
-            "file": "文件",
-            "photo": "照片",
-            "video": "视频",
-            "add_comment": "添加评论",
-            "comments": "评论",
-            "no_comments": "暂无评论",
-            "your_comment": "您的评论",
-            "post_comment": "发表评论",
-            "rating": "评分",
-            "payment_processing": "处理支付中...",
-            "select_crypto": "选择加密货币",
-            "amount": "金额",
+            "no_chats": "Keine aktiven Chats",
+            "no_profiles": "Keine Profile gefunden",
+            "new": "NEU",
+            "years": "Jahre",
+            "cm": "cm",
+            "kg": "kg",
+            "download": "Herunterladen",
+            "pay_with_crypto": "Mit Krypto bezahlen",
+            "crypto_payment": "Krypto-Zahlung",
+            "select_network": "Netzwerk auswählen",
+            "wallet_address": "Wallet-Adresse",
+            "copy": "Kopieren",
+            "copied": "Kopiert!",
+            "close": "Schließen",
+            "payment_awaiting": "Warte auf Bestätigung",
+            "payment_processing": "Ihre Buchung wird im Chat bestätigt, Sie können diese Seite schließen.",
+            "travel_cities": "Reisestädte",
+            "description": "Beschreibung",
+            "welcome_message": "Hallo! Schreiben Sie mir eine Nachricht",
+            "error_sending": "Fehler beim Senden der Nachricht",
+            "promocode": "Promo-Code",
+            "enter_promocode": "Promo-Code eingeben",
+            "apply_promocode": "Anwenden",
+            "promocode_applied": "Promo-Code angewendet!",
+            "promocode_invalid": "Ungültiger Promo-Code",
+            "discount": "Rabatt",
+            "banner_join": "Kanal beitreten",
+            "attach_file": "📎",
+            "file": "Datei",
+            "photo": "Foto",
+            "video": "Video",
+            "add_comment": "Kommentar hinzufügen",
+            "comments": "Kommentare",
+            "no_comments": "Noch keine Kommentare",
+            "your_comment": "Ihr Kommentar",
+            "post_comment": "Kommentar posten",
+            "rating": "Bewertung",
+            "payment_processing": "Zahlung wird verarbeitet...",
+            "select_crypto": "Kryptowährung auswählen",
+            "amount": "Betrag",
             "usd": "USD",
-            "pay_now": "立即支付",
-            "booking_profile": "预订资料"
+            "pay_now": "Ich habe bezahlt",
+            "booking_profile": "Profil buchen",
+            "vip_catalog": "VIP-Katalog",
+            "extra_vip_catalog": "Extra VIP",
+            "secret_catalog": "Geheimer Katalog",
+            "unlock_access": "Zugang freischalten",
+            "premium_profiles_count": "Premium-Profile",
+            "blurred_preview": "Verschwommene Vorschau",
+            "access_denied": "Zugriff verweigert",
+            "pay_to_unlock": "Bezahlen Sie, um vollen Zugriff zu erhalten",
+            "view_all_profiles": "Alle Profile anzeigen",
+            "from_age": "von",
+            "years_short": "Jahre",
+            "comment_permission_required": "Um Kommentare zu hinterlassen, müssen Sie zuerst unsere Dienste nutzen",
+            "complete_transaction_to_comment": "Schließen Sie eine Transaktion ab, um Kommentare freizuschalten"
+        },
+        "es": {
+            "app_name": "Muji",
+            "subtitle": "Citas 100% Anónimas",
+            "premium_profiles": "Perfiles Premium",
+            "online_now": "En Línea",
+            "anonymous_dating": "Citas Anónimas",
+            "filters": "Filtros",
+            "city": "Ciudad",
+            "nationality": "Nacionalidad",
+            "travel_city": "Ciudad de Viaje",
+            "all_cities": "Todas las ciudades",
+            "all_nationalities": "Todas las nacionalidades",
+            "age": "Edad",
+            "height": "Altura (cm)",
+            "weight": "Peso (kg)",
+            "chest": "Pecho",
+            "gender": "Género",
+            "all_genders": "Todos los géneros",
+            "male": "Masculino",
+            "female": "Femenino",
+            "transgender": "Transgénero",
+            "chest_sizes": {
+                "1": "1 pecho",
+                "2": "2 pecho",
+                "3": "3 pecho",
+                "4": "4 pecho",
+                "5": "5 pecho",
+                "6": "6 pecho",
+                "7": "7 pecho",
+                "8": "8 pecho",
+                "9": "9 pecho",
+                "10": "10 pecho",
+                "11": "11 pecho",
+                "12": "12 pecho"
+            },
+            "reset": "Restablecer",
+            "apply": "Aplicar",
+            "loading": "Cargando perfiles...",
+            "loading_more": "Cargando más perfiles...",
+            "view_profile": "Ver Perfil",
+            "write_message": "Escribir Mensaje",
+            "book_with_crypto": "Reservar con Cripto",
+            "more": "Más",
+            "share": "Compartir",
+            "chat_with": "Chat con",
+            "type_message": "Escribe un mensaje...",
+            "send": "➤",
+            "no_chats": "No hay chats activos",
+            "no_profiles": "No se encontraron perfiles",
+            "new": "NUEVO",
+            "years": "años",
+            "cm": "cm",
+            "kg": "kg",
+            "download": "Descargar",
+            "pay_with_crypto": "Pagar con Cripto",
+            "crypto_payment": "Pago con Cripto",
+            "select_network": "Seleccionar Red",
+            "wallet_address": "Dirección de Wallet",
+            "copy": "Copiar",
+            "copied": "¡Copiado!",
+            "close": "Cerrar",
+            "payment_awaiting": "Esperando Confirmación",
+            "payment_processing": "Su reserva será confirmada en el chat, puede cerrar esta página.",
+            "travel_cities": "Ciudades de Viaje",
+            "description": "Descripción",
+            "welcome_message": "¡Hola! Escríbeme un mensaje",
+            "error_sending": "Error al enviar mensaje",
+            "promocode": "Código Promocional",
+            "enter_promocode": "Ingresar código promocional",
+            "apply_promocode": "Aplicar",
+            "promocode_applied": "¡Código promocional aplicado!",
+            "promocode_invalid": "Código promocional inválido",
+            "discount": "Descuento",
+            "banner_join": "Unirse al Canal",
+            "attach_file": "📎",
+            "file": "Archivo",
+            "photo": "Foto",
+            "video": "Video",
+            "add_comment": "Agregar Comentario",
+            "comments": "Comentarios",
+            "no_comments": "Aún no hay comentarios",
+            "your_comment": "Tu comentario",
+            "post_comment": "Publicar Comentario",
+            "rating": "Calificación",
+            "payment_processing": "Procesando pago...",
+            "select_crypto": "Seleccionar Criptomoneda",
+            "amount": "Cantidad",
+            "usd": "USD",
+            "pay_now": "He Pagado",
+            "booking_profile": "Reservar Perfil",
+            "vip_catalog": "Catálogo VIP",
+            "extra_vip_catalog": "Extra VIP",
+            "secret_catalog": "Catálogo Secreto",
+            "unlock_access": "Desbloquear Acceso",
+            "premium_profiles_count": "perfiles premium",
+            "blurred_preview": "Vista Previa Difuminada",
+            "access_denied": "Acceso Denegado",
+            "pay_to_unlock": "Pague para desbloquear el acceso completo",
+            "view_all_profiles": "Ver Todos los Perfiles",
+            "from_age": "de",
+            "years_short": "años",
+            "comment_permission_required": "Para dejar comentarios, primero debe usar nuestros servicios",
+            "complete_transaction_to_comment": "Complete una transacción para desbloquear comentarios"
         }
     }
 
@@ -937,9 +1476,9 @@ async def get_translations(lang: str):
 
 @app.get("/api/test")
 async def test():
-    return {"status": "ok", "message": "Сервер работает!"}
+    return {"status": "ok", "message": "Сервер Muji работает!"}
 
 if __name__ == "__main__":
-    print("🚀 Сервер запущен: http://localhost:8001")
-    print("🎨 Исправленные фичи: анонимные комментарии, улучшенный чат, полный перевод!")
+    print("🚀 Сервер Muji запущен: http://localhost:8001")
+    print("🎨 Исправления: VIP анкеты, переименование, улучшенные кнопки!")
     uvicorn.run(app, host="0.0.0.0", port=8001, access_log=False)
