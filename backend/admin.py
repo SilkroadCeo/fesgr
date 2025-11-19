@@ -14,7 +14,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Admin Panel - UPDATED VERSION")
+app = FastAPI(title="Admin Panel - Shinei")
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,6 +35,7 @@ def load_data():
     if not os.path.exists(DATA_FILE):
         return {
             "profiles": [],
+            "vip_profiles": [],
             "chats": [],
             "messages": [],
             "comments": [],
@@ -50,6 +51,26 @@ def load_data():
                     "visible": True,
                     "link": "https://t.me/yourchannel",
                     "link_text": "Join Channel"
+                },
+                "vip_catalogs": {
+                    "vip": {
+                        "name": "VIP Catalog",
+                        "price": 100,
+                        "redirect_url": "https://t.me/vip_channel",
+                        "visible": True
+                    },
+                    "extra_vip": {
+                        "name": "Extra VIP",
+                        "price": 200,
+                        "redirect_url": "https://t.me/extra_vip_channel",
+                        "visible": True
+                    },
+                    "secret": {
+                        "name": "Secret Catalog",
+                        "price": 300,
+                        "redirect_url": "https://t.me/secret_channel",
+                        "visible": True
+                    }
                 }
             }
         }
@@ -68,17 +89,40 @@ def load_data():
                         "visible": True,
                         "link": "https://t.me/yourchannel",
                         "link_text": "Join Channel"
+                    },
+                    "vip_catalogs": {
+                        "vip": {
+                            "name": "VIP Catalog",
+                            "price": 100,
+                            "redirect_url": "https://t.me/vip_channel",
+                            "visible": True
+                        },
+                        "extra_vip": {
+                            "name": "Extra VIP",
+                            "price": 200,
+                            "redirect_url": "https://t.me/extra_vip_channel",
+                            "visible": True
+                        },
+                        "secret": {
+                            "name": "Secret Catalog",
+                            "price": 300,
+                            "redirect_url": "https://t.me/secret_channel",
+                            "visible": True
+                        }
                     }
                 }
             if "promocodes" not in data:
                 data["promocodes"] = []
             if "comments" not in data:
                 data["comments"] = []
+            if "vip_profiles" not in data:
+                data["vip_profiles"] = []
             return data
     except Exception as e:
         logger.error(f"Error loading data: {e}")
         return {
             "profiles": [],
+            "vip_profiles": [],
             "chats": [],
             "messages": [],
             "comments": [],
@@ -94,6 +138,26 @@ def load_data():
                     "visible": True,
                     "link": "https://t.me/yourchannel",
                     "link_text": "Join Channel"
+                },
+                "vip_catalogs": {
+                    "vip": {
+                        "name": "VIP Catalog",
+                        "price": 100,
+                        "redirect_url": "https://t.me/vip_channel",
+                        "visible": True
+                    },
+                    "extra_vip": {
+                        "name": "Extra VIP",
+                        "price": 200,
+                        "redirect_url": "https://t.me/extra_vip_channel",
+                        "visible": True
+                    },
+                    "secret": {
+                        "name": "Secret Catalog",
+                        "price": 300,
+                        "redirect_url": "https://t.me/secret_channel",
+                        "visible": True
+                    }
                 }
             }
         }
@@ -143,7 +207,7 @@ async def admin_dashboard():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Admin Panel - Ashoo (UPDATED)</title>
+        <title>Admin Panel - Shinei</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
@@ -281,17 +345,37 @@ async def admin_dashboard():
             .comment-management-item { background: rgba(255, 107, 157, 0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(255, 107, 157, 0.2); }
             .comment-management-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
             .comment-profile { font-weight: 600; color: #ff6b9d; }
+
+            /* Стили для VIP каталогов */
+            .vip-catalogs-settings { background: rgba(255, 107, 157, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #ff6b9d; margin-bottom: 20px; }
+            .catalog-item { background: rgba(255, 107, 157, 0.05); padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255, 107, 157, 0.2); }
+            .catalog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+            .catalog-name { font-size: 18px; font-weight: 700; color: #ff6b9d; }
+            .catalog-price { background: #28a745; color: white; padding: 5px 10px; border-radius: 8px; font-weight: 600; }
+
+            /* Стили для VIP анкет */
+            .vip-profile-card { background: rgba(102, 126, 234, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #667eea; margin-bottom: 15px; }
+            .vip-profile-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+            .vip-profile-name { font-size: 18px; font-weight: 700; color: #667eea; }
+            .vip-profile-age { background: #667eea; color: white; padding: 5px 10px; border-radius: 8px; font-weight: 600; }
+
+            /* Стили для управления VIP превью */
+            .vip-preview-management { background: rgba(102, 126, 234, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #667eea; margin-bottom: 20px; }
+            .vip-preview-item { background: rgba(102, 126, 234, 0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(102, 126, 234, 0.2); }
+            .vip-preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+            .vip-preview-name { font-weight: 600; color: #667eea; }
         </style>
     </head>
     <body>
         <div class="container">
             <header>
-                <h1>Admin Panel - Ashoo (UPDATED VERSION)</h1>
-                <p>Comments Management | Anonymous Comments | Improved Chat</p>
+                <h1>Admin Panel - Shinei</h1>
+                <p>VIP Catalogs | Gender Filter | VIP Profiles Management</p>
             </header>
 
             <div class="stats">
                 <div class="stat-card"><h3>Profiles</h3><p id="profiles-count">0</p></div>
+                <div class="stat-card"><h3>VIP Profiles</h3><p id="vip-profiles-count">0</p></div>
                 <div class="stat-card"><h3>Chats</h3><p id="chats-count">0</p></div>
                 <div class="stat-card"><h3>Messages</h3><p id="messages-count">0</p></div>
                 <div class="stat-card"><h3>Comments</h3><p id="comments-count">0</p></div>
@@ -300,17 +384,26 @@ async def admin_dashboard():
 
             <div class="tabs">
                 <button class="tab active" onclick="showTab('profiles')">Profiles</button>
+                <button class="tab" onclick="showTab('vip-profiles')">VIP Profiles</button>
                 <button class="tab" onclick="showTab('chats')">Chats</button>
                 <button class="tab" onclick="showTab('comments')">Comments</button>
                 <button class="tab" onclick="showTab('add-profile')">Add Profile</button>
+                <button class="tab" onclick="showTab('add-vip-profile')">Add VIP Profile</button>
                 <button class="tab" onclick="showTab('promocodes')">Promocodes</button>
                 <button class="tab" onclick="showTab('banner-settings')">Banner Settings</button>
                 <button class="tab" onclick="showTab('crypto-settings')">Crypto Settings</button>
+                <button class="tab" onclick="showTab('vip-catalogs')">VIP Catalogs</button>
+                <button class="tab" onclick="showTab('vip-preview')">VIP Preview Management</button>
             </div>
 
             <div id="profiles" class="content active">
                 <h3>Manage Profiles</h3>
                 <div id="profiles-list" class="profile-grid"></div>
+            </div>
+
+            <div id="vip-profiles" class="content">
+                <h3>Manage VIP Profiles</h3>
+                <div id="vip-profiles-list" class="profile-grid"></div>
             </div>
 
             <div id="chats" class="content">
@@ -336,6 +429,15 @@ async def admin_dashboard():
                     <div class="form-group">
                         <label>Age:</label>
                         <input type="number" id="age" required min="18" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Gender:</label>
+                        <select id="gender" required>
+                            <option value="female">Female</option>
+                            <option value="male">Male</option>
+                            <option value="transgender">Transgender</option>
+                        </select>
                     </div>
 
                     <div class="form-group">
@@ -402,6 +504,48 @@ async def admin_dashboard():
                 </form>
             </div>
 
+            <div id="add-vip-profile" class="content">
+                <h3>Add VIP Profile</h3>
+                <form id="add-vip-profile-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label>Name:</label>
+                        <input type="text" id="vip-name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Age:</label>
+                        <input type="number" id="vip-age" required min="12" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Gender:</label>
+                        <select id="vip-gender" required>
+                            <option value="female">Female</option>
+                            <option value="male">Male</option>
+                            <option value="transgender">Transgender</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>City:</label>
+                        <input type="text" id="vip-city" required placeholder="e.g., Moscow">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Upload Photos:</label>
+                        <div class="file-upload">
+                            <input type="file" id="vip-photo-upload" accept="image/*" multiple style="display: none;">
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('vip-photo-upload').click()">
+                                Select Photos (Multiple)
+                            </button>
+                            <div class="uploaded-photos" id="vip-uploaded-photos"></div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success">Add VIP Profile</button>
+                </form>
+            </div>
+
             <div id="promocodes" class="content">
                 <h3>Manage Promocodes</h3>
                 <div class="form-group">
@@ -465,10 +609,134 @@ async def admin_dashboard():
                     <button class="btn btn-primary" onclick="saveCryptoWallets()">Save Wallet Addresses</button>
                 </div>
             </div>
+
+            <div id="vip-catalogs" class="content">
+                <h3>VIP Catalogs Settings</h3>
+                <div class="vip-catalogs-settings">
+                    <div class="catalog-item">
+                        <div class="catalog-header">
+                            <span class="catalog-name">VIP Catalog</span>
+                            <span class="catalog-price">$100</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Catalog Name:</label>
+                            <input type="text" id="vip-catalog-name" class="catalog-input" value="VIP Catalog">
+                        </div>
+                        <div class="form-group">
+                            <label>Price ($):</label>
+                            <input type="number" id="vip-catalog-price" class="catalog-input" value="100" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Redirect URL:</label>
+                            <input type="text" id="vip-catalog-url" class="catalog-input" value="https://t.me/vip_channel">
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center;">
+                                Show Catalog:
+                                <label class="switch">
+                                    <input type="checkbox" id="vip-catalog-visible" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="catalog-item">
+                        <div class="catalog-header">
+                            <span class="catalog-name">Extra VIP</span>
+                            <span class="catalog-price">$200</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Catalog Name:</label>
+                            <input type="text" id="extra-vip-catalog-name" class="catalog-input" value="Extra VIP">
+                        </div>
+                        <div class="form-group">
+                            <label>Price ($):</label>
+                            <input type="number" id="extra-vip-catalog-price" class="catalog-input" value="200" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Redirect URL:</label>
+                            <input type="text" id="extra-vip-catalog-url" class="catalog-input" value="https://t.me/extra_vip_channel">
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center;">
+                                Show Catalog:
+                                <label class="switch">
+                                    <input type="checkbox" id="extra-vip-catalog-visible" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="catalog-item">
+                        <div class="catalog-header">
+                            <span class="catalog-name">Secret Catalog</span>
+                            <span class="catalog-price">$300</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Catalog Name:</label>
+                            <input type="text" id="secret-catalog-name" class="catalog-input" value="Secret Catalog">
+                        </div>
+                        <div class="form-group">
+                            <label>Price ($):</label>
+                            <input type="number" id="secret-catalog-price" class="catalog-input" value="300" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Redirect URL:</label>
+                            <input type="text" id="secret-catalog-url" class="catalog-input" value="https://t.me/secret_channel">
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center;">
+                                Show Catalog:
+                                <label class="switch">
+                                    <input type="checkbox" id="secret-catalog-visible" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="saveVipCatalogs()">Save VIP Catalogs Settings</button>
+                </div>
+            </div>
+
+            <div id="vip-preview" class="content">
+                <h3>VIP Preview Management</h3>
+                <div class="vip-preview-management">
+                    <div class="form-group">
+                        <label>Select VIP Catalog:</label>
+                        <select id="vip-catalog-select" class="modern-select" onchange="loadVipPreviewProfiles()">
+                            <option value="vip">VIP Catalog</option>
+                            <option value="extra_vip">Extra VIP</option>
+                            <option value="secret">Secret Catalog</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Available VIP Profiles:</label>
+                        <select id="available-vip-profiles" class="modern-select" multiple style="height: 200px;">
+                            <!-- VIP profiles will be loaded here -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Selected Profiles for Preview (max 3):</label>
+                        <div id="selected-preview-profiles" class="profile-grid" style="grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));">
+                            <!-- Selected profiles will be shown here -->
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="saveVipPreview()">Save Preview Settings</button>
+                </div>
+            </div>
         </div>
 
         <script>
             let uploadedPhotoFiles = [];
+            let uploadedVipPhotoFiles = [];
+            let availableVipProfiles = [];
+            let selectedPreviewProfiles = [];
 
             // Функции для переключения вкладок
             function showTab(tabName) {
@@ -478,11 +746,14 @@ async def admin_dashboard():
                 event.target.classList.add('active');
 
                 if (tabName === 'profiles') loadProfiles();
+                if (tabName === 'vip-profiles') loadVipProfiles();
                 if (tabName === 'chats') loadChats();
                 if (tabName === 'comments') loadCommentsAdmin();
                 if (tabName === 'promocodes') loadPromocodes();
                 if (tabName === 'banner-settings') loadBannerSettings();
                 if (tabName === 'crypto-settings') loadCryptoWallets();
+                if (tabName === 'vip-catalogs') loadVipCatalogs();
+                if (tabName === 'vip-preview') loadVipPreviewManagement();
             }
 
             // Загрузка статистики
@@ -491,6 +762,7 @@ async def admin_dashboard():
                     const response = await fetch('/api/stats');
                     const stats = await response.json();
                     document.getElementById('profiles-count').textContent = stats.profiles_count;
+                    document.getElementById('vip-profiles-count').textContent = stats.vip_profiles_count;
                     document.getElementById('chats-count').textContent = stats.chats_count;
                     document.getElementById('messages-count').textContent = stats.messages_count;
                     document.getElementById('comments-count').textContent = stats.comments_count;
@@ -521,6 +793,7 @@ async def admin_dashboard():
                                 <span class="profile-id">ID: ${profile.id}</span>
                                 <span class="profile-name">${profile.name}</span>
                             </div>
+                            <p><strong>Gender:</strong> ${profile.gender || 'Not specified'}</p>
                             <p><strong>Nationality:</strong> ${profile.nationality || 'Not specified'}</p>
                             <p><strong>City:</strong> ${profile.city}</p>
                             <p><strong>Travel Cities:</strong> ${travelCities}</p>
@@ -550,6 +823,65 @@ async def admin_dashboard():
                     loadStats();
                 } catch (error) {
                     console.error('Error loading profiles:', error);
+                }
+            }
+
+            // Загрузка VIP анкет
+            async function loadVipProfiles() {
+                try {
+                    const response = await fetch('/api/admin/vip-profiles');
+                    const data = await response.json();
+                    const list = document.getElementById('vip-profiles-list');
+                    list.innerHTML = '';
+
+                    data.profiles.forEach(profile => {
+                        const photosHtml = profile.photos.map(photo => 
+                            `<img src="http://localhost:8002${photo}" alt="Profile photo" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #667eea;">`
+                        ).join('');
+
+                        const profileDiv = document.createElement('div');
+                        profileDiv.className = 'vip-profile-card';
+                        profileDiv.innerHTML = `
+                            <div class="vip-profile-header">
+                                <span class="vip-profile-name">${profile.name}</span>
+                                <span class="vip-profile-age">${profile.age} y.o.</span>
+                            </div>
+                            <p><strong>Gender:</strong> ${profile.gender || 'Not specified'}</p>
+                            <p><strong>City:</strong> ${profile.city}</p>
+                            <p><strong>Photos:</strong></p>
+                            <div class="photo-preview">
+                                ${photosHtml}
+                            </div>
+                            <div style="margin-top: 15px;">
+                                <button class="btn btn-danger" onclick="deleteVipProfile(${profile.id})">
+                                    Delete
+                                </button>
+                            </div>
+                        `;
+                        list.appendChild(profileDiv);
+                    });
+
+                    loadStats();
+                } catch (error) {
+                    console.error('Error loading VIP profiles:', error);
+                }
+            }
+
+            // Удаление VIP анкеты
+            async function deleteVipProfile(profileId) {
+                if (!confirm('Delete VIP profile? This action cannot be undone!')) return;
+
+                try {
+                    const response = await fetch(`/api/admin/vip-profiles/${profileId}`, {method: 'DELETE'});
+                    if (response.ok) {
+                        alert('VIP Profile deleted!');
+                        loadVipProfiles();
+                    } else {
+                        alert('Error deleting VIP profile');
+                    }
+                } catch (error) {
+                    console.error('Error deleting VIP profile:', error);
+                    alert('Error deleting VIP profile');
                 }
             }
 
@@ -586,6 +918,162 @@ async def admin_dashboard():
                     console.error('Error deleting profile:', error);
                     alert('Error deleting profile');
                 }
+            }
+
+            // Загрузка VIP каталогов
+            async function loadVipCatalogs() {
+                try {
+                    const response = await fetch('/api/vip-catalogs');
+                    const catalogs = await response.json();
+
+                    document.getElementById('vip-catalog-name').value = catalogs.vip?.name || 'VIP Catalog';
+                    document.getElementById('vip-catalog-price').value = catalogs.vip?.price || 100;
+                    document.getElementById('vip-catalog-url').value = catalogs.vip?.redirect_url || 'https://t.me/vip_channel';
+                    document.getElementById('vip-catalog-visible').checked = catalogs.vip?.visible !== false;
+
+                    document.getElementById('extra-vip-catalog-name').value = catalogs.extra_vip?.name || 'Extra VIP';
+                    document.getElementById('extra-vip-catalog-price').value = catalogs.extra_vip?.price || 200;
+                    document.getElementById('extra-vip-catalog-url').value = catalogs.extra_vip?.redirect_url || 'https://t.me/extra_vip_channel';
+                    document.getElementById('extra-vip-catalog-visible').checked = catalogs.extra_vip?.visible !== false;
+
+                    document.getElementById('secret-catalog-name').value = catalogs.secret?.name || 'Secret Catalog';
+                    document.getElementById('secret-catalog-price').value = catalogs.secret?.price || 300;
+                    document.getElementById('secret-catalog-url').value = catalogs.secret?.redirect_url || 'https://t.me/secret_channel';
+                    document.getElementById('secret-catalog-visible').checked = catalogs.secret?.visible !== false;
+                } catch (error) {
+                    console.error('Error loading VIP catalogs:', error);
+                }
+            }
+
+            // Сохранение VIP каталогов
+            async function saveVipCatalogs() {
+                try {
+                    const catalogs = {
+                        vip: {
+                            name: document.getElementById('vip-catalog-name').value,
+                            price: parseInt(document.getElementById('vip-catalog-price').value),
+                            redirect_url: document.getElementById('vip-catalog-url').value,
+                            visible: document.getElementById('vip-catalog-visible').checked
+                        },
+                        extra_vip: {
+                            name: document.getElementById('extra-vip-catalog-name').value,
+                            price: parseInt(document.getElementById('extra-vip-catalog-price').value),
+                            redirect_url: document.getElementById('extra-vip-catalog-url').value,
+                            visible: document.getElementById('extra-vip-catalog-visible').checked
+                        },
+                        secret: {
+                            name: document.getElementById('secret-catalog-name').value,
+                            price: parseInt(document.getElementById('secret-catalog-price').value),
+                            redirect_url: document.getElementById('secret-catalog-url').value,
+                            visible: document.getElementById('secret-catalog-visible').checked
+                        }
+                    };
+
+                    const response = await fetch('/api/vip-catalogs', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(catalogs)
+                    });
+
+                    if (response.ok) {
+                        alert('VIP catalogs settings saved!');
+                    } else {
+                        alert('Error saving VIP catalogs settings');
+                    }
+                } catch (error) {
+                    console.error('Error saving VIP catalogs:', error);
+                    alert('Error saving VIP catalogs settings');
+                }
+            }
+
+            // Загрузка управления VIP превью
+            async function loadVipPreviewManagement() {
+                await loadAvailableVipProfiles();
+                await loadVipPreviewProfiles();
+            }
+
+            // Загрузка доступных VIP анкет
+            async function loadAvailableVipProfiles() {
+                try {
+                    const response = await fetch('/api/admin/vip-profiles');
+                    const data = await response.json();
+                    availableVipProfiles = data.profiles;
+
+                    const select = document.getElementById('available-vip-profiles');
+                    select.innerHTML = '';
+
+                    availableVipProfiles.forEach(profile => {
+                        const option = document.createElement('option');
+                        option.value = profile.id;
+                        option.textContent = `${profile.name} (${profile.age} y.o., ${profile.city})`;
+                        select.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Error loading VIP profiles:', error);
+                }
+            }
+
+            // Загрузка выбранных превью профилей
+            async function loadVipPreviewProfiles() {
+                const catalogKey = document.getElementById('vip-catalog-select').value;
+                // Здесь будет загрузка сохраненных превью профилей для выбранного каталога
+                // Пока просто очищаем выбранные профили
+                selectedPreviewProfiles = [];
+                updateSelectedPreviewDisplay();
+            }
+
+            // Обновление отображения выбранных превью профилей
+            function updateSelectedPreviewDisplay() {
+                const container = document.getElementById('selected-preview-profiles');
+                container.innerHTML = '';
+
+                selectedPreviewProfiles.forEach(profileId => {
+                    const profile = availableVipProfiles.find(p => p.id == profileId);
+                    if (profile) {
+                        const profileDiv = document.createElement('div');
+                        profileDiv.className = 'vip-preview-item';
+                        profileDiv.innerHTML = `
+                            <div class="vip-preview-header">
+                                <span class="vip-preview-name">${profile.name}</span>
+                                <button class="btn btn-danger" onclick="removePreviewProfile(${profile.id})">Remove</button>
+                            </div>
+                            <p>Age: ${profile.age}</p>
+                            <p>City: ${profile.city}</p>
+                            <img src="http://localhost:8002${profile.photos[0]}" alt="${profile.name}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;">
+                        `;
+                        container.appendChild(profileDiv);
+                    }
+                });
+            }
+
+            // Добавление профиля в превью
+            function addPreviewProfile() {
+                const select = document.getElementById('available-vip-profiles');
+                const selectedOptions = Array.from(select.selectedOptions);
+
+                selectedOptions.forEach(option => {
+                    const profileId = parseInt(option.value);
+                    if (!selectedPreviewProfiles.includes(profileId) && selectedPreviewProfiles.length < 3) {
+                        selectedPreviewProfiles.push(profileId);
+                    }
+                });
+
+                updateSelectedPreviewDisplay();
+            }
+
+            // Удаление профиля из превью
+            function removePreviewProfile(profileId) {
+                selectedPreviewProfiles = selectedPreviewProfiles.filter(id => id !== profileId);
+                updateSelectedPreviewDisplay();
+            }
+
+            // Сохранение настроек превью
+            async function saveVipPreview() {
+                const catalogKey = document.getElementById('vip-catalog-select').value;
+
+                // Здесь будет сохранение выбранных профилей для превью
+                // Пока просто показываем сообщение
+                alert(`Preview settings saved for ${catalogKey} catalog with ${selectedPreviewProfiles.length} profiles`);
             }
 
             // Загрузка чатов
@@ -1114,10 +1602,43 @@ async def admin_dashboard():
                 this.value = '';
             });
 
+            // Загрузка фото для VIP профиля
+            document.getElementById('vip-photo-upload').addEventListener('change', function(e) {
+                const files = Array.from(e.target.files);
+                const uploadedPhotosContainer = document.getElementById('vip-uploaded-photos');
+
+                files.forEach(file => {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const photoData = e.target.result;
+                            uploadedVipPhotoFiles.push(file);
+
+                            const photoDiv = document.createElement('div');
+                            photoDiv.className = 'uploaded-photo';
+                            photoDiv.innerHTML = `
+                                <img src="${photoData}" alt="Uploaded photo">
+                                <button type="button" class="remove-photo" onclick="removeVipUploadedPhoto(${uploadedVipPhotoFiles.length - 1})">×</button>
+                            `;
+                            uploadedPhotosContainer.appendChild(photoDiv);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+
+                this.value = '';
+            });
+
             // Удаление загруженного фото
             window.removeUploadedPhoto = function(index) {
                 uploadedPhotoFiles.splice(index, 1);
                 updateUploadedPhotosDisplay();
+            };
+
+            // Удаление загруженного VIP фото
+            window.removeVipUploadedPhoto = function(index) {
+                uploadedVipPhotoFiles.splice(index, 1);
+                updateVipUploadedPhotosDisplay();
             };
 
             // Обновление отображения загруженных фото
@@ -1133,6 +1654,26 @@ async def admin_dashboard():
                         photoDiv.innerHTML = `
                             <img src="${e.target.result}" alt="Uploaded photo">
                             <button type="button" class="remove-photo" onclick="removeUploadedPhoto(${index})">×</button>
+                        `;
+                        uploadedPhotosContainer.appendChild(photoDiv);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            // Обновление отображения загруженных VIP фото
+            function updateVipUploadedPhotosDisplay() {
+                const uploadedPhotosContainer = document.getElementById('vip-uploaded-photos');
+                uploadedPhotosContainer.innerHTML = '';
+
+                uploadedVipPhotoFiles.forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const photoDiv = document.createElement('div');
+                        photoDiv.className = 'uploaded-photo';
+                        photoDiv.innerHTML = `
+                            <img src="${e.target.result}" alt="Uploaded photo">
+                            <button type="button" class="remove-photo" onclick="removeVipUploadedPhoto(${index})">×</button>
                         `;
                         uploadedPhotosContainer.appendChild(photoDiv);
                     };
@@ -1158,6 +1699,7 @@ async def admin_dashboard():
                 const formData = new FormData();
                 formData.append('name', document.getElementById('name').value);
                 formData.append('age', document.getElementById('age').value);
+                formData.append('gender', document.getElementById('gender').value);
                 formData.append('nationality', document.getElementById('nationality').value);
                 formData.append('city', document.getElementById('city').value);
                 formData.append('travel_cities', JSON.stringify(travelCities));
@@ -1190,6 +1732,49 @@ async def admin_dashboard():
                 } catch (error) {
                     console.error('Error adding profile:', error);
                     alert('Error adding profile: ' + error.message);
+                }
+            });
+
+            // Обработчик формы добавления VIP анкеты
+            document.getElementById('add-vip-profile-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                if (uploadedVipPhotoFiles.length === 0) {
+                    alert('Please upload at least one photo');
+                    return;
+                }
+
+                // Создаем FormData для отправки файлов
+                const formData = new FormData();
+                formData.append('name', document.getElementById('vip-name').value);
+                formData.append('age', document.getElementById('vip-age').value);
+                formData.append('gender', document.getElementById('vip-gender').value);
+                formData.append('city', document.getElementById('vip-city').value);
+
+                // Добавляем фото
+                uploadedVipPhotoFiles.forEach(file => {
+                    formData.append('photos', file);
+                });
+
+                try {
+                    const response = await fetch('/api/admin/vip-profiles', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        alert('VIP Profile added successfully!');
+                        this.reset();
+                        uploadedVipPhotoFiles = [];
+                        updateVipUploadedPhotosDisplay();
+                        showTab('vip-profiles');
+                    } else {
+                        const errorData = await response.json();
+                        alert('Error adding VIP profile: ' + (errorData.detail || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Error adding VIP profile:', error);
+                    alert('Error adding VIP profile: ' + error.message);
                 }
             });
 
@@ -1253,6 +1838,7 @@ async def get_stats():
     data = load_data()
     return {
         "profiles_count": len(data["profiles"]),
+        "vip_profiles_count": len(data.get("vip_profiles", [])),
         "chats_count": len(data["chats"]),
         "messages_count": len(data["messages"]),
         "comments_count": len(data.get("comments", [])),
@@ -1270,6 +1856,7 @@ async def get_admin_profiles():
 async def create_profile(
         name: str = Form(...),
         age: int = Form(...),
+        gender: str = Form(...),
         nationality: str = Form(...),
         city: str = Form(...),
         travel_cities: str = Form(...),
@@ -1305,6 +1892,7 @@ async def create_profile(
         "id": max_id + 1,
         "name": name,
         "age": age,
+        "gender": gender,
         "nationality": nationality,
         "city": city,
         "travel_cities": travel_cities_list,
@@ -1579,6 +2167,6 @@ async def update_admin_crypto_wallets(wallets: dict):
 
 
 if __name__ == "__main__":
-    print("🚀 Admin panel запущена: http://localhost:8002")
-    print("🎨 Новые функции: управление комментариями, анонимные комментарии!")
+    print("🚀 Admin panel Shinei запущена: http://localhost:8002")
+    print("🎨 Исправления: VIP анкеты, переименование, улучшенные кнопки!")
     uvicorn.run(app, host="0.0.0.0", port=8002, access_log=False)
