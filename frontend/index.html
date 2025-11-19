@@ -1729,7 +1729,6 @@
         <!-- Language Selector -->
         <div class="language-selector">
             <button class="language-btn" id="language-btn">
-                <span>🌐</span>
                 <span id="language-text">EN</span>
             </button>
             <div class="language-dropdown" id="language-dropdown">
@@ -2313,34 +2312,32 @@
         function renderVipCatalogs() {
             vipCatalogsGrid.innerHTML = '';
 
-            // Сначала загружаем VIP анкеты
-            loadVipProfiles().then(vipProfiles => {
-                Object.entries(vipCatalogs).forEach(([catalogKey, catalog]) => {
-                    if (!catalog.visible) return;
+            Object.entries(vipCatalogs).forEach(([catalogKey, catalog]) => {
+                if (!catalog.visible) return;
 
-                    const catalogDiv = document.createElement('div');
-                    catalogDiv.className = 'vip-catalog-card';
-                    catalogDiv.innerHTML = `
-                        <div class="vip-catalog-header">
-                            <span class="vip-catalog-name">${catalog.name}</span>
-                            <span class="vip-catalog-price">$${catalog.price}</span>
-                        </div>
-                        <div class="vip-profiles-grid" id="vip-profiles-${catalogKey}">
-                            <!-- VIP анкеты будут добавлены через JS -->
-                        </div>
-                        <div class="vip-catalog-stats">
-                            <span>${vipProfiles.length} ${translations.premium_profiles_count || 'premium profiles'}</span>
-                            <span>${translations.blurred_preview || 'Blurred Preview'}</span>
-                        </div>
-                        <a href="${catalog.redirect_url}" target="_blank" class="unlock-btn">
-                            ${translations.unlock_access || 'Unlock Access'} - $${catalog.price}
-                        </a>
-                    `;
-                    vipCatalogsGrid.appendChild(catalogDiv);
+                const catalogDiv = document.createElement('div');
+                catalogDiv.className = 'vip-catalog-card';
+                const previewProfiles = catalog.preview_profiles || [];
+                catalogDiv.innerHTML = `
+                    <div class="vip-catalog-header">
+                        <span class="vip-catalog-name">${catalog.name}</span>
+                        <span class="vip-catalog-price">$${catalog.price}</span>
+                    </div>
+                    <div class="vip-profiles-grid" id="vip-profiles-${catalogKey}">
+                        <!-- VIP анкеты будут добавлены через JS -->
+                    </div>
+                    <div class="vip-catalog-stats">
+                        <span>${previewProfiles.length} ${translations.premium_profiles_count || 'premium profiles'}</span>
+                        <span>${translations.blurred_preview || 'Blurred Preview'}</span>
+                    </div>
+                    <a href="${catalog.redirect_url}" target="_blank" class="unlock-btn">
+                        ${translations.unlock_access || 'Unlock Access'} - $${catalog.price}
+                    </a>
+                `;
+                vipCatalogsGrid.appendChild(catalogDiv);
 
-                    // Добавляем анкеты в этот каталог
-                    renderVipProfilesForCatalog(catalogKey, vipProfiles);
-                });
+                // Добавляем preview анкеты в этот каталог
+                renderVipProfilesForCatalog(catalogKey, previewProfiles);
             });
         }
 
@@ -2357,25 +2354,33 @@
         }
 
         // Отрисовка VIP анкет для каталога
-        function renderVipProfilesForCatalog(catalogKey, profiles) {
+        function renderVipProfilesForCatalog(catalogKey, previewProfiles) {
             const container = document.getElementById(`vip-profiles-${catalogKey}`);
             if (!container) return;
 
             container.innerHTML = '';
 
-            // Берем первые 3 анкеты для показа
-            const displayProfiles = profiles.slice(0, 3);
+            // Капитализация имени
+            function capitalize(str) {
+                if (!str) return '';
+                return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+            }
 
-            displayProfiles.forEach(profile => {
+            previewProfiles.forEach(profile => {
+                if (!profile.name) return;
+
                 const profileDiv = document.createElement('div');
                 profileDiv.className = 'vip-profile-preview';
+                // Используем placeholder изображение для preview профилей
                 profileDiv.innerHTML = `
-                    <img src="${profile.photos[0]}" alt="${profile.name}" class="vip-profile-image">
+                    <div class="vip-profile-image" style="background: linear-gradient(135deg, rgba(255,107,157,0.3), rgba(102,126,234,0.3)); display: flex; align-items: center; justify-content: center; filter: blur(8px);">
+                        <div style="font-size: 48px; color: rgba(255,255,255,0.5);">?</div>
+                    </div>
                     <div class="vip-profile-overlay">
                         <div class="vip-profile-info">
-                            <div class="vip-profile-name">${profile.name}</div>
+                            <div class="vip-profile-name">${capitalize(profile.name)}</div>
                             <div class="vip-profile-age">${profile.age} ${translations.years_short || 'y.o'}</div>
-                            <div class="vip-profile-city">${profile.city}</div>
+                            <div class="vip-profile-city">${capitalize(profile.city)}</div>
                         </div>
                     </div>
                 `;
@@ -3053,7 +3058,6 @@
                 const card = document.createElement('div');
                 card.className = 'card fade-in';
                 card.innerHTML = `
-                    <div class="card-badge">${translations.new}</div>
                     <img src="${profile.photos[0]}" alt="${profile.name}" class="card-image">
                     <div class="card-content">
                         <h3 class="card-title">${profile.name} <span class="card-age">${profile.age}</span></h3>

@@ -73,21 +73,36 @@ def load_data():
                         "price": 100,
                         "redirect_url": "https://t.me/vip_channel",
                         "visible": True,
-                        "preview_count": 3
+                        "preview_count": 3,
+                        "preview_profiles": [
+                            {"name": "Anna", "age": 23, "city": "Moscow"},
+                            {"name": "Sofia", "age": 21, "city": "Saint Petersburg"},
+                            {"name": "Maria", "age": 25, "city": "Kazan"}
+                        ]
                     },
                     "extra_vip": {
                         "name": "Extra VIP",
                         "price": 200,
                         "redirect_url": "https://t.me/extra_vip_channel",
                         "visible": True,
-                        "preview_count": 3
+                        "preview_count": 3,
+                        "preview_profiles": [
+                            {"name": "Elena", "age": 22, "city": "Novosibirsk"},
+                            {"name": "Victoria", "age": 24, "city": "Yekaterinburg"},
+                            {"name": "Daria", "age": 20, "city": "Krasnoyarsk"}
+                        ]
                     },
                     "secret": {
                         "name": "Secret Catalog",
                         "price": 300,
                         "redirect_url": "https://t.me/secret_channel",
                         "visible": True,
-                        "preview_count": 3
+                        "preview_count": 3,
+                        "preview_profiles": [
+                            {"name": "Anastasia", "age": 26, "city": "Vladivostok"},
+                            {"name": "Polina", "age": 23, "city": "Rostov"},
+                            {"name": "Alina", "age": 21, "city": "Sochi"}
+                        ]
                     }
                 }
             }
@@ -175,21 +190,36 @@ def load_data():
                         "price": 100,
                         "redirect_url": "https://t.me/vip_channel",
                         "visible": True,
-                        "preview_count": 3
+                        "preview_count": 3,
+                        "preview_profiles": [
+                            {"name": "Anna", "age": 23, "city": "Moscow"},
+                            {"name": "Sofia", "age": 21, "city": "Saint Petersburg"},
+                            {"name": "Maria", "age": 25, "city": "Kazan"}
+                        ]
                     },
                     "extra_vip": {
                         "name": "Extra VIP",
                         "price": 200,
                         "redirect_url": "https://t.me/extra_vip_channel",
                         "visible": True,
-                        "preview_count": 3
+                        "preview_count": 3,
+                        "preview_profiles": [
+                            {"name": "Elena", "age": 22, "city": "Novosibirsk"},
+                            {"name": "Victoria", "age": 24, "city": "Yekaterinburg"},
+                            {"name": "Daria", "age": 20, "city": "Krasnoyarsk"}
+                        ]
                     },
                     "secret": {
                         "name": "Secret Catalog",
                         "price": 300,
                         "redirect_url": "https://t.me/secret_channel",
                         "visible": True,
-                        "preview_count": 3
+                        "preview_count": 3,
+                        "preview_profiles": [
+                            {"name": "Anastasia", "age": 26, "city": "Vladivostok"},
+                            {"name": "Polina", "age": 23, "city": "Rostov"},
+                            {"name": "Alina", "age": 21, "city": "Sochi"}
+                        ]
                     }
                 }
             }
