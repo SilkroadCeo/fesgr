@@ -24,13 +24,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Security Configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production-" + secrets.token_urlsafe(32))
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-this-secret-key-in-production-" + secrets.token_urlsafe(16))
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
 
 # Admin credentials (in production, store in environment variables)
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYAiYeu3u6i")  # Default: "admin123"
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "$2b$12$YroIoz7e1mqecEnIjIADC.V2nITQvypDUoYy2gfHT3K4trP.BjATK")  # Default: "admin123"
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
