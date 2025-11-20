@@ -34,7 +34,11 @@ active_sessions = {}
 # Telegram Bot Token и настройки уведомлений
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8589549087:AAHsjfI75L4w5jgHFN-6RYqhT8dO-ffrkd8")
 # ID администратора для получения уведомлений (можно указать несколько через запятую)
-ADMIN_TELEGRAM_IDS = [int(id.strip()) for id in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",") if id.strip()]
+ADMIN_TELEGRAM_IDS = [int(id.strip()) for id in os.getenv("ADMIN_TELEGRAM_IDS", "5517770555").split(",") if id.strip()]
+
+# Хранилище для сопоставления Telegram сообщений с чатами
+# Ключ: message_id в Telegram, Значение: profile_id
+telegram_message_mapping = {}
 
 # Инициализация Telegram бота
 telegram_bot = None
@@ -114,12 +118,13 @@ async def get_current_user(request: Request):
     return user
 
 
-async def send_telegram_notification(message: str, profile_name: str = None, message_text: str = None, file_url: str = None):
+async def send_telegram_notification(message: str, profile_id: int = None, profile_name: str = None, message_text: str = None, file_url: str = None):
     """
     Отправка уведомления администратору в Telegram
 
     Args:
         message: Основное сообщение уведомления
+        profile_id: ID профиля (для сопоставления ответов)
         profile_name: Имя профиля, от которого пришло сообщение
         message_text: Текст сообщения от пользователя
         file_url: URL файла, если есть
@@ -129,7 +134,7 @@ async def send_telegram_notification(message: str, profile_name: str = None, mes
         return
 
     if not ADMIN_TELEGRAM_IDS:
-        logger.warning("⚠️ No admin Telegram IDs configured, skipping notification")
+        logger.warning("⚠️ No admin Telegram IDS configured, skipping notification")
         return
 
     try:
@@ -147,20 +152,132 @@ async def send_telegram_notification(message: str, profile_name: str = None, mes
 
         notification += f"\n⏰ <b>Время:</b> {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}"
 
+        # Добавляем инструкцию для ответа
+        if profile_id:
+            notification += f"\n\n💡 <i>Ответьте на это сообщение, чтобы отправить ответ пользователю</i>"
+
         # Отправляем уведомление всем администраторам
         for admin_id in ADMIN_TELEGRAM_IDS:
             try:
-                await telegram_bot.send_message(
+                sent_message = await telegram_bot.send_message(
                     chat_id=admin_id,
                     text=notification,
                     parse_mode='HTML'
                 )
+
+                # Сохраняем mapping для возможности ответа
+                if profile_id and sent_message:
+                    telegram_message_mapping[sent_message.message_id] = profile_id
+                    logger.info(f"📝 Mapped Telegram message {sent_message.message_id} to profile {profile_id}")
+
                 logger.info(f"✅ Notification sent to admin {admin_id}")
             except TelegramError as e:
                 logger.error(f"❌ Failed to send notification to admin {admin_id}: {e}")
 
     except Exception as e:
         logger.error(f"❌ Error sending Telegram notification: {e}")
+
+
+async def process_telegram_updates():
+    """
+    Обработка входящих сообщений от администратора в Telegram
+    """
+    if not telegram_bot:
+        return
+
+    try:
+        from telegram import Update
+
+        # Получаем последние обновления
+        offset = 0
+        while True:
+            try:
+                updates = await telegram_bot.get_updates(offset=offset, timeout=30)
+
+                for update in updates:
+                    offset = update.update_id + 1
+
+                    # Проверяем что это сообщение от администратора
+                    if update.message and update.message.from_user.id in ADMIN_TELEGRAM_IDS:
+                        # Проверяем что это ответ на наше уведомление
+                        if update.message.reply_to_message:
+                            replied_message_id = update.message.reply_to_message.message_id
+
+                            # Ищем соответствующий profile_id
+                            if replied_message_id in telegram_message_mapping:
+                                profile_id = telegram_message_mapping[replied_message_id]
+                                admin_reply_text = update.message.text
+
+                                logger.info(f"📨 Admin replied to profile {profile_id}: {admin_reply_text}")
+
+                                # Отправляем ответ в чат
+                                await send_admin_reply_from_telegram(profile_id, admin_reply_text)
+
+                await asyncio.sleep(1)
+
+            except Exception as e:
+                logger.error(f"❌ Error processing Telegram updates: {e}")
+                await asyncio.sleep(5)
+
+    except Exception as e:
+        logger.error(f"❌ Error in Telegram updates processor: {e}")
+
+
+async def send_admin_reply_from_telegram(profile_id: int, text: str):
+    """
+    Отправка ответа администратора из Telegram в чат с пользователем
+
+    Args:
+        profile_id: ID профиля
+        text: Текст ответа от администратора
+    """
+    try:
+        data = load_data()
+
+        # Находим профиль
+        profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+        if not profile:
+            logger.error(f"❌ Profile {profile_id} not found")
+            return
+
+        # Находим или создаем чат
+        chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+        if not chat:
+            chat = {
+                "id": len(data["chats"]) + 1,
+                "profile_id": profile_id,
+                "profile_name": profile["name"],
+                "created_at": datetime.now().isoformat()
+            }
+            data["chats"].append(chat)
+
+        # Создаем сообщение от администратора
+        message_data = {
+            "id": len(data["messages"]) + 1,
+            "chat_id": chat["id"],
+            "text": text,
+            "is_from_user": False,
+            "created_at": datetime.now().isoformat()
+        }
+        data["messages"].append(message_data)
+
+        # Сохраняем данные
+        save_data(data)
+        logger.info(f"✅ Admin reply from Telegram sent to profile {profile_id}")
+
+        # Отправляем подтверждение админу в Telegram
+        for admin_id in ADMIN_TELEGRAM_IDS:
+            try:
+                await telegram_bot.send_message(
+                    chat_id=admin_id,
+                    text=f"✅ Ваш ответ отправлен пользователю (профиль: {profile['name']})",
+                    parse_mode='HTML'
+                )
+            except:
+                pass
+
+    except Exception as e:
+        logger.error(f"❌ Error sending admin reply from Telegram: {e}")
 
 
 app = FastAPI(title="Admin Panel - Muji")
@@ -173,6 +290,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Запуск обработчика Telegram updates в фоновом режиме
+@app.on_event("startup")
+async def startup_event():
+    """Запуск фоновых задач при старте приложения"""
+    if telegram_bot and ADMIN_TELEGRAM_IDS:
+        logger.info("🚀 Starting Telegram updates processor...")
+        asyncio.create_task(process_telegram_updates())
+    else:
+        logger.warning("⚠️ Telegram bot not configured, skipping updates processor")
+
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(current_dir, "data.json")
@@ -2391,6 +2520,7 @@ async def send_user_message(profile_id: int, request: Request):
         try:
             await send_telegram_notification(
                 message="Новое сообщение от пользователя",
+                profile_id=profile_id,
                 profile_name=profile["name"],
                 message_text=message_data.get("text", ""),
                 file_url=message_data.get("file_url")
