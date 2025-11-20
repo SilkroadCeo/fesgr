@@ -261,9 +261,21 @@ async def send_admin_reply_from_telegram(profile_id: int, text: str):
         }
         data["messages"].append(message_data)
 
+        # Проверяем если это подтверждение оплаты
+        if text and "payment successful" in text.lower():
+            # Находим последний unpaid ордер для этого профиля
+            profile_orders = [o for o in data.get("orders", [])
+                            if o.get("profile_id") == profile_id and o.get("status") == "unpaid"]
+            if profile_orders:
+                # Обновляем статус последнего ордера
+                last_order = profile_orders[-1]
+                last_order["status"] = "paid"
+                last_order["paid_at"] = datetime.now().isoformat()
+                logger.info(f"Order #{last_order['id']} marked as paid for profile {profile_id} (from Telegram)")
+
         # Сохраняем данные
         save_data(data)
-        logger.info(f"✅ Admin reply from Telegram sent to profile {profile_id}")
+        logger.info(f"Admin reply from Telegram sent to profile {profile_id}")
 
         # Отправляем подтверждение админу в Telegram
         for admin_id in ADMIN_TELEGRAM_IDS:
@@ -2450,8 +2462,20 @@ async def send_admin_reply(
         if not has_files and not has_text:
             raise HTTPException(status_code=400, detail="Text or files is required")
 
+        # Проверяем если это подтверждение оплаты
+        if text and "payment successful" in text.lower():
+            # Находим последний unpaid ордер для этого профиля
+            profile_orders = [o for o in data.get("orders", [])
+                            if o.get("profile_id") == profile_id and o.get("status") == "unpaid"]
+            if profile_orders:
+                # Обновляем статус последнего ордера
+                last_order = profile_orders[-1]
+                last_order["status"] = "paid"
+                last_order["paid_at"] = datetime.now().isoformat()
+                logger.info(f"Order #{last_order['id']} marked as paid for profile {profile_id}")
+
         save_data(data)
-        logger.info("💾 Data saved successfully")
+        logger.info("Data saved successfully")
         return {"status": "sent"}
 
     except Exception as e:
