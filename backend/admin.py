@@ -14,6 +14,9 @@ import hmac
 import secrets
 import uuid
 from urllib.parse import parse_qs
+import asyncio
+from telegram import Bot
+from telegram.error import TelegramError
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -28,8 +31,20 @@ ADMIN_CREDENTIALS = {
 # Простое хранилище сессий
 active_sessions = {}
 
-# Telegram Bot Token (замените на ваш токен от @BotFather)
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+# Telegram Bot Token и настройки уведомлений
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8589549087:AAHsjfI75L4w5jgHFN-6RYqhT8dO-ffrkd8")
+# ID администратора для получения уведомлений (можно указать несколько через запятую)
+ADMIN_TELEGRAM_IDS = [int(id.strip()) for id in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",") if id.strip()]
+
+# Инициализация Telegram бота
+telegram_bot = None
+if TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
+    try:
+        telegram_bot = Bot(token=TELEGRAM_BOT_TOKEN)
+        logger.info("✅ Telegram bot initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize Telegram bot: {e}")
+        telegram_bot = None
 
 
 def verify_telegram_auth(init_data: str) -> bool:
@@ -97,6 +112,55 @@ async def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="Invalid session")
 
     return user
+
+
+async def send_telegram_notification(message: str, profile_name: str = None, message_text: str = None, file_url: str = None):
+    """
+    Отправка уведомления администратору в Telegram
+
+    Args:
+        message: Основное сообщение уведомления
+        profile_name: Имя профиля, от которого пришло сообщение
+        message_text: Текст сообщения от пользователя
+        file_url: URL файла, если есть
+    """
+    if not telegram_bot:
+        logger.warning("⚠️ Telegram bot not initialized, skipping notification")
+        return
+
+    if not ADMIN_TELEGRAM_IDS:
+        logger.warning("⚠️ No admin Telegram IDs configured, skipping notification")
+        return
+
+    try:
+        # Формируем красивое сообщение
+        notification = f"🔔 <b>{message}</b>\n\n"
+
+        if profile_name:
+            notification += f"👤 <b>Профиль:</b> {profile_name}\n"
+
+        if message_text:
+            notification += f"💬 <b>Сообщение:</b> {message_text}\n"
+
+        if file_url:
+            notification += f"📎 <b>Файл:</b> Прикреплен\n"
+
+        notification += f"\n⏰ <b>Время:</b> {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}"
+
+        # Отправляем уведомление всем администраторам
+        for admin_id in ADMIN_TELEGRAM_IDS:
+            try:
+                await telegram_bot.send_message(
+                    chat_id=admin_id,
+                    text=notification,
+                    parse_mode='HTML'
+                )
+                logger.info(f"✅ Notification sent to admin {admin_id}")
+            except TelegramError as e:
+                logger.error(f"❌ Failed to send notification to admin {admin_id}: {e}")
+
+    except Exception as e:
+        logger.error(f"❌ Error sending Telegram notification: {e}")
 
 
 app = FastAPI(title="Admin Panel - Muji")
@@ -2322,6 +2386,17 @@ async def send_user_message(profile_id: int, request: Request):
 
         save_data(data)
         logger.info("💾 Data saved successfully")
+
+        # Отправляем уведомление администратору в Telegram
+        try:
+            await send_telegram_notification(
+                message="Новое сообщение от пользователя",
+                profile_name=profile["name"],
+                message_text=message_data.get("text", ""),
+                file_url=message_data.get("file_url")
+            )
+        except Exception as e:
+            logger.error(f"❌ Failed to send Telegram notification: {e}")
 
         return {
             "status": "sent",
