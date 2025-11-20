@@ -1768,6 +1768,223 @@
         .fade-in {
             animation: fadeInUp 0.6s ease;
         }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            border-top: 1px solid rgba(255, 107, 157, 0.2);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            z-index: 1000;
+            box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            padding: 8px;
+            transition: all 0.3s ease;
+            position: relative;
+            text-decoration: none;
+            color: var(--text-secondary);
+        }
+
+        .nav-item:hover {
+            color: var(--primary);
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-icon {
+            font-size: 24px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .nav-badge {
+            position: absolute;
+            top: 5px;
+            right: 50%;
+            transform: translateX(10px);
+            background: var(--primary);
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: 700;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        /* Chats Page */
+        .page {
+            display: none;
+            padding-bottom: 80px;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .chats-list {
+            padding: 20px;
+        }
+
+        .chat-item {
+            background: var(--card);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 107, 157, 0.1);
+        }
+
+        .chat-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(255, 107, 157, 0.3);
+            border-color: var(--primary);
+        }
+
+        .chat-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--primary);
+        }
+
+        .chat-info {
+            flex: 1;
+        }
+
+        .chat-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 5px;
+        }
+
+        .chat-last-message {
+            font-size: 14px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .chat-unread {
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        /* Orders Page */
+        .orders-list {
+            padding: 20px;
+        }
+
+        .order-item {
+            background: var(--card);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 107, 157, 0.1);
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .order-status {
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .order-status.paid {
+            background: rgba(40, 167, 69, 0.2);
+            color: #28a745;
+        }
+
+        .order-status.unpaid {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+
+        .order-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .order-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .order-info {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .container {
+            padding-bottom: 80px;
+        }
     </style>
 
     <!-- PWA Manifest -->
@@ -2220,6 +2437,60 @@
                 <textarea class="chat-input" id="chat-input" placeholder="Type a message..." rows="1"></textarea>
             </div>
             <button class="chat-send" id="chat-send">➤</button>
+        </div>
+    </div>
+
+    <!-- Pages Container -->
+    <div id="pages-container">
+        <!-- Home/Profiles Page -->
+        <div id="home-page" class="page active">
+            <!-- Main content already here -->
+        </div>
+
+        <!-- Chats Page -->
+        <div id="chats-page" class="page">
+            <header class="main-header">
+                <h2 style="color: var(--primary); font-size: 24px; font-weight: 700;">💬 My Chats</h2>
+            </header>
+            <div class="chats-list" id="chats-list-container"></div>
+        </div>
+
+        <!-- Paid Orders Page -->
+        <div id="paid-orders-page" class="page">
+            <header class="main-header">
+                <h2 style="color: #28a745; font-size: 24px; font-weight: 700;">✅ Paid Orders</h2>
+            </header>
+            <div class="orders-list" id="paid-orders-list"></div>
+        </div>
+
+        <!-- Unpaid Orders Page -->
+        <div id="unpaid-orders-page" class="page">
+            <header class="main-header">
+                <h2 style="color: #ffc107; font-size: 24px; font-weight: 700;">⏳ Pending Orders</h2>
+            </header>
+            <div class="orders-list" id="unpaid-orders-list"></div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchPage('home')">
+            <div class="nav-icon">🏠</div>
+            <div class="nav-label" id="nav-home-label">Home</div>
+        </div>
+        <div class="nav-item" onclick="switchPage('chats')">
+            <div class="nav-icon">💬</div>
+            <div class="nav-label" id="nav-chats-label">Chats</div>
+            <div class="nav-badge" id="chats-badge" style="display: none;">0</div>
+        </div>
+        <div class="nav-item" onclick="switchPage('paid')">
+            <div class="nav-icon">✅</div>
+            <div class="nav-label" id="nav-paid-label">Paid</div>
+        </div>
+        <div class="nav-item" onclick="switchPage('unpaid')">
+            <div class="nav-icon">⏳</div>
+            <div class="nav-label" id="nav-unpaid-label">Pending</div>
+            <div class="nav-badge" id="unpaid-badge" style="display: none;">0</div>
         </div>
     </div>
 
@@ -4379,6 +4650,270 @@
                 loadMoreProfiles();
             }
         }
+
+        // ==================== BOTTOM NAVIGATION & PAGES ====================
+        function switchPage(pageName) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+
+            // Hide main-content if switching away from home
+            const mainContent = document.getElementById('main-content');
+
+            if (pageName === 'home') {
+                mainContent.style.display = 'block';
+                document.getElementById('home-page').classList.add('active');
+                document.querySelector('.nav-item[onclick*="home"]').classList.add('active');
+            } else {
+                mainContent.style.display = 'none';
+
+                if (pageName === 'chats') {
+                    document.getElementById('chats-page').classList.add('active');
+                    document.querySelector('.nav-item[onclick*="chats"]').classList.add('active');
+                    loadUserChats();
+                } else if (pageName === 'paid') {
+                    document.getElementById('paid-orders-page').classList.add('active');
+                    document.querySelector('.nav-item[onclick*="paid"]').classList.add('active');
+                    loadOrders('paid');
+                } else if (pageName === 'unpaid') {
+                    document.getElementById('unpaid-orders-page').classList.add('active');
+                    document.querySelector('.nav-item[onclick*="unpaid"]').classList.add('active');
+                    loadOrders('unpaid');
+                }
+            }
+        }
+
+        // Load user chats
+        async function loadUserChats() {
+            const container = document.getElementById('chats-list-container');
+            container.innerHTML = '<div class="loading">Loading chats...</div>';
+
+            try {
+                const response = await fetch('/api/user/chats');
+                const data = await response.json();
+
+                container.innerHTML = '';
+
+                if (!data.chats || data.chats.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">💬</div>
+                            <div class="empty-state-text">No chats yet</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                data.chats.forEach(chat => {
+                    const chatItem = document.createElement('div');
+                    chatItem.className = 'chat-item';
+                    chatItem.onclick = () => openChatFromList(chat.profile_id);
+
+                    const lastMessage = chat.last_message || 'No messages yet';
+                    const unreadCount = chat.unread_count || 0;
+                    const time = chat.last_message_time ? new Date(chat.last_message_time).toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'}) : '';
+
+                    chatItem.innerHTML = `
+                        <img src="${chat.profile_photo || '/default-avatar.png'}" alt="${chat.profile_name}" class="chat-avatar">
+                        <div class="chat-info">
+                            <div class="chat-name">${chat.profile_name}</div>
+                            <div class="chat-last-message">${lastMessage}</div>
+                        </div>
+                        <div>
+                            ${time ? `<div class="chat-time">${time}</div>` : ''}
+                            ${unreadCount > 0 ? `<div class="chat-unread">${unreadCount}</div>` : ''}
+                        </div>
+                    `;
+                    container.appendChild(chatItem);
+                });
+
+                // Update badge
+                const totalUnread = data.chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
+                updateChatBadge(totalUnread);
+
+            } catch (error) {
+                console.error('Error loading chats:', error);
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-text">Error loading chats</div></div>';
+            }
+        }
+
+        function openChatFromList(profileId) {
+            const profile = currentProfiles.find(p => p.id === profileId);
+            if (profile) {
+                openChat(profile);
+                switchPage('home'); // Return to home to show chat modal
+            }
+        }
+
+        function updateChatBadge(count) {
+            const badge = document.getElementById('chats-badge');
+            if (count > 0) {
+                badge.textContent = count > 99 ? '99+' : count;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        // Load orders (paid/unpaid)
+        async function loadOrders(type) {
+            const listId = type === 'paid' ? 'paid-orders-list' : 'unpaid-orders-list';
+            const container = document.getElementById(listId);
+            container.innerHTML = '<div class="loading">Loading orders...</div>';
+
+            try {
+                const response = await fetch(`/api/user/orders?status=${type}`);
+                const data = await response.json();
+
+                container.innerHTML = '';
+
+                if (!data.orders || data.orders.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">${type === 'paid' ? '✅' : '⏳'}</div>
+                            <div class="empty-state-text">No ${type} orders</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                data.orders.forEach(order => {
+                    const orderItem = document.createElement('div');
+                    orderItem.className = 'order-item';
+
+                    orderItem.innerHTML = `
+                        <div class="order-header">
+                            <span style="font-weight: 700; color: var(--text);">Order #${order.id}</span>
+                            <span class="order-status ${type}">${type === 'paid' ? 'Paid' : 'Pending'}</span>
+                        </div>
+                        <div class="order-profile">
+                            <img src="${order.profile_photo || '/default-avatar.png'}" alt="${order.profile_name}" class="order-avatar">
+                            <div>
+                                <div style="font-weight: 600; color: var(--text);">${order.profile_name}</div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">${order.profile_city || 'Unknown'}</div>
+                            </div>
+                        </div>
+                        <div class="order-info">
+                            <div>💰 Amount: <strong>${order.amount} ${order.crypto_type || 'USDT'}</strong></div>
+                            <div>📅 Date: ${new Date(order.created_at).toLocaleString()}</div>
+                            ${order.expires_at && type === 'unpaid' ? `<div>⏰ Expires: ${new Date(order.expires_at).toLocaleString()}</div>` : ''}
+                        </div>
+                    `;
+                    container.appendChild(orderItem);
+                });
+
+                // Update unpaid badge
+                if (type === 'unpaid') {
+                    const badge = document.getElementById('unpaid-badge');
+                    if (data.orders.length > 0) {
+                        badge.textContent = data.orders.length > 99 ? '99+' : data.orders.length;
+                        badge.style.display = 'block';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-text">Error loading orders</div></div>';
+            }
+        }
+
+        // ==================== AUTO-REFRESH CHAT ====================
+        let chatAutoRefreshInterval = null;
+
+        function startChatAutoRefresh() {
+            // Stop any existing interval
+            if (chatAutoRefreshInterval) {
+                clearInterval(chatAutoRefreshInterval);
+            }
+
+            // Refresh chat every 3 seconds
+            chatAutoRefreshInterval = setInterval(() => {
+                if (chatModal.style.display === 'block' && currentProfile) {
+                    loadChatHistory(true); // true = silent refresh without scroll
+                }
+            }, 3000);
+        }
+
+        function stopChatAutoRefresh() {
+            if (chatAutoRefreshInterval) {
+                clearInterval(chatAutoRefreshInterval);
+                chatAutoRefreshInterval = null;
+            }
+        }
+
+        // Modify loadChatHistory to support silent refresh
+        const originalLoadChatHistory = loadChatHistory;
+        loadChatHistory = async function(silentRefresh = false) {
+            if (!currentProfile) return;
+
+            try {
+                const response = await fetch(`/api/chats/${currentProfile.id}/messages`);
+                const data = await response.json();
+
+                // Only update if there are new messages
+                const currentMessageCount = chatBody.children.length;
+                if (silentRefresh && data.messages && data.messages.length === currentMessageCount) {
+                    return; // No new messages, don't update
+                }
+
+                // Clear and rebuild messages
+                chatBody.innerHTML = '';
+
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = msg.is_from_user ? 'message user' : 'message other';
+
+                        let content = '';
+                        if (msg.is_system) {
+                            messageDiv.className = 'system-message';
+                            content = `<div class="system-bubble">${msg.text}</div>`;
+                        } else if (msg.file_url) {
+                            const fileType = msg.file_type || 'file';
+                            if (fileType === 'image') {
+                                content = `<div class="message-bubble"><img src="${msg.file_url}" alt="Image" style="max-width: 100%; border-radius: 12px;"></div>`;
+                            } else if (fileType === 'video') {
+                                content = `<div class="message-bubble"><video src="${msg.file_url}" controls style="max-width: 100%; border-radius: 12px;"></video></div>`;
+                            } else {
+                                content = `<div class="message-bubble"><a href="${msg.file_url}" target="_blank" style="color: var(--primary);">📎 ${msg.file_name || 'File'}</a></div>`;
+                            }
+                        } else {
+                            content = `<div class="message-bubble">${msg.text}</div>`;
+                        }
+
+                        messageDiv.innerHTML = content;
+                        chatBody.appendChild(messageDiv);
+
+                        if (msg.id > lastMessageId) {
+                            lastMessageId = msg.id;
+                        }
+                    });
+                }
+
+                // Only scroll to bottom if not silent refresh or if user was already at bottom
+                if (!silentRefresh) {
+                    chatBody.scrollTop = chatBody.scrollHeight;
+                }
+            } catch (error) {
+                console.error('Error loading chat:', error);
+            }
+        };
+
+        // Start auto-refresh when opening chat
+        const originalOpenChat = openChat;
+        openChat = async function(profile) {
+            await originalOpenChat(profile);
+            startChatAutoRefresh();
+        };
+
+        // Stop auto-refresh when closing chat
+        closeChatBtn.addEventListener('click', () => {
+            chatModal.style.display = 'none';
+            stopChatAutoRefresh();
+            stopChatUpdatePolling();
+        });
 
         // Telegram WebApp интеграция
         if (typeof window.Telegram === 'undefined') {
