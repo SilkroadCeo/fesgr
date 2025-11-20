@@ -1014,26 +1014,41 @@ async def crypto_payment(request: Request):
         bonus_amount = amount * (bonus_percentage / 100)
         total_amount = amount + bonus_amount
 
-        # Создаем order
-        order = {
-            "id": len(data.get("orders", [])) + 1,
-            "profile_id": profile_id,
-            "amount": amount,
-            "bonus_amount": bonus_amount,
-            "total_amount": total_amount,
-            "crypto_type": wallet_type,
-            "currency": currency,
-            "status": "unpaid",
-            "created_at": datetime.now().isoformat(),
-            "expires_at": (datetime.now() + timedelta(hours=1)).isoformat()
-        }
-
         if "orders" not in data:
             data["orders"] = []
-        data["orders"].append(order)
-        save_data(data)
 
-        logger.info(f"💰 New payment order created: ${amount} + {bonus_percentage}% bonus = ${total_amount}")
+        # Ищем существующий unpaid order для этого профиля
+        existing_order = next((o for o in data["orders"]
+                              if o.get("profile_id") == profile_id and o.get("status") == "unpaid"), None)
+
+        if existing_order:
+            # Обновляем существующий order
+            existing_order["amount"] = amount
+            existing_order["bonus_amount"] = bonus_amount
+            existing_order["total_amount"] = total_amount
+            existing_order["crypto_type"] = wallet_type
+            existing_order["currency"] = currency
+            existing_order["expires_at"] = (datetime.now() + timedelta(hours=1)).isoformat()
+            order = existing_order
+            logger.info(f"💰 Updated existing order #{order['id']}: ${amount} + {bonus_percentage}% bonus = ${total_amount}")
+        else:
+            # Создаем новый order
+            order = {
+                "id": len(data["orders"]) + 1,
+                "profile_id": profile_id,
+                "amount": amount,
+                "bonus_amount": bonus_amount,
+                "total_amount": total_amount,
+                "crypto_type": wallet_type,
+                "currency": currency,
+                "status": "unpaid",
+                "created_at": datetime.now().isoformat(),
+                "expires_at": (datetime.now() + timedelta(hours=1)).isoformat()
+            }
+            data["orders"].append(order)
+            logger.info(f"💰 New payment order created: ${amount} + {bonus_percentage}% bonus = ${total_amount}")
+
+        save_data(data)
 
         return {
             "status": "success",
@@ -2728,6 +2743,29 @@ async def send_user_message(profile_id: int, request: Request):
             "created_at": datetime.now().isoformat()
         }
         data["chats"].append(chat)
+
+    # Создаем unpaid order, если это первое взаимодействие с профилем
+    if "orders" not in data:
+        data["orders"] = []
+
+    # Проверяем, есть ли уже ордера для этого профиля
+    profile_orders = [o for o in data["orders"] if o.get("profile_id") == profile_id]
+    if not profile_orders:
+        # Создаем unpaid order
+        order = {
+            "id": len(data["orders"]) + 1,
+            "profile_id": profile_id,
+            "amount": 0,
+            "bonus_amount": 0,
+            "total_amount": 0,
+            "crypto_type": "",
+            "currency": "USD",
+            "status": "unpaid",
+            "created_at": datetime.now().isoformat(),
+            "expires_at": (datetime.now() + timedelta(hours=1)).isoformat()
+        }
+        data["orders"].append(order)
+        logger.info(f"📝 Created unpaid order #{order['id']} for profile {profile_id}")
 
     try:
         # Получаем форму с файлами и текстом
