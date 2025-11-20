@@ -1995,6 +1995,87 @@
         .container {
             padding-bottom: 80px;
         }
+
+        /* Плавающая кнопка Telegram бота */
+        .telegram-bot-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #0088cc, #00a0dc);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0, 136, 204, 0.5);
+            z-index: 9999;
+            transition: all 0.3s ease;
+            border: none;
+            animation: floatPulse 3s ease-in-out infinite;
+        }
+
+        .telegram-bot-btn:hover {
+            transform: scale(1.1) translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0, 136, 204, 0.7);
+        }
+
+        .telegram-bot-btn:active {
+            transform: scale(0.95);
+        }
+
+        .telegram-bot-btn svg {
+            width: 32px;
+            height: 32px;
+            fill: white;
+        }
+
+        @keyframes floatPulse {
+            0%, 100% {
+                transform: translateY(0px);
+                box-shadow: 0 4px 20px rgba(0, 136, 204, 0.5);
+            }
+            50% {
+                transform: translateY(-10px);
+                box-shadow: 0 8px 30px rgba(0, 136, 204, 0.7);
+            }
+        }
+
+        /* Tooltip для кнопки */
+        .telegram-bot-btn::before {
+            content: attr(data-tooltip);
+            position: absolute;
+            right: 70px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .telegram-bot-btn:hover::before {
+            opacity: 1;
+        }
+
+        /* Адаптивность для мобильных */
+        @media (max-width: 768px) {
+            .telegram-bot-btn {
+                width: 56px;
+                height: 56px;
+                bottom: 80px;
+                right: 16px;
+            }
+
+            .telegram-bot-btn svg {
+                width: 28px;
+                height: 28px;
+            }
+        }
     </style>
 
     <!-- PWA Manifest -->
@@ -4944,6 +5025,30 @@
                 }
             };
         }
+
+        // Telegram бот - конфигурация
+        const TELEGRAM_BOT_USERNAME = 'YOUR_BOT_USERNAME'; // Замените на имя вашего бота
+
+        // Открытие Telegram бота
+        function openTelegramBot() {
+            const botUrl = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
+
+            if (window.Telegram && window.Telegram.WebApp) {
+                // Если в Telegram Mini App, открываем внутри Telegram
+                window.Telegram.WebApp.openTelegramLink(botUrl);
+            } else {
+                // В обычном браузере
+                window.open(botUrl, '_blank');
+            }
+        }
     </script>
+
+    <!-- Плавающая кнопка Telegram бота -->
+    <button class="telegram-bot-btn" onclick="openTelegramBot()" data-tooltip="Contact Support Bot">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.24-5.53 3.65-.52.36-.99.53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.37-.48 1.02-.73 3.99-1.73 6.65-2.87 7.98-3.43 3.8-1.58 4.59-1.86 5.1-1.87.11 0 .37.03.53.17.14.12.18.28.19.39.01.11.03.36.02.55z"/>
+        </svg>
+    </button>
+
 </body>
 </html>
