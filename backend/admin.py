@@ -10,8 +10,10 @@ from datetime import datetime, timedelta
 from typing import Optional
 import logging
 import hashlib
+import hmac
 import secrets
 import uuid
+from urllib.parse import parse_qs
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +27,37 @@ ADMIN_CREDENTIALS = {
 
 # Простое хранилище сессий
 active_sessions = {}
+
+# Telegram Bot Token (замените на ваш токен от @BotFather)
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+
+
+def verify_telegram_auth(init_data: str) -> bool:
+    """Проверка подлинности данных от Telegram Web App"""
+    try:
+        parsed_data = parse_qs(init_data)
+        received_hash = parsed_data.get('hash', [''])[0]
+
+        # Формируем строку для проверки
+        data_check_arr = []
+        for key, value in sorted(parsed_data.items()):
+            if key != 'hash':
+                data_check_arr.append(f"{key}={value[0]}")
+
+        data_check_string = '\n'.join(data_check_arr)
+
+        # Вычисляем hash
+        secret_key = hashlib.sha256(TELEGRAM_BOT_TOKEN.encode()).digest()
+        calculated_hash = hmac.new(
+            secret_key,
+            data_check_string.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        return calculated_hash == received_hash
+    except Exception as e:
+        logger.error(f"Telegram auth verification error: {e}")
+        return False
 
 
 def create_session(username: str) -> str:
@@ -500,6 +533,53 @@ async def login(request: Request, response: Response):
             raise HTTPException(status_code=401, detail="Неверный логин или пароль")
     except Exception as e:
         raise HTTPException(status_code=400, detail="Неверный формат данных")
+
+
+@app.post("/api/telegram/auth")
+async def telegram_auth(request: Request):
+    """Авторизация через Telegram Web App"""
+    try:
+        body = await request.json()
+        init_data = body.get("initData")
+
+        if not init_data:
+            raise HTTPException(status_code=400, detail="Missing initData")
+
+        # Проверяем подлинность данных (опционально, можно отключить для теста)
+        # if not verify_telegram_auth(init_data):
+        #     raise HTTPException(status_code=401, detail="Invalid Telegram auth")
+
+        # Парсим данные пользователя
+        parsed_data = parse_qs(init_data)
+        user_json = parsed_data.get('user', ['{}'])[0]
+        user_data = json.loads(user_json) if user_json != '{}' else {}
+
+        telegram_id = user_data.get('id')
+        first_name = user_data.get('first_name', '')
+        last_name = user_data.get('last_name', '')
+        username = user_data.get('username', '')
+        language_code = user_data.get('language_code', 'en')
+
+        logger.info(f"Telegram user authenticated: {telegram_id} - {first_name} {last_name} (@{username})")
+
+        # Сохраняем/обновляем пользователя Telegram
+        # Здесь можно добавить логику сохранения в базу данных
+
+        return {
+            "status": "success",
+            "user": {
+                "telegram_id": telegram_id,
+                "first_name": first_name,
+                "last_name": last_name,
+                "username": username,
+                "language_code": language_code
+            }
+        }
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON data")
+    except Exception as e:
+        logger.error(f"Telegram auth error: {e}")
+        raise HTTPException(status_code=500, detail=f"Authentication error: {str(e)}")
 
 
 @app.post("/api/logout")

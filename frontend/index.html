@@ -1769,6 +1769,28 @@
             animation: fadeInUp 0.6s ease;
         }
     </style>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- iOS Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Muji">
+    <meta name="theme-color" content="#ff6b9d">
+
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="/icons/icon-180x180.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/icons/icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="/icons/icon-76x76.png">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
     <!-- Анимированный фон -->
@@ -2202,6 +2224,103 @@
     </div>
 
     <script>
+        // ==================== TELEGRAM WEB APP ====================
+        let tg = null;
+        let telegramUser = null;
+
+        if (window.Telegram && window.Telegram.WebApp) {
+            tg = window.Telegram.WebApp;
+            tg.ready();
+            tg.expand();
+            tg.enableClosingConfirmation();
+
+            // Получаем данные пользователя
+            telegramUser = tg.initDataUnsafe?.user;
+
+            // Устанавливаем тему
+            if (tg.themeParams) {
+                document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#0f0f0f');
+                document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#ffffff');
+            }
+
+            console.log('Telegram Web App initialized', telegramUser);
+        }
+
+        // ==================== PWA INSTALLATION ====================
+        let deferredPrompt;
+        let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        let isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+
+        // Обработчик события установки PWA
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+
+            // Показываем кнопку установки через 5 секунд
+            setTimeout(showInstallPrompt, 5000);
+        });
+
+        function showInstallPrompt() {
+            if (isStandalone) return; // Уже установлено
+            if (localStorage.getItem('installPromptShown')) return; // Уже показывали
+
+            const banner = document.createElement('div');
+            banner.id = 'install-banner';
+            banner.innerHTML = `
+                <div style="position: fixed; bottom: 20px; left: 20px; right: 20px; background: linear-gradient(135deg, #ff6b9d, #667eea); padding: 15px 20px; border-radius: 20px; color: white; z-index: 10000; box-shadow: 0 10px 30px rgba(255, 107, 157, 0.5); display: flex; align-items: center; gap: 10px; animation: slideUp 0.5s ease;">
+                    <span style="flex: 1; font-weight: 600;">📱 Добавить на домашний экран</span>
+                    <button onclick="installPWA()" style="background: rgba(255,255,255,0.3); border: none; color: white; padding: 8px 16px; border-radius: 12px; cursor: pointer; font-weight: 600;">Установить</button>
+                    <button onclick="closeInstallBanner()" style="background: transparent; border: none; color: white; padding: 8px; cursor: pointer; font-size: 18px;">✕</button>
+                </div>
+            `;
+            document.body.appendChild(banner);
+            localStorage.setItem('installPromptShown', 'true');
+        }
+
+        async function installPWA() {
+            if (isIOS) {
+                showIOSInstructions();
+                return;
+            }
+
+            if (!deferredPrompt) return;
+
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log('Install outcome:', outcome);
+            deferredPrompt = null;
+            closeInstallBanner();
+        }
+
+        function showIOSInstructions() {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10001; padding: 20px;';
+            modal.innerHTML = `
+                <div style="background: #1a1a1a; border-radius: 20px; padding: 30px; max-width: 400px; text-align: center; border: 1px solid #ff6b9d;">
+                    <h3 style="color: #ff6b9d; margin-bottom: 20px; font-size: 20px;">Установка на iPhone</h3>
+                    <ol style="text-align: left; color: white; line-height: 2; padding-left: 20px;">
+                        <li>Нажмите кнопку "Поделиться" <span style="font-size: 24px;">⎋</span></li>
+                        <li>Выберите "На экран Домой" <span style="font-size: 24px;">➕</span></li>
+                        <li>Нажмите "Добавить"</li>
+                    </ol>
+                    <button onclick="this.parentElement.parentElement.remove()" style="background: linear-gradient(135deg, #ff6b9d, #667eea); color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 20px; cursor: pointer; font-weight: 600;">Понятно</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            closeInstallBanner();
+        }
+
+        function closeInstallBanner() {
+            const banner = document.getElementById('install-banner');
+            if (banner) banner.remove();
+        }
+
+        // Показываем промпт для iOS
+        if (isIOS && !isStandalone && !localStorage.getItem('installPromptShown')) {
+            setTimeout(showInstallPrompt, 5000);
+        }
+
+        // ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
         // Глобальные переменные
         let currentProfiles = [];
         let currentPage = 0;
