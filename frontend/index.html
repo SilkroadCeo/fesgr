@@ -4819,100 +4819,10 @@
             }
         }
 
-        // ==================== AUTO-REFRESH CHAT ====================
-        let chatAutoRefreshInterval = null;
-
-        function startChatAutoRefresh() {
-            // Stop any existing interval
-            if (chatAutoRefreshInterval) {
-                clearInterval(chatAutoRefreshInterval);
-            }
-
-            // Refresh chat every 3 seconds
-            chatAutoRefreshInterval = setInterval(() => {
-                if (chatModal.style.display === 'block' && currentProfile) {
-                    loadChatHistory(true); // true = silent refresh without scroll
-                }
-            }, 3000);
-        }
-
-        function stopChatAutoRefresh() {
-            if (chatAutoRefreshInterval) {
-                clearInterval(chatAutoRefreshInterval);
-                chatAutoRefreshInterval = null;
-            }
-        }
-
-        // Modify loadChatHistory to support silent refresh
-        const originalLoadChatHistory = loadChatHistory;
-        loadChatHistory = async function(silentRefresh = false) {
-            if (!currentProfile) return;
-
-            try {
-                const response = await fetch(`/api/chats/${currentProfile.id}/messages`);
-                const data = await response.json();
-
-                // Only update if there are new messages
-                const currentMessageCount = chatBody.children.length;
-                if (silentRefresh && data.messages && data.messages.length === currentMessageCount) {
-                    return; // No new messages, don't update
-                }
-
-                // Clear and rebuild messages
-                chatBody.innerHTML = '';
-
-                if (data.messages && data.messages.length > 0) {
-                    data.messages.forEach(msg => {
-                        const messageDiv = document.createElement('div');
-                        messageDiv.className = msg.is_from_user ? 'message user' : 'message other';
-
-                        let content = '';
-                        if (msg.is_system) {
-                            messageDiv.className = 'system-message';
-                            content = `<div class="system-bubble">${msg.text}</div>`;
-                        } else if (msg.file_url) {
-                            const fileType = msg.file_type || 'file';
-                            if (fileType === 'image') {
-                                content = `<div class="message-bubble"><img src="${msg.file_url}" alt="Image" style="max-width: 100%; border-radius: 12px;"></div>`;
-                            } else if (fileType === 'video') {
-                                content = `<div class="message-bubble"><video src="${msg.file_url}" controls style="max-width: 100%; border-radius: 12px;"></video></div>`;
-                            } else {
-                                content = `<div class="message-bubble"><a href="${msg.file_url}" target="_blank" style="color: var(--primary);">📎 ${msg.file_name || 'File'}</a></div>`;
-                            }
-                        } else {
-                            content = `<div class="message-bubble">${msg.text}</div>`;
-                        }
-
-                        messageDiv.innerHTML = content;
-                        chatBody.appendChild(messageDiv);
-
-                        if (msg.id > lastMessageId) {
-                            lastMessageId = msg.id;
-                        }
-                    });
-                }
-
-                // Only scroll to bottom if not silent refresh or if user was already at bottom
-                if (!silentRefresh) {
-                    chatBody.scrollTop = chatBody.scrollHeight;
-                }
-            } catch (error) {
-                console.error('Error loading chat:', error);
-            }
-        };
-
-        // Start auto-refresh when opening chat
-        const originalOpenChat = openChat;
-        openChat = async function(profile) {
-            await originalOpenChat(profile);
-            startChatAutoRefresh();
-        };
-
-        // Stop auto-refresh when closing chat
+        // Stop chat updates when closing chat
         closeChatBtn.addEventListener('click', () => {
             chatModal.style.display = 'none';
-            stopChatAutoRefresh();
-            stopChatUpdatePolling();
+            stopChatUpdates();
         });
 
         // Telegram WebApp интеграция
