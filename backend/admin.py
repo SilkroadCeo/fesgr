@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Response, Cookie, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 import os
@@ -9,10 +9,45 @@ import shutil
 from datetime import datetime
 from typing import Optional
 import logging
+import hashlib
+import secrets
+import uuid
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Система аутентификации
+# Хранилище активных сессий: {session_id: {"username": "admin", "created_at": datetime}}
+active_sessions = {}
+
+# Учетные данные администратора (по умолчанию: admin / admin123)
+# В реальном проекте храните это в переменных окружения или базе данных
+ADMIN_CREDENTIALS = {
+    "username": "admin",
+    "password_hash": hashlib.sha256("admin123".encode()).hexdigest()  # Хеш пароля admin123
+}
+
+def create_session(username: str) -> str:
+    """Создать новую сессию для пользователя"""
+    session_id = str(uuid.uuid4())
+    active_sessions[session_id] = {
+        "username": username,
+        "created_at": datetime.now()
+    }
+    return session_id
+
+def verify_session(session_id: Optional[str]) -> bool:
+    """Проверить валидность сессии"""
+    if not session_id:
+        return False
+    return session_id in active_sessions
+
+def get_current_user(session_id: Optional[str] = Cookie(None, alias="admin_session")) -> str:
+    """Получить текущего пользователя из сессии"""
+    if not verify_session(session_id):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return active_sessions[session_id]["username"]
 
 app = FastAPI(title="Admin Panel - Muji")
 
@@ -201,8 +236,204 @@ def get_file_type(filename: str) -> str:
         return 'file'
 
 
+# ====== ЭНДПОИНТЫ ДЛЯ АУТЕНТИФИКАЦИИ ======
+
+@app.get("/login")
+async def login_page():
+    """Страница логина"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Вход в админ панель - Muji</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+            body {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                padding: 20px;
+            }
+            .login-container {
+                background: rgba(255, 255, 255, 0.95);
+                border-radius: 20px;
+                padding: 40px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                width: 100%;
+                max-width: 400px;
+            }
+            .login-header {
+                text-align: center;
+                margin-bottom: 30px;
+            }
+            .login-header h1 {
+                color: #667eea;
+                font-size: 28px;
+                margin-bottom: 10px;
+            }
+            .login-header p {
+                color: #666;
+                font-size: 14px;
+            }
+            .form-group {
+                margin-bottom: 20px;
+            }
+            .form-group label {
+                display: block;
+                color: #333;
+                font-size: 14px;
+                font-weight: 500;
+                margin-bottom: 8px;
+            }
+            .form-group input {
+                width: 100%;
+                padding: 12px 15px;
+                border: 2px solid #e0e0e0;
+                border-radius: 10px;
+                font-size: 14px;
+                transition: all 0.3s;
+            }
+            .form-group input:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+            .login-button {
+                width: 100%;
+                padding: 14px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: transform 0.2s;
+            }
+            .login-button:hover {
+                transform: translateY(-2px);
+            }
+            .login-button:active {
+                transform: translateY(0);
+            }
+            .error-message {
+                background: #fee;
+                color: #c33;
+                padding: 12px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+                font-size: 14px;
+                display: none;
+            }
+            .error-message.show {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="login-container">
+            <div class="login-header">
+                <h1>🔐 Вход в админ панель</h1>
+                <p>Muji - Admin Dashboard</p>
+            </div>
+            <div id="error-message" class="error-message"></div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username">Логин</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="login-button">Войти</button>
+            </form>
+        </div>
+
+        <script>
+            document.getElementById('login-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                const errorDiv = document.getElementById('error-message');
+
+                try {
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        window.location.href = '/';
+                    } else {
+                        errorDiv.textContent = data.detail || 'Неверный логин или пароль';
+                        errorDiv.classList.add('show');
+                    }
+                } catch (error) {
+                    errorDiv.textContent = 'Ошибка подключения к серверу';
+                    errorDiv.classList.add('show');
+                }
+            });
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+@app.post("/api/login")
+async def login(request: Request, response: Response):
+    """API эндпоинт для логина"""
+    try:
+        body = await request.json()
+        username = body.get("username")
+        password = body.get("password")
+
+        if not username or not password:
+            raise HTTPException(status_code=400, detail="Логин и пароль обязательны")
+
+        # Проверяем учетные данные
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+
+        if username == ADMIN_CREDENTIALS["username"] and password_hash == ADMIN_CREDENTIALS["password_hash"]:
+            # Создаем сессию
+            session_id = create_session(username)
+
+            # Устанавливаем cookie
+            response.set_cookie(
+                key="admin_session",
+                value=session_id,
+                httponly=True,
+                max_age=86400 * 7,  # 7 дней
+                samesite="lax"
+            )
+
+            return {"status": "success", "message": "Успешный вход"}
+        else:
+            raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Неверный формат данных")
+
+@app.post("/api/logout")
+async def logout(response: Response, session_id: Optional[str] = Cookie(None, alias="admin_session")):
+    """API эндпоинт для выхода"""
+    if session_id and session_id in active_sessions:
+        del active_sessions[session_id]
+
+    response.delete_cookie("admin_session")
+    return {"status": "success", "message": "Вы вышли из системы"}
+
 @app.get("/")
-async def admin_dashboard():
+async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_session")):
+    # Проверяем авторизацию
+    if not verify_session(session_id):
+        return RedirectResponse(url="/login", status_code=302)
+
     html_content = """
     <!DOCTYPE html>
     <html>
@@ -364,11 +595,34 @@ async def admin_dashboard():
             .vip-preview-item { background: rgba(102, 126, 234, 0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(102, 126, 234, 0.2); }
             .vip-preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
             .vip-preview-name { font-weight: 600; color: #667eea; }
+
+            /* Кнопка выхода */
+            .logout-btn {
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                padding: 10px 20px;
+                background: rgba(255, 255, 255, 0.2);
+                color: white;
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                border-radius: 10px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: all 0.3s;
+            }
+            .logout-btn:hover {
+                background: rgba(255, 255, 255, 0.3);
+                border-color: rgba(255, 255, 255, 0.5);
+            }
+            header {
+                position: relative;
+            }
         </style>
     </head>
     <body>
         <div class="container">
             <header>
+                <button class="logout-btn" onclick="logout()">🚪 Выход</button>
                 <h1>Admin Panel - Muji</h1>
                 <p>App Configuration | Crypto Wallets | VIP Catalogs</p>
             </header>
@@ -1788,6 +2042,17 @@ async def admin_dashboard():
             document.getElementById('banner-text').addEventListener('input', updateBannerPreview);
             document.getElementById('banner-link').addEventListener('input', updateBannerPreview);
             document.getElementById('banner-link-text').addEventListener('input', updateBannerPreview);
+
+            // Функция выхода
+            async function logout() {
+                try {
+                    await fetch('/api/logout', { method: 'POST' });
+                    window.location.href = '/login';
+                } catch (error) {
+                    console.error('Ошибка при выходе:', error);
+                    window.location.href = '/login';
+                }
+            }
         </script>
     </body>
     </html>
@@ -1797,7 +2062,7 @@ async def admin_dashboard():
 
 # API endpoints
 @app.get("/api/stats")
-async def get_stats():
+async def get_stats(current_user: str = Depends(get_current_user)):
     data = load_data()
     return {
         "profiles_count": len(data["profiles"]),
@@ -1810,13 +2075,14 @@ async def get_stats():
 
 
 @app.get("/api/admin/profiles")
-async def get_admin_profiles():
+async def get_admin_profiles(current_user: str = Depends(get_current_user)):
     data = load_data()
     return {"profiles": data["profiles"]}
 
 
 @app.post("/api/admin/profiles")
 async def create_profile(
+        current_user: str = Depends(get_current_user),
         name: str = Form(...),
         age: int = Form(...),
         gender: str = Form(...),
@@ -1874,7 +2140,7 @@ async def create_profile(
 
 
 @app.post("/api/admin/profiles/{profile_id}/toggle")
-async def toggle_profile(profile_id: int, visible_data: dict):
+async def toggle_profile(profile_id: int, visible_data: dict, current_user: str = Depends(get_current_user)):
     data = load_data()
     profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
     if profile:
@@ -1884,7 +2150,7 @@ async def toggle_profile(profile_id: int, visible_data: dict):
 
 
 @app.delete("/api/admin/profiles/{profile_id}")
-async def delete_profile(profile_id: int):
+async def delete_profile(profile_id: int, current_user: str = Depends(get_current_user)):
     data = load_data()
 
     # Удаляем анкету
@@ -1908,13 +2174,13 @@ async def delete_profile(profile_id: int):
 
 
 @app.get("/api/admin/chats")
-async def get_admin_chats():
+async def get_admin_chats(current_user: str = Depends(get_current_user)):
     data = load_data()
     return {"chats": data["chats"]}
 
 
 @app.get("/api/admin/chats/{profile_id}/messages")
-async def get_chat_messages_admin(profile_id: int):
+async def get_chat_messages_admin(profile_id: int, current_user: str = Depends(get_current_user)):
     data = load_data()
     chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
     if not chat:
@@ -1926,7 +2192,8 @@ async def get_chat_messages_admin(profile_id: int):
 @app.post("/api/admin/chats/{profile_id}/reply")
 async def send_admin_reply(
         profile_id: int,
-        request: Request
+        request: Request,
+        current_user: str = Depends(get_current_user)
 ):
     data = load_data()
 
@@ -2007,7 +2274,7 @@ async def send_admin_reply(
 
 
 @app.post("/api/admin/chats/{profile_id}/system-message")
-async def send_system_message(profile_id: int, message_data: dict):
+async def send_system_message(profile_id: int, message_data: dict, current_user: str = Depends(get_current_user)):
     """Отправка системного сообщения"""
     data = load_data()
 
@@ -2043,20 +2310,20 @@ async def send_system_message(profile_id: int, message_data: dict):
 
 # Комментарии API для админки
 @app.get("/api/admin/comments")
-async def get_admin_comments():
+async def get_admin_comments(current_user: str = Depends(get_current_user)):
     data = load_data()
     return {"comments": data.get("comments", [])}
 
 
 # Промокоды API
 @app.get("/api/admin/promocodes")
-async def get_admin_promocodes():
+async def get_admin_promocodes(current_user: str = Depends(get_current_user)):
     data = load_data()
     return {"promocodes": data.get("promocodes", [])}
 
 
 @app.post("/api/admin/promocodes")
-async def create_admin_promocode(promocode: dict):
+async def create_admin_promocode(promocode: dict, current_user: str = Depends(get_current_user)):
     data = load_data()
 
     # Проверяем, существует ли уже такой промокод
@@ -2079,7 +2346,7 @@ async def create_admin_promocode(promocode: dict):
 
 
 @app.post("/api/admin/promocodes/{promocode_id}/toggle")
-async def toggle_admin_promocode(promocode_id: int):
+async def toggle_admin_promocode(promocode_id: int, current_user: str = Depends(get_current_user)):
     data = load_data()
     promocode = next((p for p in data["promocodes"] if p["id"] == promocode_id), None)
     if promocode:
@@ -2089,7 +2356,7 @@ async def toggle_admin_promocode(promocode_id: int):
 
 
 @app.delete("/api/admin/promocodes/{promocode_id}")
-async def delete_admin_promocode(promocode_id: int):
+async def delete_admin_promocode(promocode_id: int, current_user: str = Depends(get_current_user)):
     data = load_data()
     data["promocodes"] = [p for p in data["promocodes"] if p["id"] != promocode_id]
     save_data(data)
@@ -2098,13 +2365,13 @@ async def delete_admin_promocode(promocode_id: int):
 
 # Баннер API
 @app.get("/api/admin/banner")
-async def get_admin_banner():
+async def get_admin_banner(current_user: str = Depends(get_current_user)):
     data = load_data()
     return data.get("settings", {}).get("banner", {})
 
 
 @app.post("/api/admin/banner")
-async def update_admin_banner(banner: dict):
+async def update_admin_banner(banner: dict, current_user: str = Depends(get_current_user)):
     data = load_data()
     if "settings" not in data:
         data["settings"] = {}
@@ -2114,13 +2381,13 @@ async def update_admin_banner(banner: dict):
 
 
 @app.get("/api/admin/crypto_wallets")
-async def get_admin_crypto_wallets():
+async def get_admin_crypto_wallets(current_user: str = Depends(get_current_user)):
     data = load_data()
     return data.get("settings", {}).get("crypto_wallets", {})
 
 
 @app.post("/api/admin/crypto_wallets")
-async def update_admin_crypto_wallets(wallets: dict):
+async def update_admin_crypto_wallets(wallets: dict, current_user: str = Depends(get_current_user)):
     data = load_data()
     if "settings" not in data:
         data["settings"] = {}
