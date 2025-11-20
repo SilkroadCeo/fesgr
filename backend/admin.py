@@ -563,6 +563,8 @@ async def admin_dashboard(request: Request):
             .profile-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid rgba(255, 107, 157, 0.3); }
             .profile-id { background: #ff6b9d; color: white; padding: 5px 10px; border-radius: 8px; font-weight: 600; font-size: 14px; }
             .profile-name { font-size: 18px; font-weight: 700; color: #ff6b9d; }
+            .unread-badge { background: #28a745; color: white; padding: 5px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; margin-left: auto; animation: pulse 2s infinite; }
+            @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
 
             .btn { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; margin: 5px 2px; font-size: 14px; font-weight: 600; transition: all 0.3s ease; }
             .btn-primary { background: #ff6b9d; color: white; }
@@ -655,11 +657,6 @@ async def admin_dashboard(request: Request):
             .catalog-name { font-size: 18px; font-weight: 700; color: #ff6b9d; }
             .catalog-price { background: #28a745; color: white; padding: 5px 10px; border-radius: 8px; font-weight: 600; }
 
-            .vip-profile-card { background: rgba(102, 126, 234, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #667eea; margin-bottom: 15px; }
-            .vip-profile-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-            .vip-profile-name { font-size: 18px; font-weight: 700; color: #667eea; }
-            .vip-profile-age { background: #667eea; color: white; padding: 5px 10px; border-radius: 8px; font-weight: 600; }
-
             .logout-btn {
                 position: absolute;
                 top: 20px;
@@ -692,7 +689,6 @@ async def admin_dashboard(request: Request):
 
             <div class="stats">
                 <div class="stat-card"><h3>Profiles</h3><p id="profiles-count">0</p></div>
-                <div class="stat-card"><h3>VIP Profiles</h3><p id="vip-profiles-count">0</p></div>
                 <div class="stat-card"><h3>Chats</h3><p id="chats-count">0</p></div>
                 <div class="stat-card"><h3>Messages</h3><p id="messages-count">0</p></div>
                 <div class="stat-card"><h3>Comments</h3><p id="comments-count">0</p></div>
@@ -704,7 +700,6 @@ async def admin_dashboard(request: Request):
                 <button class="tab" onclick="showTab('chats')">Chats</button>
                 <button class="tab" onclick="showTab('comments')">Comments</button>
                 <button class="tab" onclick="showTab('add-profile')">Add Profile</button>
-                <button class="tab" onclick="showTab('vip-profiles')">VIP Profiles</button>
                 <button class="tab" onclick="showTab('promocodes')">Promocodes</button>
                 <button class="tab" onclick="showTab('banner-settings')">Banner Settings</button>
                 <button class="tab" onclick="showTab('crypto-settings')">Crypto Settings</button>
@@ -714,11 +709,6 @@ async def admin_dashboard(request: Request):
             <div id="profiles" class="content active">
                 <h3>Manage Profiles</h3>
                 <div id="profiles-list" class="profile-grid"></div>
-            </div>
-
-            <div id="vip-profiles" class="content">
-                <h3>Manage VIP Profiles</h3>
-                <div id="vip-profiles-list" class="profile-grid"></div>
             </div>
 
             <div id="chats" class="content">
@@ -999,7 +989,6 @@ async def admin_dashboard(request: Request):
                 event.target.classList.add('active');
 
                 if (tabName === 'profiles') loadProfiles();
-                if (tabName === 'vip-profiles') loadVipProfiles();
                 if (tabName === 'chats') loadChats();
                 if (tabName === 'comments') loadCommentsAdmin();
                 if (tabName === 'promocodes') loadPromocodes();
@@ -1014,7 +1003,6 @@ async def admin_dashboard(request: Request):
                     const response = await authFetch('/api/stats');
                     const stats = await response.json();
                     document.getElementById('profiles-count').textContent = stats.profiles_count;
-                    document.getElementById('vip-profiles-count').textContent = stats.vip_profiles_count;
                     document.getElementById('chats-count').textContent = stats.chats_count;
                     document.getElementById('messages-count').textContent = stats.messages_count;
                     document.getElementById('comments-count').textContent = stats.comments_count;
@@ -1078,47 +1066,6 @@ async def admin_dashboard(request: Request):
                 }
             }
 
-            // Загрузка VIP анкет
-            async function loadVipProfiles() {
-                try {
-                    const response = await authFetch('/api/admin/vip-profiles');
-                    const data = await response.json();
-                    const list = document.getElementById('vip-profiles-list');
-                    list.innerHTML = '';
-
-                    data.profiles.forEach(profile => {
-                        const photosHtml = profile.photos.map(photo => 
-                            `<img src="http://localhost:8002${photo}" alt="Profile photo" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #667eea;">`
-                        ).join('');
-
-                        const profileDiv = document.createElement('div');
-                        profileDiv.className = 'vip-profile-card';
-                        profileDiv.innerHTML = `
-                            <div class="vip-profile-header">
-                                <span class="vip-profile-name">${profile.name}</span>
-                                <span class="vip-profile-age">${profile.age} y.o.</span>
-                            </div>
-                            <p><strong>Gender:</strong> ${profile.gender || 'Not specified'}</p>
-                            <p><strong>City:</strong> ${profile.city}</p>
-                            <p><strong>Photos:</strong></p>
-                            <div class="photo-preview">
-                                ${photosHtml}
-                            </div>
-                            <div style="margin-top: 15px;">
-                                <button class="btn btn-danger" onclick="deleteVipProfile(${profile.id})">
-                                    Delete
-                                </button>
-                            </div>
-                        `;
-                        list.appendChild(profileDiv);
-                    });
-
-                    loadStats();
-                } catch (error) {
-                    console.error('Error loading VIP profiles:', error);
-                }
-            }
-
             // Переключение видимости анкеты
             async function toggleProfile(profileId, visible) {
                 if (!confirm(visible ? 'Show profile?' : 'Hide profile?')) return;
@@ -1154,24 +1101,6 @@ async def admin_dashboard(request: Request):
                 }
             }
 
-            // Удаление VIP анкеты
-            async function deleteVipProfile(profileId) {
-                if (!confirm('Delete VIP profile? This action cannot be undone!')) return;
-
-                try {
-                    const response = await authFetch(`/api/admin/vip-profiles/${profileId}`, {method: 'DELETE'});
-                    if (response.ok) {
-                        alert('VIP Profile deleted!');
-                        loadVipProfiles();
-                    } else {
-                        alert('Error deleting VIP profile');
-                    }
-                } catch (error) {
-                    console.error('Error deleting VIP profile:', error);
-                    alert('Error deleting VIP profile');
-                }
-            }
-
             // Загрузка чатов
             async function loadChats() {
                 try {
@@ -1188,10 +1117,14 @@ async def admin_dashboard(request: Request):
                     data.chats.forEach(chat => {
                         const chatDiv = document.createElement('div');
                         chatDiv.className = 'profile-card';
+                        const unreadBadge = chat.unread_count > 0
+                            ? `<span class="unread-badge">${chat.unread_count} new</span>`
+                            : '';
                         chatDiv.innerHTML = `
                             <div class="profile-header">
                                 <span class="profile-id">ID: ${chat.profile_id}</span>
                                 <span class="profile-name">${chat.profile_name}</span>
+                                ${unreadBadge}
                             </div>
                             <p><strong>Created:</strong> ${new Date(chat.created_at).toLocaleString()}</p>
                             <button class="btn btn-primary" onclick="openChat(${chat.profile_id})">
@@ -2019,7 +1952,19 @@ async def delete_profile(profile_id: int, current_user: str = Depends(get_curren
 @app.get("/api/admin/chats")
 async def get_admin_chats(current_user: str = Depends(get_current_user)):
     data = load_data()
-    return {"chats": data["chats"]}
+
+    # Добавляем счетчик непрочитанных сообщений для каждого чата
+    chats_with_unread = []
+    for chat in data["chats"]:
+        # Считаем сообщения от пользователя (непрочитанные админом)
+        unread_count = sum(1 for m in data["messages"]
+                          if m["chat_id"] == chat["id"] and m.get("is_from_user", False))
+
+        chat_copy = chat.copy()
+        chat_copy["unread_count"] = unread_count
+        chats_with_unread.append(chat_copy)
+
+    return {"chats": chats_with_unread}
 
 
 @app.get("/api/admin/chats/{profile_id}/messages")
