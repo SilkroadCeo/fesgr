@@ -269,9 +269,9 @@ async def send_admin_reply_from_telegram(profile_id: int, text: str):
             if profile_orders:
                 # Обновляем статус последнего ордера
                 last_order = profile_orders[-1]
-                last_order["status"] = "paid"
-                last_order["paid_at"] = datetime.now().isoformat()
-                logger.info(f"Order #{last_order['id']} marked as paid for profile {profile_id} (from Telegram)")
+                last_order["status"] = "booked"
+                last_order["booked_at"] = datetime.now().isoformat()
+                logger.info(f"Order #{last_order['id']} marked as booked for profile {profile_id} (from Telegram)")
 
         # Сохраняем данные
         save_data(data)
@@ -488,7 +488,15 @@ def load_data():
                 "crypto_wallets": {
                     "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
                     "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
-                    "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0"
+                    "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0",
+                    "btc": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+                    "zetcash": "ZET1234567890abcdefghijklmnopqrstuvwxyz",
+                    "doge": "DH5yaieqoZN36fDVciNyRueRGvGLR3mr7L",
+                    "dash": "XnPBzXq3bRhQKjVqZvXmG5jKqVmPdWZgFj",
+                    "ltc": "LhK3pXq2BvRsQmNp7TyUjGkLmPqRsXwZyF",
+                    "usdt_bep20": "0x8b9C7e5D9b1E3a2F4c5B7E8D9C0A1B2C3D4E5F6",
+                    "eth": "0x7a8B6d4C8e0D2b1F3a4C5E6D7F8A9B0C1D2E3F4",
+                    "usdc_erc20": "0x6a7B5c3D7e9C1a0F2b3D4F5E6A7B8C9D0E1F2A3"
                 },
                 "banner": {
                     "text": "Special Offer: 15% discount with promo code WELCOME15",
@@ -1044,7 +1052,7 @@ async def admin_dashboard(request: Request):
     <body>
         <div class="container">
             <header>
-                <button class="logout-btn" onclick="logout()">🚪 Выход</button>
+                <button class="logout-btn" onclick="logout()">Выход</button>
                 <h1>Admin Panel - Muji</h1>
                 <p>App Configuration | Crypto Wallets | VIP Catalogs</p>
             </header>
@@ -2470,9 +2478,9 @@ async def send_admin_reply(
             if profile_orders:
                 # Обновляем статус последнего ордера
                 last_order = profile_orders[-1]
-                last_order["status"] = "paid"
-                last_order["paid_at"] = datetime.now().isoformat()
-                logger.info(f"Order #{last_order['id']} marked as paid for profile {profile_id}")
+                last_order["status"] = "booked"
+                last_order["booked_at"] = datetime.now().isoformat()
+                logger.info(f"Order #{last_order['id']} marked as booked for profile {profile_id}")
 
         save_data(data)
         logger.info("Data saved successfully")
@@ -2648,12 +2656,12 @@ async def get_user_chats():
 
 @app.get("/api/user/orders")
 async def get_user_orders(status: str = "all"):
-    """Получить заказы пользователя (paid/unpaid)"""
+    """Получить заказы пользователя (booked/unpaid)"""
     data = load_data()
 
     # Filter orders by status
-    if status == "paid":
-        orders = [o for o in data["orders"] if o.get("status") == "paid"]
+    if status == "booked":
+        orders = [o for o in data["orders"] if o.get("status") == "booked"]
     elif status == "unpaid":
         orders = [o for o in data["orders"] if o.get("status") == "unpaid"]
     else:
