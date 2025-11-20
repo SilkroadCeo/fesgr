@@ -6,7 +6,7 @@ import uvicorn
 import os
 import json
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 import logging
 import hashlib
@@ -17,19 +17,18 @@ import uuid
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Система аутентификации
-# Хранилище активных сессий: {session_id: {"username": "admin", "created_at": datetime}}
-active_sessions = {}
-
-# Учетные данные администратора (по умолчанию: admin / admin123)
-# В реальном проекте храните это в переменных окружения или базе данных
+# Упрощенная система аутентификации
 ADMIN_CREDENTIALS = {
     "username": "admin",
-    "password_hash": hashlib.sha256("admin123".encode()).hexdigest()  # Хеш пароля admin123
+    "password": "admin123"
 }
 
+# Простое хранилище сессий
+active_sessions = {}
+
+
 def create_session(username: str) -> str:
-    """Создать новую сессию для пользователя"""
+    """Создать новую сессию"""
     session_id = str(uuid.uuid4())
     active_sessions[session_id] = {
         "username": username,
@@ -37,23 +36,42 @@ def create_session(username: str) -> str:
     }
     return session_id
 
-def verify_session(session_id: Optional[str]) -> bool:
+
+def verify_session(session_id: str) -> bool:
     """Проверить валидность сессии"""
     if not session_id:
         return False
     return session_id in active_sessions
 
-def get_current_user(session_id: Optional[str] = Cookie(None, alias="admin_session")) -> str:
-    """Получить текущего пользователя из сессии"""
-    if not verify_session(session_id):
+
+def get_session_user(session_id: str) -> Optional[str]:
+    """Получить пользователя из сессии"""
+    if session_id in active_sessions:
+        return active_sessions[session_id]["username"]
+    return None
+
+
+# Упрощенная зависимость для проверки авторизации
+async def get_current_user(request: Request):
+    """Получить текущего пользователя"""
+    session_id = request.cookies.get("admin_session")
+
+    if not session_id or not verify_session(session_id):
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return active_sessions[session_id]["username"]
+
+    user = get_session_user(session_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid session")
+
+    return user
+
 
 app = FastAPI(title="Admin Panel - Muji")
 
+# CORS настройки
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8002", "http://127.0.0.1:8002"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -68,6 +86,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 def load_data():
+    """Загрузка данных из JSON файла"""
     if not os.path.exists(DATA_FILE):
         return {
             "profiles": [],
@@ -93,67 +112,109 @@ def load_data():
                         "name": "VIP Catalog",
                         "price": 100,
                         "redirect_url": "https://t.me/vip_channel",
-                        "visible": True
+                        "visible": True,
+                        "preview_count": 3,
+                        "preview_profiles": [
+                            {"name": "Anna", "age": 23, "city": "Moscow", "photo": ""},
+                            {"name": "Sofia", "age": 21, "city": "Saint Petersburg", "photo": ""},
+                            {"name": "Maria", "age": 25, "city": "Kazan", "photo": ""}
+                        ]
                     },
                     "extra_vip": {
                         "name": "Extra VIP",
                         "price": 200,
                         "redirect_url": "https://t.me/extra_vip_channel",
-                        "visible": True
+                        "visible": True,
+                        "preview_count": 3,
+                        "preview_profiles": [
+                            {"name": "Elena", "age": 22, "city": "Novosibirsk", "photo": ""},
+                            {"name": "Victoria", "age": 24, "city": "Yekaterinburg", "photo": ""},
+                            {"name": "Daria", "age": 20, "city": "Krasnoyarsk", "photo": ""}
+                        ]
                     },
                     "secret": {
                         "name": "Secret Catalog",
                         "price": 300,
                         "redirect_url": "https://t.me/secret_channel",
-                        "visible": True
+                        "visible": True,
+                        "preview_count": 3,
+                        "preview_profiles": [
+                            {"name": "Anastasia", "age": 26, "city": "Vladivostok", "photo": ""},
+                            {"name": "Polina", "age": 23, "city": "Rostov", "photo": ""},
+                            {"name": "Alina", "age": 21, "city": "Sochi", "photo": ""}
+                        ]
                     }
                 }
             }
         }
+
     try:
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            data = json.loads(f.read())
-            if "settings" not in data:
-                data["settings"] = {
-                    "crypto_wallets": {
-                        "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
-                        "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
-                        "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0"
-                    },
-                    "banner": {
-                        "text": "Special Offer: 15% discount with promo code WELCOME15",
-                        "visible": True,
-                        "link": "https://t.me/yourchannel",
-                        "link_text": "Join Channel"
-                    },
-                    "vip_catalogs": {
-                        "vip": {
-                            "name": "VIP Catalog",
-                            "price": 100,
-                            "redirect_url": "https://t.me/vip_channel",
-                            "visible": True
-                        },
-                        "extra_vip": {
-                            "name": "Extra VIP",
-                            "price": 200,
-                            "redirect_url": "https://t.me/extra_vip_channel",
-                            "visible": True
-                        },
-                        "secret": {
-                            "name": "Secret Catalog",
-                            "price": 300,
-                            "redirect_url": "https://t.me/secret_channel",
-                            "visible": True
-                        }
-                    }
+            data = json.load(f)
+
+        # Ensure all required sections exist
+        if "settings" not in data:
+            data["settings"] = {}
+        if "crypto_wallets" not in data["settings"]:
+            data["settings"]["crypto_wallets"] = {
+                "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
+                "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
+                "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0"
+            }
+        if "banner" not in data["settings"]:
+            data["settings"]["banner"] = {
+                "text": "Special Offer: 15% discount with promo code WELCOME15",
+                "visible": True,
+                "link": "https://t.me/yourchannel",
+                "link_text": "Join Channel"
+            }
+        if "vip_catalogs" not in data["settings"]:
+            data["settings"]["vip_catalogs"] = {
+                "vip": {
+                    "name": "VIP Catalog",
+                    "price": 100,
+                    "redirect_url": "https://t.me/vip_channel",
+                    "visible": True,
+                    "preview_count": 3,
+                    "preview_profiles": [
+                        {"name": "Anna", "age": 23, "city": "Moscow", "photo": ""},
+                        {"name": "Sofia", "age": 21, "city": "Saint Petersburg", "photo": ""},
+                        {"name": "Maria", "age": 25, "city": "Kazan", "photo": ""}
+                    ]
+                },
+                "extra_vip": {
+                    "name": "Extra VIP",
+                    "price": 200,
+                    "redirect_url": "https://t.me/extra_vip_channel",
+                    "visible": True,
+                    "preview_count": 3,
+                    "preview_profiles": [
+                        {"name": "Elena", "age": 22, "city": "Novosibirsk", "photo": ""},
+                        {"name": "Victoria", "age": 24, "city": "Yekaterinburg", "photo": ""},
+                        {"name": "Daria", "age": 20, "city": "Krasnoyarsk", "photo": ""}
+                    ]
+                },
+                "secret": {
+                    "name": "Secret Catalog",
+                    "price": 300,
+                    "redirect_url": "https://t.me/secret_channel",
+                    "visible": True,
+                    "preview_count": 3,
+                    "preview_profiles": [
+                        {"name": "Anastasia", "age": 26, "city": "Vladivostok", "photo": ""},
+                        {"name": "Polina", "age": 23, "city": "Rostov", "photo": ""},
+                        {"name": "Alina", "age": 21, "city": "Sochi", "photo": ""}
+                    ]
                 }
-            if "promocodes" not in data:
-                data["promocodes"] = []
-            if "comments" not in data:
-                data["comments"] = []
-            if "vip_profiles" not in data:
-                data["vip_profiles"] = []
-            return data
+            }
+        if "promocodes" not in data:
+            data["promocodes"] = []
+        if "comments" not in data:
+            data["comments"] = []
+        if "vip_profiles" not in data:
+            data["vip_profiles"] = []
+
+        return data
     except Exception as e:
         logger.error(f"Error loading data: {e}")
         return {
@@ -180,19 +241,37 @@ def load_data():
                         "name": "VIP Catalog",
                         "price": 100,
                         "redirect_url": "https://t.me/vip_channel",
-                        "visible": True
+                        "visible": True,
+                        "preview_count": 3,
+                        "preview_profiles": [
+                            {"name": "Anna", "age": 23, "city": "Moscow", "photo": ""},
+                            {"name": "Sofia", "age": 21, "city": "Saint Petersburg", "photo": ""},
+                            {"name": "Maria", "age": 25, "city": "Kazan", "photo": ""}
+                        ]
                     },
                     "extra_vip": {
                         "name": "Extra VIP",
                         "price": 200,
                         "redirect_url": "https://t.me/extra_vip_channel",
-                        "visible": True
+                        "visible": True,
+                        "preview_count": 3,
+                        "preview_profiles": [
+                            {"name": "Elena", "age": 22, "city": "Novosibirsk", "photo": ""},
+                            {"name": "Victoria", "age": 24, "city": "Yekaterinburg", "photo": ""},
+                            {"name": "Daria", "age": 20, "city": "Krasnoyarsk", "photo": ""}
+                        ]
                     },
                     "secret": {
                         "name": "Secret Catalog",
                         "price": 300,
                         "redirect_url": "https://t.me/secret_channel",
-                        "visible": True
+                        "visible": True,
+                        "preview_count": 3,
+                        "preview_profiles": [
+                            {"name": "Anastasia", "age": 26, "city": "Vladivostok", "photo": ""},
+                            {"name": "Polina", "age": 23, "city": "Rostov", "photo": ""},
+                            {"name": "Alina", "age": 21, "city": "Sochi", "photo": ""}
+                        ]
                     }
                 }
             }
@@ -200,6 +279,7 @@ def load_data():
 
 
 def save_data(data):
+    """Сохранение данных в JSON файл"""
     try:
         with open(DATA_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -210,6 +290,7 @@ def save_data(data):
 
 
 def save_uploaded_file(file: UploadFile) -> str:
+    """Сохраняет загруженный файл и возвращает путь"""
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filename = f"{timestamp}_{file.filename}"
@@ -225,6 +306,7 @@ def save_uploaded_file(file: UploadFile) -> str:
 
 
 def get_file_type(filename: str) -> str:
+    """Определяет тип файла по расширению"""
     extension = filename.lower().split('.')[-1]
     image_extensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']
     video_extensions = ['mp4', 'avi', 'mov', 'mkv', 'webm']
@@ -365,14 +447,14 @@ async def login_page():
                     const response = await fetch('/api/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password })
+                        body: JSON.stringify({ username, password }),
+                        credentials: 'include'
                     });
-
-                    const data = await response.json();
 
                     if (response.ok) {
                         window.location.href = '/';
                     } else {
+                        const data = await response.json();
                         errorDiv.textContent = data.detail || 'Неверный логин или пароль';
                         errorDiv.classList.add('show');
                     }
@@ -387,6 +469,7 @@ async def login_page():
     """
     return HTMLResponse(content=html_content)
 
+
 @app.post("/api/login")
 async def login(request: Request, response: Response):
     """API эндпоинт для логина"""
@@ -399,9 +482,7 @@ async def login(request: Request, response: Response):
             raise HTTPException(status_code=400, detail="Логин и пароль обязательны")
 
         # Проверяем учетные данные
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
-
-        if username == ADMIN_CREDENTIALS["username"] and password_hash == ADMIN_CREDENTIALS["password_hash"]:
+        if username == ADMIN_CREDENTIALS["username"] and password == ADMIN_CREDENTIALS["password"]:
             # Создаем сессию
             session_id = create_session(username)
 
@@ -417,24 +498,37 @@ async def login(request: Request, response: Response):
             return {"status": "success", "message": "Успешный вход"}
         else:
             raise HTTPException(status_code=401, detail="Неверный логин или пароль")
-    except json.JSONDecodeError:
+    except Exception as e:
         raise HTTPException(status_code=400, detail="Неверный формат данных")
 
+
 @app.post("/api/logout")
-async def logout(response: Response, session_id: Optional[str] = Cookie(None, alias="admin_session")):
+async def logout(response: Response, current_user: str = Depends(get_current_user)):
     """API эндпоинт для выхода"""
-    if session_id and session_id in active_sessions:
+    # Находим и удаляем сессию
+    session_id = None
+    for key, value in active_sessions.items():
+        if value["username"] == current_user:
+            session_id = key
+            break
+
+    if session_id:
         del active_sessions[session_id]
 
     response.delete_cookie("admin_session")
     return {"status": "success", "message": "Вы вышли из системы"}
 
-@app.get("/")
-async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_session")):
-    # Проверяем авторизацию
-    if not verify_session(session_id):
-        return RedirectResponse(url="/login", status_code=302)
 
+@app.get("/")
+async def admin_dashboard(request: Request):
+    """Главная страница админ-панели"""
+    # Проверяем авторизацию
+    try:
+        current_user = await get_current_user(request)
+    except HTTPException:
+        return RedirectResponse(url="/login")
+
+    # Полный HTML контент админ-панели
     html_content = """
     <!DOCTYPE html>
     <html>
@@ -481,12 +575,13 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             .btn-warning:hover { background: #ffa500; transform: translateY(-2px); }
             .btn-system { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
             .btn-system:hover { background: linear-gradient(135deg, #764ba2 0%, #667eea 100%); transform: translateY(-2px); }
-            .btn-info { background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; }
-            .btn-info:hover { background: linear-gradient(135deg, #138496 0%, #117a8b 100%); transform: translateY(-2px); }
 
             .form-group { margin-bottom: 20px; }
             .form-group label { display: block; margin-bottom: 8px; color: #ff6b9d; font-weight: 600; }
-            .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 12px; background: rgba(255, 107, 157, 0.1); border: 1px solid #ff6b9d; border-radius: 8px; color: #fff; font-size: 14px; outline: none; }
+            .form-group input, .form-group textarea, .form-group select { 
+                width: 100%; padding: 12px; background: rgba(255, 107, 157, 0.1); 
+                border: 1px solid #ff6b9d; border-radius: 8px; color: #fff; font-size: 14px; outline: none; 
+            }
             .form-group textarea { min-height: 80px; resize: vertical; }
 
             .photo-preview { display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
@@ -500,15 +595,6 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 background: linear-gradient(135deg, #8b225e 0%, #1a1a1a 50%, #000000 100%);
                 border: 2px dashed #ff6b9d; border-radius: 10px; text-align: center; cursor: pointer;
                 position: relative; overflow: hidden;
-            }
-            .file-upload::before {
-                content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-                background: linear-gradient(90deg, #ff6b9d, #8b225e, #ff6b9d);
-                animation: sunset-glow 2s infinite;
-            }
-            @keyframes sunset-glow {
-                0% { background-position: -200px 0; }
-                100% { background-position: 200px 0; }
             }
 
             .uploaded-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin: 15px 0; }
@@ -530,7 +616,6 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             .chat-attachment { display: flex; gap: 15px; align-items: flex-start; margin: 15px 0; flex-wrap: wrap; }
             .attachment-preview { max-width: 120px; max-height: 120px; border-radius: 8px; border: 1px solid #ff6b9d; }
 
-            /* Стиль для системных сообщений */
             .system-message { text-align: center; margin: 20px 0; }
             .system-bubble { 
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
@@ -539,7 +624,6 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
             }
 
-            /* Стили для промокодов */
             .promocode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
             .promocode-card { background: rgba(255, 107, 157, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #ff6b9d; }
             .promocode-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
@@ -549,7 +633,6 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             .status-active { background: #28a745; color: white; }
             .status-inactive { background: #dc3545; color: white; }
 
-            /* Стили для баннера */
             .banner-settings { background: rgba(255, 107, 157, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #ff6b9d; margin-bottom: 20px; }
             .banner-preview { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; margin: 15px 0; color: white; }
             .banner-text { font-size: 16px; margin-bottom: 10px; }
@@ -561,43 +644,22 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             input:checked + .slider { background-color: #ff6b9d; }
             input:checked + .slider:before { transform: translateX(26px); }
 
-            /* Стили для комментариев */
-            .comments-section { margin-top: 30px; }
-            .comment { background: rgba(255, 107, 157, 0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(255, 107, 157, 0.2); }
-            .comment-header { display: flex; justify-content: between; align-items: center; margin-bottom: 10px; }
-            .comment-author { font-weight: 600; color: #ff6b9d; }
-            .comment-date { color: #b0b0b0; font-size: 12px; margin-left: auto; }
-            .comment-text { color: #ffffff; line-height: 1.5; }
-            .comment-actions { margin-top: 10px; }
-            .delete-comment { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
-            .delete-comment:hover { background: #c82333; }
-
-            /* Стили для управления комментариями */
             .comments-management { margin-top: 30px; }
             .comment-management-item { background: rgba(255, 107, 157, 0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(255, 107, 157, 0.2); }
             .comment-management-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
             .comment-profile { font-weight: 600; color: #ff6b9d; }
 
-            /* Стили для VIP каталогов */
             .vip-catalogs-settings { background: rgba(255, 107, 157, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #ff6b9d; margin-bottom: 20px; }
             .catalog-item { background: rgba(255, 107, 157, 0.05); padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255, 107, 157, 0.2); }
             .catalog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
             .catalog-name { font-size: 18px; font-weight: 700; color: #ff6b9d; }
             .catalog-price { background: #28a745; color: white; padding: 5px 10px; border-radius: 8px; font-weight: 600; }
 
-            /* Стили для VIP анкет */
             .vip-profile-card { background: rgba(102, 126, 234, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #667eea; margin-bottom: 15px; }
             .vip-profile-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
             .vip-profile-name { font-size: 18px; font-weight: 700; color: #667eea; }
             .vip-profile-age { background: #667eea; color: white; padding: 5px 10px; border-radius: 8px; font-weight: 600; }
 
-            /* Стили для управления VIP превью */
-            .vip-preview-management { background: rgba(102, 126, 234, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #667eea; margin-bottom: 20px; }
-            .vip-preview-item { background: rgba(102, 126, 234, 0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(102, 126, 234, 0.2); }
-            .vip-preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-            .vip-preview-name { font-weight: 600; color: #667eea; }
-
-            /* Кнопка выхода */
             .logout-btn {
                 position: absolute;
                 top: 20px;
@@ -642,9 +704,11 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 <button class="tab" onclick="showTab('chats')">Chats</button>
                 <button class="tab" onclick="showTab('comments')">Comments</button>
                 <button class="tab" onclick="showTab('add-profile')">Add Profile</button>
+                <button class="tab" onclick="showTab('vip-profiles')">VIP Profiles</button>
                 <button class="tab" onclick="showTab('promocodes')">Promocodes</button>
                 <button class="tab" onclick="showTab('banner-settings')">Banner Settings</button>
                 <button class="tab" onclick="showTab('crypto-settings')">Crypto Settings</button>
+                <button class="tab" onclick="showTab('vip-catalogs')">VIP Catalogs</button>
             </div>
 
             <div id="profiles" class="content active">
@@ -652,6 +716,10 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 <div id="profiles-list" class="profile-grid"></div>
             </div>
 
+            <div id="vip-profiles" class="content">
+                <h3>Manage VIP Profiles</h3>
+                <div id="vip-profiles-list" class="profile-grid"></div>
+            </div>
 
             <div id="chats" class="content">
                 <h3>Manage Chats</h3>
@@ -751,7 +819,6 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 </form>
             </div>
 
-
             <div id="promocodes" class="content">
                 <h3>Manage Promocodes</h3>
                 <div class="form-group">
@@ -816,10 +883,105 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 </div>
             </div>
 
+            <div id="vip-catalogs" class="content">
+                <h3>VIP Catalogs Settings</h3>
+                <div class="vip-catalogs-settings">
+                    <!-- VIP Catalog -->
+                    <div class="catalog-item">
+                        <div class="catalog-header">
+                            <span class="catalog-name">VIP Catalog</span>
+                            <span class="catalog-price">$100</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Catalog Name:</label>
+                            <input type="text" id="vip-catalog-name" value="VIP Catalog">
+                        </div>
+                        <div class="form-group">
+                            <label>Price ($):</label>
+                            <input type="number" id="vip-catalog-price" value="100" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Redirect URL:</label>
+                            <input type="text" id="vip-catalog-url" value="https://t.me/vip_channel">
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center;">
+                                Visible:
+                                <label class="switch">
+                                    <input type="checkbox" id="vip-catalog-visible" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Extra VIP Catalog -->
+                    <div class="catalog-item">
+                        <div class="catalog-header">
+                            <span class="catalog-name">Extra VIP Catalog</span>
+                            <span class="catalog-price">$200</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Catalog Name:</label>
+                            <input type="text" id="extra-vip-catalog-name" value="Extra VIP">
+                        </div>
+                        <div class="form-group">
+                            <label>Price ($):</label>
+                            <input type="number" id="extra-vip-catalog-price" value="200" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Redirect URL:</label>
+                            <input type="text" id="extra-vip-catalog-url" value="https://t.me/extra_vip_channel">
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center;">
+                                Visible:
+                                <label class="switch">
+                                    <input type="checkbox" id="extra-vip-catalog-visible" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Secret Catalog -->
+                    <div class="catalog-item">
+                        <div class="catalog-header">
+                            <span class="catalog-name">Secret Catalog</span>
+                            <span class="catalog-price">$300</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Catalog Name:</label>
+                            <input type="text" id="secret-catalog-name" value="Secret Catalog">
+                        </div>
+                        <div class="form-group">
+                            <label>Price ($):</label>
+                            <input type="number" id="secret-catalog-price" value="300" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Redirect URL:</label>
+                            <input type="text" id="secret-catalog-url" value="https://t.me/secret_channel">
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center;">
+                                Visible:
+                                <label class="switch">
+                                    <input type="checkbox" id="secret-catalog-visible" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="saveVipCatalogs()">Save VIP Catalogs</button>
+                </div>
+            </div>
+
         </div>
 
         <script>
             let uploadedPhotoFiles = [];
+            let uploadedVipPhotoFiles = [];
 
             // Вспомогательная функция для fetch с credentials
             const authFetch = (url, options = {}) => {
@@ -837,6 +999,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 event.target.classList.add('active');
 
                 if (tabName === 'profiles') loadProfiles();
+                if (tabName === 'vip-profiles') loadVipProfiles();
                 if (tabName === 'chats') loadChats();
                 if (tabName === 'comments') loadCommentsAdmin();
                 if (tabName === 'promocodes') loadPromocodes();
@@ -956,24 +1119,6 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 }
             }
 
-            // Удаление VIP анкеты
-            async function deleteVipProfile(profileId) {
-                if (!confirm('Delete VIP profile? This action cannot be undone!')) return;
-
-                try {
-                    const response = await authFetch(`/api/admin/vip-profiles/${profileId}`, {method: 'DELETE'});
-                    if (response.ok) {
-                        alert('VIP Profile deleted!');
-                        loadVipProfiles();
-                    } else {
-                        alert('Error deleting VIP profile');
-                    }
-                } catch (error) {
-                    console.error('Error deleting VIP profile:', error);
-                    alert('Error deleting VIP profile');
-                }
-            }
-
             // Переключение видимости анкеты
             async function toggleProfile(profileId, visible) {
                 if (!confirm(visible ? 'Show profile?' : 'Hide profile?')) return;
@@ -1009,297 +1154,22 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 }
             }
 
-            // Загрузка чатов
-            async function loadChats() {
+            // Удаление VIP анкеты
+            async function deleteVipProfile(profileId) {
+                if (!confirm('Delete VIP profile? This action cannot be undone!')) return;
+
                 try {
-                    const response = await authFetch('/api/admin/chats');
-                            if (profile.photo) {
-                                showPhotoPreview(`vip-preview-${i+1}-photo-preview`, profile.photo);
-                            }
-                        }
-                    }
-
-                    document.getElementById('extra-vip-catalog-name').value = catalogs.extra_vip?.name || 'Extra VIP';
-                    document.getElementById('extra-vip-catalog-price').value = catalogs.extra_vip?.price || 200;
-                    document.getElementById('extra-vip-catalog-url').value = catalogs.extra_vip?.redirect_url || 'https://t.me/extra_vip_channel';
-                    document.getElementById('extra-vip-catalog-preview-count').value = catalogs.extra_vip?.preview_count || 3;
-                    document.getElementById('extra-vip-catalog-visible').checked = catalogs.extra_vip?.visible !== false;
-                    if (catalogs.extra_vip?.preview_profiles) {
-                        for (let i = 0; i < 3; i++) {
-                            const profile = catalogs.extra_vip.preview_profiles[i] || {};
-                            document.getElementById(`extra-vip-preview-${i+1}-name`).value = profile.name || '';
-                            document.getElementById(`extra-vip-preview-${i+1}-age`).value = profile.age || '';
-                            document.getElementById(`extra-vip-preview-${i+1}-city`).value = profile.city || '';
-                            vipPreviewPhotos.extra_vip[i] = profile.photo || '';
-                            if (profile.photo) {
-                                showPhotoPreview(`extra-vip-preview-${i+1}-photo-preview`, profile.photo);
-                            }
-                        }
-                    }
-
-                    document.getElementById('secret-catalog-name').value = catalogs.secret?.name || 'Secret Catalog';
-                    document.getElementById('secret-catalog-price').value = catalogs.secret?.price || 300;
-                    document.getElementById('secret-catalog-url').value = catalogs.secret?.redirect_url || 'https://t.me/secret_channel';
-                    document.getElementById('secret-catalog-preview-count').value = catalogs.secret?.preview_count || 3;
-                    document.getElementById('secret-catalog-visible').checked = catalogs.secret?.visible !== false;
-                    if (catalogs.secret?.preview_profiles) {
-                        for (let i = 0; i < 3; i++) {
-                            const profile = catalogs.secret.preview_profiles[i] || {};
-                            document.getElementById(`secret-preview-${i+1}-name`).value = profile.name || '';
-                            document.getElementById(`secret-preview-${i+1}-age`).value = profile.age || '';
-                            document.getElementById(`secret-preview-${i+1}-city`).value = profile.city || '';
-                            vipPreviewPhotos.secret[i] = profile.photo || '';
-                            if (profile.photo) {
-                                showPhotoPreview(`secret-preview-${i+1}-photo-preview`, profile.photo);
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error loading VIP catalogs:', error);
-                }
-            }
-
-            // Сохранение VIP каталогов
-            async function saveVipCatalogs() {
-                try {
-                    const catalogs = {
-                        vip: {
-                            name: document.getElementById('vip-catalog-name').value,
-                            price: parseInt(document.getElementById('vip-catalog-price').value),
-                            redirect_url: document.getElementById('vip-catalog-url').value,
-                            preview_count: parseInt(document.getElementById('vip-catalog-preview-count').value),
-                            visible: document.getElementById('vip-catalog-visible').checked,
-                            preview_profiles: [
-                                {
-                                    name: document.getElementById('vip-preview-1-name').value,
-                                    age: parseInt(document.getElementById('vip-preview-1-age').value) || 0,
-                                    city: document.getElementById('vip-preview-1-city').value,
-                                    photo: vipPreviewPhotos.vip[0] || ''
-                                },
-                                {
-                                    name: document.getElementById('vip-preview-2-name').value,
-                                    age: parseInt(document.getElementById('vip-preview-2-age').value) || 0,
-                                    city: document.getElementById('vip-preview-2-city').value,
-                                    photo: vipPreviewPhotos.vip[1] || ''
-                                },
-                                {
-                                    name: document.getElementById('vip-preview-3-name').value,
-                                    age: parseInt(document.getElementById('vip-preview-3-age').value) || 0,
-                                    city: document.getElementById('vip-preview-3-city').value,
-                                    photo: vipPreviewPhotos.vip[2] || ''
-                                }
-                            ]
-                        },
-                        extra_vip: {
-                            name: document.getElementById('extra-vip-catalog-name').value,
-                            price: parseInt(document.getElementById('extra-vip-catalog-price').value),
-                            redirect_url: document.getElementById('extra-vip-catalog-url').value,
-                            preview_count: parseInt(document.getElementById('extra-vip-catalog-preview-count').value),
-                            visible: document.getElementById('extra-vip-catalog-visible').checked,
-                            preview_profiles: [
-                                {
-                                    name: document.getElementById('extra-vip-preview-1-name').value,
-                                    age: parseInt(document.getElementById('extra-vip-preview-1-age').value) || 0,
-                                    city: document.getElementById('extra-vip-preview-1-city').value,
-                                    photo: vipPreviewPhotos.extra_vip[0] || ''
-                                },
-                                {
-                                    name: document.getElementById('extra-vip-preview-2-name').value,
-                                    age: parseInt(document.getElementById('extra-vip-preview-2-age').value) || 0,
-                                    city: document.getElementById('extra-vip-preview-2-city').value,
-                                    photo: vipPreviewPhotos.extra_vip[1] || ''
-                                },
-                                {
-                                    name: document.getElementById('extra-vip-preview-3-name').value,
-                                    age: parseInt(document.getElementById('extra-vip-preview-3-age').value) || 0,
-                                    city: document.getElementById('extra-vip-preview-3-city').value,
-                                    photo: vipPreviewPhotos.extra_vip[2] || ''
-                                }
-                            ]
-                        },
-                        secret: {
-                            name: document.getElementById('secret-catalog-name').value,
-                            price: parseInt(document.getElementById('secret-catalog-price').value),
-                            redirect_url: document.getElementById('secret-catalog-url').value,
-                            preview_count: parseInt(document.getElementById('secret-catalog-preview-count').value),
-                            visible: document.getElementById('secret-catalog-visible').checked,
-                            preview_profiles: [
-                                {
-                                    name: document.getElementById('secret-preview-1-name').value,
-                                    age: parseInt(document.getElementById('secret-preview-1-age').value) || 0,
-                                    city: document.getElementById('secret-preview-1-city').value,
-                                    photo: vipPreviewPhotos.secret[0] || ''
-                                },
-                                {
-                                    name: document.getElementById('secret-preview-2-name').value,
-                                    age: parseInt(document.getElementById('secret-preview-2-age').value) || 0,
-                                    city: document.getElementById('secret-preview-2-city').value,
-                                    photo: vipPreviewPhotos.secret[1] || ''
-                                },
-                                {
-                                    name: document.getElementById('secret-preview-3-name').value,
-                                    age: parseInt(document.getElementById('secret-preview-3-age').value) || 0,
-                                    city: document.getElementById('secret-preview-3-city').value,
-                                    photo: vipPreviewPhotos.secret[2] || ''
-                                }
-                            ]
-                        }
-                    };
-
-                    const response = await authFetch('/api/admin/vip-catalogs', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify(catalogs)
-                    });
-
+                    const response = await authFetch(`/api/admin/vip-profiles/${profileId}`, {method: 'DELETE'});
                     if (response.ok) {
-                        alert('VIP catalogs settings saved!');
+                        alert('VIP Profile deleted!');
+                        loadVipProfiles();
                     } else {
-                        alert('Error saving VIP catalogs settings');
+                        alert('Error deleting VIP profile');
                     }
                 } catch (error) {
-                    console.error('Error saving VIP catalogs:', error);
-                    alert('Error saving VIP catalogs settings');
+                    console.error('Error deleting VIP profile:', error);
+                    alert('Error deleting VIP profile');
                 }
-            }
-
-            // Функция отображения превью фото
-            function showPhotoPreview(previewId, photoUrl) {
-                const previewDiv = document.getElementById(previewId);
-                if (previewDiv) {
-                    previewDiv.innerHTML = `<img src="http://localhost:8002${photoUrl}" style="max-width: 200px; max-height: 150px; border-radius: 8px;">`;
-                }
-            }
-
-            // Обработчики загрузки фото для preview профилей
-            document.addEventListener('DOMContentLoaded', () => {
-                // VIP catalog
-                ['vip', 'extra-vip', 'secret'].forEach(catalog => {
-                    for (let i = 1; i <= 3; i++) {
-                        const inputId = `${catalog}-preview-${i}-photo`;
-                        const previewId = `${catalog}-preview-${i}-photo-preview`;
-                        const catalogKey = catalog.replace('-', '_');
-
-                        const input = document.getElementById(inputId);
-                        if (input) {
-                            input.addEventListener('change', async function(e) {
-                                const file = e.target.files[0];
-                                if (file) {
-                                    const formData = new FormData();
-                                    formData.append('file', file);
-
-                                    try {
-                                        const response = await authFetch('/api/admin/vip-catalogs/upload-preview-photo', {
-                                            method: 'POST',
-                                            body: formData
-                                        });
-
-                                        if (response.ok) {
-                                            const data = await response.json();
-                                            vipPreviewPhotos[catalogKey][i-1] = data.photo_url;
-                                            showPhotoPreview(previewId, data.photo_url);
-                                        } else {
-                                            alert('Error uploading photo');
-                                        }
-                                    } catch (error) {
-                                        console.error('Error uploading photo:', error);
-                                        alert('Error uploading photo');
-                                    }
-                                }
-                            });
-                        }
-                    }
-                });
-            });
-
-            // Загрузка управления VIP превью
-            async function loadVipPreviewManagement() {
-                await loadAvailableVipProfiles();
-                await loadVipPreviewProfiles();
-            }
-
-            // Загрузка доступных VIP анкет
-            async function loadAvailableVipProfiles() {
-                try {
-                    const response = await authFetch('/api/admin/vip-profiles');
-                    const data = await response.json();
-                    availableVipProfiles = data.profiles;
-
-                    const select = document.getElementById('available-vip-profiles');
-                    select.innerHTML = '';
-
-                    availableVipProfiles.forEach(profile => {
-                        const option = document.createElement('option');
-                        option.value = profile.id;
-                        option.textContent = `${profile.name} (${profile.age} y.o., ${profile.city})`;
-                        select.appendChild(option);
-                    });
-                } catch (error) {
-                    console.error('Error loading VIP profiles:', error);
-                }
-            }
-
-            // Загрузка выбранных превью профилей
-            async function loadVipPreviewProfiles() {
-                const catalogKey = document.getElementById('vip-catalog-select').value;
-                // Здесь будет загрузка сохраненных превью профилей для выбранного каталога
-                // Пока просто очищаем выбранные профили
-                selectedPreviewProfiles = [];
-                updateSelectedPreviewDisplay();
-            }
-
-            // Обновление отображения выбранных превью профилей
-            function updateSelectedPreviewDisplay() {
-                const container = document.getElementById('selected-preview-profiles');
-                container.innerHTML = '';
-
-                selectedPreviewProfiles.forEach(profileId => {
-                    const profile = availableVipProfiles.find(p => p.id == profileId);
-                    if (profile) {
-                        const profileDiv = document.createElement('div');
-                        profileDiv.className = 'vip-preview-item';
-                        profileDiv.innerHTML = `
-                            <div class="vip-preview-header">
-                                <span class="vip-preview-name">${profile.name}</span>
-                                <button class="btn btn-danger" onclick="removePreviewProfile(${profile.id})">Remove</button>
-                            </div>
-                            <p>Age: ${profile.age}</p>
-                            <p>City: ${profile.city}</p>
-                            <img src="http://localhost:8002${profile.photos[0]}" alt="${profile.name}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;">
-                        `;
-                        container.appendChild(profileDiv);
-                    }
-                });
-            }
-
-            // Добавление профиля в превью
-            function addPreviewProfile() {
-                const select = document.getElementById('available-vip-profiles');
-                const selectedOptions = Array.from(select.selectedOptions);
-
-                selectedOptions.forEach(option => {
-                    const profileId = parseInt(option.value);
-                    if (!selectedPreviewProfiles.includes(profileId) && selectedPreviewProfiles.length < 3) {
-                        selectedPreviewProfiles.push(profileId);
-                    }
-                });
-
-                updateSelectedPreviewDisplay();
-            }
-
-            // Удаление профиля из превью
-            function removePreviewProfile(profileId) {
-                selectedPreviewProfiles = selectedPreviewProfiles.filter(id => id !== profileId);
-                updateSelectedPreviewDisplay();
-            }
-
-            // Сохранение настроек превью
-            async function saveVipPreview() {
-                const catalogKey = document.getElementById('vip-catalog-select').value;
-
-                // Здесь будет сохранение выбранных профилей для превью
-                // Пока просто показываем сообщение
-                alert(`Preview settings saved for ${catalogKey} catalog with ${selectedPreviewProfiles.length} profiles`);
             }
 
             // Загрузка чатов
@@ -1467,30 +1337,6 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 }
             }
 
-            // Отправка системного сообщения
-            async function sendSystemMessage(profileId) {
-                if (!confirm('Send transaction success message?')) return;
-
-                try {
-                    const response = await authFetch(`/api/admin/chats/${profileId}/system-message`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            text: 'Transaction successful, your booking has been confirmed'
-                        })
-                    });
-
-                    if (response.ok) {
-                        openChat(profileId); // Перезагружаем чат
-                    } else {
-                        alert('Error sending system message');
-                    }
-                } catch (error) {
-                    console.error('Error sending system message:', error);
-                    alert('Error sending system message');
-                }
-            }
-
             // Настройка загрузки файлов для чата
             function setupChatFileUpload() {
                 const fileInput = document.getElementById('admin-chat-file');
@@ -1533,12 +1379,10 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 };
             }
 
-            // Отправка ответа с файлами - ИСПРАВЛЕННАЯ ВЕРСИЯ
+            // Отправка ответа с файлами
             async function sendAdminReply(profileId) {
                 const text = document.getElementById('reply-text').value.trim();
                 const files = window.getSelectedChatFiles();
-
-                console.log('Sending reply:', { text, files: files.length });
 
                 if (!text && files.length === 0) {
                     alert('Please enter message text or attach files');
@@ -1556,8 +1400,6 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                         formData.append('files', file);
                     });
 
-                    console.log('FormData entries:', Array.from(formData.entries()));
-
                     const response = await authFetch(`/api/admin/chats/${profileId}/reply`, {
                         method: 'POST',
                         body: formData
@@ -1569,13 +1411,36 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                         openChat(profileId); // Перезагружаем чат
                     } else {
                         const errorData = await response.json();
-                        console.error('Server error:', errorData);
                         alert('Error sending message: ' + (errorData.detail || 'Unknown error'));
                     }
 
                 } catch (error) {
                     console.error('Error sending reply:', error);
                     alert('Error sending message: ' + error.message);
+                }
+            }
+
+            // Отправка системного сообщения
+            async function sendSystemMessage(profileId) {
+                if (!confirm('Send transaction success message?')) return;
+
+                try {
+                    const response = await authFetch(`/api/admin/chats/${profileId}/system-message`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            text: 'Transaction successful, your booking has been confirmed'
+                        })
+                    });
+
+                    if (response.ok) {
+                        openChat(profileId); // Перезагружаем чат
+                    } else {
+                        alert('Error sending system message');
+                    }
+                } catch (error) {
+                    console.error('Error sending system message:', error);
+                    alert('Error sending system message');
                 }
             }
 
@@ -1624,7 +1489,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 if (!confirm('Delete this comment?')) return;
 
                 try {
-                    const response = await fetch(`/api/profiles/${profileId}/comments/${commentId}`, {
+                    const response = await authFetch(`/api/admin/comments/${profileId}/${commentId}`, {
                         method: 'DELETE'
                     });
 
@@ -1801,6 +1666,71 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 }
             }
 
+            // VIP каталоги
+            async function loadVipCatalogs() {
+                try {
+                    const response = await authFetch('/api/admin/vip-catalogs');
+                    const catalogs = await response.json();
+
+                    document.getElementById('vip-catalog-name').value = catalogs.vip?.name || 'VIP Catalog';
+                    document.getElementById('vip-catalog-price').value = catalogs.vip?.price || 100;
+                    document.getElementById('vip-catalog-url').value = catalogs.vip?.redirect_url || 'https://t.me/vip_channel';
+                    document.getElementById('vip-catalog-visible').checked = catalogs.vip?.visible !== false;
+
+                    document.getElementById('extra-vip-catalog-name').value = catalogs.extra_vip?.name || 'Extra VIP';
+                    document.getElementById('extra-vip-catalog-price').value = catalogs.extra_vip?.price || 200;
+                    document.getElementById('extra-vip-catalog-url').value = catalogs.extra_vip?.redirect_url || 'https://t.me/extra_vip_channel';
+                    document.getElementById('extra-vip-catalog-visible').checked = catalogs.extra_vip?.visible !== false;
+
+                    document.getElementById('secret-catalog-name').value = catalogs.secret?.name || 'Secret Catalog';
+                    document.getElementById('secret-catalog-price').value = catalogs.secret?.price || 300;
+                    document.getElementById('secret-catalog-url').value = catalogs.secret?.redirect_url || 'https://t.me/secret_channel';
+                    document.getElementById('secret-catalog-visible').checked = catalogs.secret?.visible !== false;
+                } catch (error) {
+                    console.error('Error loading VIP catalogs:', error);
+                }
+            }
+
+            async function saveVipCatalogs() {
+                try {
+                    const catalogs = {
+                        vip: {
+                            name: document.getElementById('vip-catalog-name').value,
+                            price: parseInt(document.getElementById('vip-catalog-price').value),
+                            redirect_url: document.getElementById('vip-catalog-url').value,
+                            visible: document.getElementById('vip-catalog-visible').checked
+                        },
+                        extra_vip: {
+                            name: document.getElementById('extra-vip-catalog-name').value,
+                            price: parseInt(document.getElementById('extra-vip-catalog-price').value),
+                            redirect_url: document.getElementById('extra-vip-catalog-url').value,
+                            visible: document.getElementById('extra-vip-catalog-visible').checked
+                        },
+                        secret: {
+                            name: document.getElementById('secret-catalog-name').value,
+                            price: parseInt(document.getElementById('secret-catalog-price').value),
+                            redirect_url: document.getElementById('secret-catalog-url').value,
+                            visible: document.getElementById('secret-catalog-visible').checked
+                        }
+                    };
+
+                    const response = await authFetch('/api/admin/vip-catalogs', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(catalogs)
+                    });
+
+                    if (response.ok) {
+                        alert('VIP catalogs settings saved!');
+                    } else {
+                        alert('Error saving VIP catalogs settings');
+                    }
+                } catch (error) {
+                    console.error('Error saving VIP catalogs:', error);
+                    alert('Error saving VIP catalogs settings');
+                }
+            }
+
             // Загрузка фото для профиля
             document.getElementById('photo-upload').addEventListener('change', function(e) {
                 const files = Array.from(e.target.files);
@@ -1828,43 +1758,10 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 this.value = '';
             });
 
-            // Загрузка фото для VIP профиля
-            document.getElementById('vip-photo-upload').addEventListener('change', function(e) {
-                const files = Array.from(e.target.files);
-                const uploadedPhotosContainer = document.getElementById('vip-uploaded-photos');
-
-                files.forEach(file => {
-                    if (file.type.startsWith('image/')) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            const photoData = e.target.result;
-                            uploadedVipPhotoFiles.push(file);
-
-                            const photoDiv = document.createElement('div');
-                            photoDiv.className = 'uploaded-photo';
-                            photoDiv.innerHTML = `
-                                <img src="${photoData}" alt="Uploaded photo">
-                                <button type="button" class="remove-photo" onclick="removeVipUploadedPhoto(${uploadedVipPhotoFiles.length - 1})">×</button>
-                            `;
-                            uploadedPhotosContainer.appendChild(photoDiv);
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                });
-
-                this.value = '';
-            });
-
             // Удаление загруженного фото
             window.removeUploadedPhoto = function(index) {
                 uploadedPhotoFiles.splice(index, 1);
                 updateUploadedPhotosDisplay();
-            };
-
-            // Удаление загруженного VIP фото
-            window.removeVipUploadedPhoto = function(index) {
-                uploadedVipPhotoFiles.splice(index, 1);
-                updateVipUploadedPhotosDisplay();
             };
 
             // Обновление отображения загруженных фото
@@ -1880,26 +1777,6 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                         photoDiv.innerHTML = `
                             <img src="${e.target.result}" alt="Uploaded photo">
                             <button type="button" class="remove-photo" onclick="removeUploadedPhoto(${index})">×</button>
-                        `;
-                        uploadedPhotosContainer.appendChild(photoDiv);
-                    };
-                    reader.readAsDataURL(file);
-                });
-            }
-
-            // Обновление отображения загруженных VIP фото
-            function updateVipUploadedPhotosDisplay() {
-                const uploadedPhotosContainer = document.getElementById('vip-uploaded-photos');
-                uploadedPhotosContainer.innerHTML = '';
-
-                uploadedVipPhotoFiles.forEach((file, index) => {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const photoDiv = document.createElement('div');
-                        photoDiv.className = 'uploaded-photo';
-                        photoDiv.innerHTML = `
-                            <img src="${e.target.result}" alt="Uploaded photo">
-                            <button type="button" class="remove-photo" onclick="removeVipUploadedPhoto(${index})">×</button>
                         `;
                         uploadedPhotosContainer.appendChild(photoDiv);
                     };
@@ -1958,49 +1835,6 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 } catch (error) {
                     console.error('Error adding profile:', error);
                     alert('Error adding profile: ' + error.message);
-                }
-            });
-
-            // Обработчик формы добавления VIP анкеты
-            document.getElementById('add-vip-profile-form').addEventListener('submit', async function(e) {
-                e.preventDefault();
-
-                if (uploadedVipPhotoFiles.length === 0) {
-                    alert('Please upload at least one photo');
-                    return;
-                }
-
-                // Создаем FormData для отправки файлов
-                const formData = new FormData();
-                formData.append('name', document.getElementById('vip-name').value);
-                formData.append('age', document.getElementById('vip-age').value);
-                formData.append('gender', document.getElementById('vip-gender').value);
-                formData.append('city', document.getElementById('vip-city').value);
-
-                // Добавляем фото
-                uploadedVipPhotoFiles.forEach(file => {
-                    formData.append('photos', file);
-                });
-
-                try {
-                    const response = await authFetch('/api/admin/vip-profiles', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    if (response.ok) {
-                        alert('VIP Profile added successfully!');
-                        this.reset();
-                        uploadedVipPhotoFiles = [];
-                        updateVipUploadedPhotosDisplay();
-                        showTab('vip-profiles');
-                    } else {
-                        const errorData = await response.json();
-                        alert('Error adding VIP profile: ' + (errorData.detail || 'Unknown error'));
-                    }
-                } catch (error) {
-                    console.error('Error adding VIP profile:', error);
-                    alert('Error adding VIP profile: ' + error.message);
                 }
             });
 
@@ -2412,6 +2246,7 @@ async def get_admin_vip_profiles(current_user: str = Depends(get_current_user)):
     data = load_data()
     return {"profiles": data.get("vip_profiles", [])}
 
+
 @app.post("/api/admin/vip-profiles")
 async def create_vip_profile(
         current_user: str = Depends(get_current_user),
@@ -2454,6 +2289,7 @@ async def create_vip_profile(
     save_data(data)
     return {"status": "created", "profile": new_profile}
 
+
 @app.delete("/api/admin/vip-profiles/{profile_id}")
 async def delete_vip_profile(profile_id: int, current_user: str = Depends(get_current_user)):
     """Удалить VIP профиль"""
@@ -2462,12 +2298,14 @@ async def delete_vip_profile(profile_id: int, current_user: str = Depends(get_cu
     save_data(data)
     return {"status": "deleted"}
 
+
 # VIP Каталоги API
 @app.get("/api/admin/vip-catalogs")
 async def get_admin_vip_catalogs(current_user: str = Depends(get_current_user)):
     """Получить настройки VIP каталогов"""
     data = load_data()
     return data.get("settings", {}).get("vip_catalogs", {})
+
 
 @app.post("/api/admin/vip-catalogs")
 async def update_vip_catalogs(catalogs: dict, current_user: str = Depends(get_current_user)):
@@ -2479,14 +2317,6 @@ async def update_vip_catalogs(catalogs: dict, current_user: str = Depends(get_cu
     save_data(data)
     return {"status": "updated"}
 
-@app.post("/api/admin/vip-catalogs/upload-preview-photo")
-async def upload_preview_photo(current_user: str = Depends(get_current_user), file: UploadFile = File(...)):
-    """Загрузить фото для preview профиля VIP каталога"""
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image")
-
-    file_path = save_uploaded_file(file)
-    return {"photo_url": file_path}
 
 # Удаление комментариев
 @app.delete("/api/admin/comments/{profile_id}/{comment_id}")
@@ -2498,7 +2328,8 @@ async def delete_comment(profile_id: int, comment_id: int, current_user: str = D
         raise HTTPException(status_code=404, detail="No comments found")
 
     # Находим комментарий
-    comment_index = next((i for i, c in enumerate(data["comments"]) if c["id"] == comment_id and c["profile_id"] == profile_id), None)
+    comment_index = next(
+        (i for i, c in enumerate(data["comments"]) if c["id"] == comment_id and c["profile_id"] == profile_id), None)
 
     if comment_index is None:
         raise HTTPException(status_code=404, detail="Comment not found")
@@ -2512,5 +2343,6 @@ async def delete_comment(profile_id: int, comment_id: int, current_user: str = D
 
 if __name__ == "__main__":
     print("🚀 Admin panel Muji запущена: http://localhost:8002")
-    print("🎨 Исправления: VIP анкеты, переименование, улучшенные кнопки!")
+    print("🔑 Логин: admin | Пароль: admin123")
+    print("✅ Админ-панель с полным функционалом готова к работе!")
     uvicorn.run(app, host="0.0.0.0", port=8002, access_log=False)
