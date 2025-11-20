@@ -849,6 +849,11 @@ async def admin_dashboard():
             // JWT Token storage
             let authToken = localStorage.getItem('admin_token');
 
+            // Check if user is authenticated, redirect to login if not
+            if (!authToken) {
+                window.location.href = '/login';
+            }
+
             // Add token to all API requests
             async function fetchWithAuth(url, options = {}) {
                 if (!authToken) {
