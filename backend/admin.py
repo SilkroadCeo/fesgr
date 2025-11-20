@@ -45,8 +45,11 @@ def verify_session(session_id: Optional[str]) -> bool:
 
 def get_current_user(session_id: Optional[str] = Cookie(None, alias="admin_session")) -> str:
     """Получить текущего пользователя из сессии"""
+    logger.info(f"Checking auth: session_id={session_id}, active_sessions={list(active_sessions.keys())}")
     if not verify_session(session_id):
+        logger.warning(f"❌ Authentication failed: session_id={session_id}")
         raise HTTPException(status_code=401, detail="Not authenticated")
+    logger.info(f"✅ Auth successful for session: {session_id}")
     return active_sessions[session_id]["username"]
 
 app = FastAPI(title="Admin Panel - Muji")
@@ -395,6 +398,8 @@ async def login(request: Request, response: Response):
         username = body.get("username")
         password = body.get("password")
 
+        logger.info(f"Login attempt for user: {username}")
+
         if not username or not password:
             raise HTTPException(status_code=400, detail="Логин и пароль обязательны")
 
@@ -405,12 +410,15 @@ async def login(request: Request, response: Response):
             # Создаем сессию
             session_id = create_session(username)
 
+            logger.info(f"✅ Login successful for {username}, session_id: {session_id}")
+
             # Устанавливаем cookie
             response.set_cookie(
                 key="admin_session",
                 value=session_id,
                 httponly=True,
                 max_age=86400 * 7,  # 7 дней
+                path="/",  # Важно!
                 samesite="lax"
             )
 
@@ -426,8 +434,16 @@ async def logout(response: Response, session_id: Optional[str] = Cookie(None, al
     if session_id and session_id in active_sessions:
         del active_sessions[session_id]
 
-    response.delete_cookie("admin_session")
+    response.delete_cookie("admin_session", path="/")
     return {"status": "success", "message": "Вы вышли из системы"}
+
+@app.get("/api/debug/sessions")
+async def debug_sessions():
+    """Отладочный эндпоинт для проверки активных сессий"""
+    return {
+        "active_sessions_count": len(active_sessions),
+        "session_ids": list(active_sessions.keys())
+    }
 
 @app.get("/")
 async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_session")):
