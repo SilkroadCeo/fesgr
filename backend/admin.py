@@ -2141,6 +2141,83 @@ async def send_admin_reply(
         raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
 
 
+@app.post("/api/chats/{profile_id}/messages")
+async def send_user_message(profile_id: int, request: Request):
+    """Отправка сообщения от пользователя"""
+    data = load_data()
+
+    logger.info(f"📨 User sending message to profile {profile_id}")
+
+    # Находим профиль
+    profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Находим или создаем чат
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        chat = {
+            "id": len(data["chats"]) + 1,
+            "profile_id": profile_id,
+            "profile_name": profile["name"],
+            "created_at": datetime.now().isoformat()
+        }
+        data["chats"].append(chat)
+
+    try:
+        # Получаем форму с файлами и текстом
+        form = await request.form()
+        text = form.get("text", "").strip()
+        file = form.get("file")
+
+        logger.info(f"📝 Text: '{text}'")
+        logger.info(f"📎 File: {file.filename if file and hasattr(file, 'filename') else 'None'}")
+
+        # Обрабатываем файл
+        if file and hasattr(file, 'filename') and file.filename:
+            file_url = save_uploaded_file(file)
+            if file_url:
+                file_type = get_file_type(file.filename)
+
+                message_data = {
+                    "id": len(data["messages"]) + 1,
+                    "chat_id": chat["id"],
+                    "file_url": file_url,
+                    "file_type": file_type,
+                    "file_name": file.filename,
+                    "text": text or "",
+                    "is_from_user": True,
+                    "created_at": datetime.now().isoformat()
+                }
+                data["messages"].append(message_data)
+                logger.info(f"✅ File message added from user: {file.filename}")
+        elif text:
+            # Если только текст
+            message_data = {
+                "id": len(data["messages"]) + 1,
+                "chat_id": chat["id"],
+                "text": text,
+                "is_from_user": True,
+                "created_at": datetime.now().isoformat()
+            }
+            data["messages"].append(message_data)
+            logger.info("✅ Text message added from user")
+        else:
+            raise HTTPException(status_code=400, detail="Text or file is required")
+
+        save_data(data)
+        logger.info("💾 Data saved successfully")
+
+        return {
+            "status": "sent",
+            "message_id": message_data["id"]
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error sending user message: {e}")
+        raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
+
+
 @app.post("/api/admin/chats/{profile_id}/system-message")
 async def send_system_message(profile_id: int, message_data: dict, current_user: str = Depends(get_current_user)):
     """Отправка системного сообщения"""
