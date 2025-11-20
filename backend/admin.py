@@ -53,7 +53,8 @@ app = FastAPI(title="Admin Panel - Muji")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8002", "http://127.0.0.1:8002"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -820,6 +821,14 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
         <script>
             let uploadedPhotoFiles = [];
 
+            // Вспомогательная функция для fetch с credentials
+            const authFetch = (url, options = {}) => {
+                return fetch(url, {
+                    ...options,
+                    credentials: 'include'
+                });
+            };
+
             // Функции для переключения вкладок
             function showTab(tabName) {
                 document.querySelectorAll('.content').forEach(tab => tab.classList.remove('active'));
@@ -839,7 +848,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             // Загрузка статистики
             async function loadStats() {
                 try {
-                    const response = await fetch('/api/stats');
+                    const response = await authFetch('/api/stats');
                     const stats = await response.json();
                     document.getElementById('profiles-count').textContent = stats.profiles_count;
                     document.getElementById('vip-profiles-count').textContent = stats.vip_profiles_count;
@@ -855,7 +864,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             // Загрузка анкет
             async function loadProfiles() {
                 try {
-                    const response = await fetch('/api/admin/profiles');
+                    const response = await authFetch('/api/admin/profiles');
                     const data = await response.json();
                     const list = document.getElementById('profiles-list');
                     list.innerHTML = '';
@@ -909,7 +918,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             // Загрузка VIP анкет
             async function loadVipProfiles() {
                 try {
-                    const response = await fetch('/api/admin/vip-profiles');
+                    const response = await authFetch('/api/admin/vip-profiles');
                     const data = await response.json();
                     const list = document.getElementById('vip-profiles-list');
                     list.innerHTML = '';
@@ -952,7 +961,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 if (!confirm('Delete VIP profile? This action cannot be undone!')) return;
 
                 try {
-                    const response = await fetch(`/api/admin/vip-profiles/${profileId}`, {method: 'DELETE'});
+                    const response = await authFetch(`/api/admin/vip-profiles/${profileId}`, {method: 'DELETE'});
                     if (response.ok) {
                         alert('VIP Profile deleted!');
                         loadVipProfiles();
@@ -970,7 +979,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 if (!confirm(visible ? 'Show profile?' : 'Hide profile?')) return;
 
                 try {
-                    await fetch(`/api/admin/profiles/${profileId}/toggle`, {
+                    await authFetch(`/api/admin/profiles/${profileId}/toggle`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ visible: visible })
@@ -987,7 +996,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 if (!confirm('Delete profile? This action cannot be undone!')) return;
 
                 try {
-                    const response = await fetch(`/api/admin/profiles/${profileId}`, {method: 'DELETE'});
+                    const response = await authFetch(`/api/admin/profiles/${profileId}`, {method: 'DELETE'});
                     if (response.ok) {
                         alert('Profile deleted!');
                         loadProfiles();
@@ -1003,7 +1012,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             // Загрузка чатов
             async function loadChats() {
                 try {
-                    const response = await fetch('/api/admin/chats');
+                    const response = await authFetch('/api/admin/chats');
                             if (profile.photo) {
                                 showPhotoPreview(`vip-preview-${i+1}-photo-preview`, profile.photo);
                             }
@@ -1137,7 +1146,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                         }
                     };
 
-                    const response = await fetch('/api/admin/vip-catalogs', {
+                    const response = await authFetch('/api/admin/vip-catalogs', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(catalogs)
@@ -1180,7 +1189,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                                     formData.append('file', file);
 
                                     try {
-                                        const response = await fetch('/api/admin/vip-catalogs/upload-preview-photo', {
+                                        const response = await authFetch('/api/admin/vip-catalogs/upload-preview-photo', {
                                             method: 'POST',
                                             body: formData
                                         });
@@ -1212,7 +1221,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             // Загрузка доступных VIP анкет
             async function loadAvailableVipProfiles() {
                 try {
-                    const response = await fetch('/api/admin/vip-profiles');
+                    const response = await authFetch('/api/admin/vip-profiles');
                     const data = await response.json();
                     availableVipProfiles = data.profiles;
 
@@ -1296,7 +1305,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             // Загрузка чатов
             async function loadChats() {
                 try {
-                    const response = await fetch('/api/admin/chats');
+                    const response = await authFetch('/api/admin/chats');
                     const data = await response.json();
                     const list = document.getElementById('chats-list');
                     list.innerHTML = '';
@@ -1329,7 +1338,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             // Открытие чата
             async function openChat(profileId) {
                 try {
-                    const response = await fetch(`/api/admin/chats/${profileId}/messages`);
+                    const response = await authFetch(`/api/admin/chats/${profileId}/messages`);
                     const messages = await response.json();
 
                     const list = document.getElementById('chats-list');
@@ -1463,7 +1472,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 if (!confirm('Send transaction success message?')) return;
 
                 try {
-                    const response = await fetch(`/api/admin/chats/${profileId}/system-message`, {
+                    const response = await authFetch(`/api/admin/chats/${profileId}/system-message`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
@@ -1549,7 +1558,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
 
                     console.log('FormData entries:', Array.from(formData.entries()));
 
-                    const response = await fetch(`/api/admin/chats/${profileId}/reply`, {
+                    const response = await authFetch(`/api/admin/chats/${profileId}/reply`, {
                         method: 'POST',
                         body: formData
                     });
@@ -1573,7 +1582,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             // Управление комментариями
             async function loadCommentsAdmin() {
                 try {
-                    const response = await fetch('/api/admin/comments');
+                    const response = await authFetch('/api/admin/comments');
                     const data = await response.json();
                     const list = document.getElementById('comments-list-admin');
                     list.innerHTML = '';
@@ -1634,7 +1643,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             // Промокоды
             async function loadPromocodes() {
                 try {
-                    const response = await fetch('/api/admin/promocodes');
+                    const response = await authFetch('/api/admin/promocodes');
                     const data = await response.json();
                     const list = document.getElementById('promocodes-list');
                     list.innerHTML = '';
@@ -1687,7 +1696,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 }
 
                 try {
-                    const response = await fetch('/api/admin/promocodes', {
+                    const response = await authFetch('/api/admin/promocodes', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
@@ -1711,7 +1720,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
 
             async function togglePromocode(promocodeId, active) {
                 try {
-                    await fetch(`/api/admin/promocodes/${promocodeId}/toggle`, {
+                    await authFetch(`/api/admin/promocodes/${promocodeId}/toggle`, {
                         method: 'POST'
                     });
                     loadPromocodes();
@@ -1725,7 +1734,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 if (!confirm('Delete promocode? This action cannot be undone!')) return;
 
                 try {
-                    const response = await fetch(`/api/admin/promocodes/${promocodeId}`, {method: 'DELETE'});
+                    const response = await authFetch(`/api/admin/promocodes/${promocodeId}`, {method: 'DELETE'});
                     if (response.ok) {
                         alert('Promocode deleted!');
                         loadPromocodes();
@@ -1741,7 +1750,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             // Баннер
             async function loadBannerSettings() {
                 try {
-                    const response = await fetch('/api/admin/banner');
+                    const response = await authFetch('/api/admin/banner');
                     const banner = await response.json();
 
                     document.getElementById('banner-text').value = banner.text || '';
@@ -1774,7 +1783,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                         visible: document.getElementById('banner-visible').checked
                     };
 
-                    const response = await fetch('/api/admin/banner', {
+                    const response = await authFetch('/api/admin/banner', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(banner)
@@ -1931,7 +1940,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 });
 
                 try {
-                    const response = await fetch('/api/admin/profiles', {
+                    const response = await authFetch('/api/admin/profiles', {
                         method: 'POST',
                         body: formData
                     });
@@ -1974,7 +1983,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                 });
 
                 try {
-                    const response = await fetch('/api/admin/vip-profiles', {
+                    const response = await authFetch('/api/admin/vip-profiles', {
                         method: 'POST',
                         body: formData
                     });
@@ -1998,7 +2007,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             // Загрузка крипто-кошельков
             async function loadCryptoWallets() {
                 try {
-                    const response = await fetch('/api/admin/crypto_wallets');
+                    const response = await authFetch('/api/admin/crypto_wallets');
                     const wallets = await response.json();
 
                     document.getElementById('trc20-wallet').value = wallets.trc20 || '';
@@ -2018,7 +2027,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                         bnb: document.getElementById('bnb-wallet').value
                     };
 
-                    const response = await fetch('/api/admin/crypto_wallets', {
+                    const response = await authFetch('/api/admin/crypto_wallets', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(wallets)
@@ -2046,7 +2055,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
             // Функция выхода
             async function logout() {
                 try {
-                    await fetch('/api/logout', { method: 'POST' });
+                    await authFetch('/api/logout', { method: 'POST' });
                     window.location.href = '/login';
                 } catch (error) {
                     console.error('Ошибка при выходе:', error);
