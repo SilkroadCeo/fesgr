@@ -2258,6 +2258,7 @@
                 apply: "Apply",
                 loading: "Loading...",
                 loading_more: "Loading more...",
+                view_profile: "More",
                 write_message: "Write",
                 book_with_crypto: "Pay",
                 promocode: "Promo",
@@ -2319,6 +2320,7 @@
                 apply: "Aplicar",
                 loading: "Cargando...",
                 loading_more: "Cargando más...",
+                view_profile: "Más",
                 write_message: "Escribir",
                 book_with_crypto: "Pagar",
                 promocode: "Código promocional",
@@ -2380,6 +2382,7 @@
                 apply: "تطبيق",
                 loading: "جاري التحميل...",
                 loading_more: "تحميل المزيد...",
+                view_profile: "المزيد",
                 write_message: "كتابة",
                 book_with_crypto: "الدفع",
                 promocode: "رمز ترويجي",
@@ -2441,6 +2444,7 @@
                 apply: "Anwenden",
                 loading: "Wird geladen...",
                 loading_more: "Mehr laden...",
+                view_profile: "Mehr",
                 write_message: "Schreiben",
                 book_with_crypto: "Bezahlen",
                 promocode: "Promocode",
@@ -2502,6 +2506,7 @@
                 apply: "適用",
                 loading: "読み込み中...",
                 loading_more: "さらに読み込み中...",
+                view_profile: "もっと見る",
                 write_message: "メッセージ",
                 book_with_crypto: "支払い",
                 promocode: "プロモコード",
@@ -2563,6 +2568,7 @@
                 apply: "적용",
                 loading: "로딩 중...",
                 loading_more: "더 로딩 중...",
+                view_profile: "더보기",
                 write_message: "메시지",
                 book_with_crypto: "결제",
                 promocode: "프로모션 코드",
@@ -2624,6 +2630,7 @@
                 apply: "应用",
                 loading: "加载中...",
                 loading_more: "加载更多...",
+                view_profile: "更多",
                 write_message: "写信",
                 book_with_crypto: "支付",
                 promocode: "促销代码",
@@ -3910,6 +3917,15 @@
                         renderMessage(msg);
                         if (msg.id > lastMessageId) {
                             lastMessageId = msg.id;
+                        }
+
+                        // Проверяем, является ли сообщение системным с "transaction successful"
+                        if (msg.is_system && msg.text && msg.text.toLowerCase().includes('transaction successful')) {
+                            // Очищаем незавершенный платеж
+                            if (pendingPayment) {
+                                clearPendingPayment();
+                            }
+                            canComment = true;
                         }
                     });
 
