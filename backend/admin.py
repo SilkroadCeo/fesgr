@@ -463,15 +463,6 @@ async def login(request: Request, credentials: dict):
     }
 
 
-@app.get("/")
-async def serve_frontend():
-    """Serve the main frontend page"""
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "index.html")
-    if not os.path.exists(frontend_path):
-        raise HTTPException(status_code=404, detail="Frontend not found")
-    return FileResponse(frontend_path)
-
-
 @app.get("/admin")
 async def admin_dashboard():
     html_content = """
