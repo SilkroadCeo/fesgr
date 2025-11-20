@@ -128,6 +128,7 @@ def load_data():
             "messages": [],
             "comments": [],
             "promocodes": [],
+            "orders": [],
             "settings": {
                 "crypto_wallets": {
                     "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
@@ -246,6 +247,8 @@ def load_data():
             data["comments"] = []
         if "vip_profiles" not in data:
             data["vip_profiles"] = []
+        if "orders" not in data:
+            data["orders"] = []
 
         return data
     except Exception as e:
@@ -2216,6 +2219,79 @@ async def send_user_message(profile_id: int, request: Request):
     except Exception as e:
         logger.error(f"❌ Error sending user message: {e}")
         raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
+
+
+@app.get("/api/user/chats")
+async def get_user_chats():
+    """Получить все чаты пользователя с последним сообщением и количеством непрочитанных"""
+    data = load_data()
+
+    chats_list = []
+    for chat in data["chats"]:
+        # Find profile
+        profile = next((p for p in data["profiles"] if p["id"] == chat["profile_id"]), None)
+        if not profile:
+            continue
+
+        # Get messages for this chat
+        chat_messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+
+        # Get last message
+        last_message = chat_messages[-1] if chat_messages else None
+
+        # Count unread (messages from admin not read by user)
+        unread_count = sum(1 for m in chat_messages if not m.get("is_from_user", False))
+
+        chats_list.append({
+            "profile_id": chat["profile_id"],
+            "profile_name": chat["profile_name"],
+            "profile_photo": profile["photos"][0] if profile.get("photos") else None,
+            "last_message": last_message.get("text", "") if last_message else None,
+            "last_message_time": last_message.get("created_at") if last_message else None,
+            "unread_count": unread_count
+        })
+
+    # Sort by last message time (most recent first)
+    chats_list.sort(key=lambda x: x["last_message_time"] or "", reverse=True)
+
+    return {"chats": chats_list}
+
+
+@app.get("/api/user/orders")
+async def get_user_orders(status: str = "all"):
+    """Получить заказы пользователя (paid/unpaid)"""
+    data = load_data()
+
+    # Filter orders by status
+    if status == "paid":
+        orders = [o for o in data["orders"] if o.get("status") == "paid"]
+    elif status == "unpaid":
+        orders = [o for o in data["orders"] if o.get("status") == "unpaid"]
+    else:
+        orders = data["orders"]
+
+    # Enrich orders with profile data
+    enriched_orders = []
+    for order in orders:
+        profile = next((p for p in data["profiles"] if p["id"] == order.get("profile_id")), None)
+        if profile:
+            enriched_orders.append({
+                "id": order["id"],
+                "profile_id": order["profile_id"],
+                "profile_name": profile["name"],
+                "profile_photo": profile["photos"][0] if profile.get("photos") else None,
+                "profile_city": profile.get("city", "Unknown"),
+                "amount": order.get("amount", 0),
+                "crypto_type": order.get("crypto_type", "USDT"),
+                "created_at": order.get("created_at"),
+                "expires_at": order.get("expires_at"),
+                "status": order.get("status")
+            })
+
+    # Sort by creation time (most recent first)
+    enriched_orders.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+    return {"orders": enriched_orders}
 
 
 @app.post("/api/admin/chats/{profile_id}/system-message")
