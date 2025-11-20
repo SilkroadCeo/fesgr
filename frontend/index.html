@@ -2545,7 +2545,7 @@
         <!-- Chats Page -->
         <div id="chats-page" class="page">
             <header class="main-header">
-                <h2 style="color: var(--primary); font-size: 24px; font-weight: 700;">💬 My Chats</h2>
+                <h2 style="color: var(--primary); font-size: 24px; font-weight: 700;">My Chats</h2>
             </header>
             <div class="chats-list" id="chats-list-container"></div>
         </div>
@@ -4773,7 +4773,7 @@
                 } else if (pageName === 'paid') {
                     document.getElementById('paid-orders-page').classList.add('active');
                     document.querySelector('.nav-item[onclick*="paid"]').classList.add('active');
-                    loadOrders('paid');
+                    loadOrders('booked');
                 } else if (pageName === 'unpaid') {
                     document.getElementById('unpaid-orders-page').classList.add('active');
                     document.querySelector('.nav-item[onclick*="unpaid"]').classList.add('active');
@@ -4796,7 +4796,6 @@
                 if (!data.chats || data.chats.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
-                            <div class="empty-state-icon">💬</div>
                             <div class="empty-state-text">No chats yet</div>
                         </div>
                     `;
@@ -4854,9 +4853,9 @@
             }
         }
 
-        // Load orders (paid/unpaid)
+        // Load orders (booked/unpaid)
         async function loadOrders(type) {
-            const listId = type === 'paid' ? 'paid-orders-list' : 'unpaid-orders-list';
+            const listId = type === 'booked' ? 'paid-orders-list' : 'unpaid-orders-list';
             const container = document.getElementById(listId);
             container.innerHTML = '<div class="loading">Loading orders...</div>';
 
@@ -4869,7 +4868,6 @@
                 if (!data.orders || data.orders.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
-                            <div class="empty-state-icon">${type === 'paid' ? '✅' : '⏳'}</div>
                             <div class="empty-state-text">No ${type} orders</div>
                         </div>
                     `;
@@ -4883,7 +4881,7 @@
                     orderItem.innerHTML = `
                         <div class="order-header">
                             <span style="font-weight: 700; color: var(--text);">Order #${order.id}</span>
-                            <span class="order-status ${type}">${type === 'paid' ? 'Paid' : 'Pending'}</span>
+                            <span class="order-status ${type}">${type === 'booked' ? 'Booked' : 'Pending'}</span>
                         </div>
                         <div class="order-profile">
                             <img src="${order.profile_photo || '/default-avatar.png'}" alt="${order.profile_name}" class="order-avatar">
@@ -4893,9 +4891,9 @@
                             </div>
                         </div>
                         <div class="order-info">
-                            <div>💰 Amount: <strong>${order.amount} ${order.crypto_type || 'USDT'}</strong></div>
-                            <div>📅 Date: ${new Date(order.created_at).toLocaleString()}</div>
-                            ${order.expires_at && type === 'unpaid' ? `<div>⏰ Expires: ${new Date(order.expires_at).toLocaleString()}</div>` : ''}
+                            <div>Amount: <strong>${order.amount} ${order.crypto_type || 'USDT'}</strong></div>
+                            <div>Date: ${new Date(order.created_at).toLocaleString()}</div>
+                            ${order.expires_at && type === 'unpaid' ? `<div>Expires: ${new Date(order.expires_at).toLocaleString()}</div>` : ''}
                         </div>
                     `;
                     container.appendChild(orderItem);
