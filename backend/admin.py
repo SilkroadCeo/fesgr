@@ -2144,6 +2144,44 @@ async def send_admin_reply(
         raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
 
 
+@app.get("/api/chats/{profile_id}/messages")
+async def get_chat_messages(profile_id: int):
+    """Получить все сообщения чата для пользователя"""
+    data = load_data()
+
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        return {"messages": [], "last_message_id": 0}
+
+    messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+    last_id = messages[-1]["id"] if messages else 0
+
+    return {
+        "messages": messages,
+        "last_message_id": last_id
+    }
+
+
+@app.get("/api/chats/{profile_id}/updates")
+async def get_chat_updates(profile_id: int, last_message_id: int = 0):
+    """Получить только новые сообщения после указанного ID"""
+    data = load_data()
+
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        return {"messages": [], "last_message_id": 0}
+
+    # Get only new messages
+    all_messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+    new_messages = [m for m in all_messages if m["id"] > last_message_id]
+    last_id = all_messages[-1]["id"] if all_messages else 0
+
+    return {
+        "messages": new_messages,
+        "last_message_id": last_id
+    }
+
+
 @app.post("/api/chats/{profile_id}/messages")
 async def send_user_message(profile_id: int, request: Request):
     """Отправка сообщения от пользователя"""
