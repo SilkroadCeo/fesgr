@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Response, Cookie, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,49 +10,48 @@ from datetime import datetime
 from typing import Optional
 import logging
 import hashlib
-import secrets
 import uuid
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Система аутентификации
-# Хранилище активных сессий: {session_id: {"username": "admin", "created_at": datetime}}
+# Простая система аутентификации
 active_sessions = {}
 
-# Учетные данные администратора (по умолчанию: admin / admin123)
-# В реальном проекте храните это в переменных окружения или базе данных
 ADMIN_CREDENTIALS = {
     "username": "admin",
-    "password_hash": hashlib.sha256("admin123".encode()).hexdigest()  # Хеш пароля admin123
+    "password_hash": hashlib.sha256("admin123".encode()).hexdigest()
 }
 
 def create_session(username: str) -> str:
-    """Создать новую сессию для пользователя"""
     session_id = str(uuid.uuid4())
-    active_sessions[session_id] = {
-        "username": username,
-        "created_at": datetime.now()
-    }
+    active_sessions[session_id] = {"username": username}
+    logger.info(f"✅ Session created: {session_id}")
     return session_id
 
 def verify_session(session_id: Optional[str]) -> bool:
-    """Проверить валидность сессии"""
-    if not session_id:
-        return False
-    return session_id in active_sessions
-
-def get_current_user(session_id: Optional[str] = Cookie(None, alias="admin_session")) -> str:
-    """Получить текущего пользователя из сессии"""
-    logger.info(f"Checking auth: session_id={session_id}, active_sessions={list(active_sessions.keys())}")
-    if not verify_session(session_id):
-        logger.warning(f"❌ Authentication failed: session_id={session_id}")
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    logger.info(f"✅ Auth successful for session: {session_id}")
-    return active_sessions[session_id]["username"]
+    return session_id in active_sessions if session_id else False
 
 app = FastAPI(title="Admin Panel - Muji")
+
+# Простая middleware для проверки авторизации
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    # Разрешаем без проверки
+    public_paths = ["/login", "/api/login", "/api/logout", "/api/debug/sessions"]
+    if request.url.path in public_paths or request.url.path.startswith("/uploads"):
+        return await call_next(request)
+
+    # Проверяем авторизацию для админских эндпоинтов
+    if request.url.path.startswith("/api/admin") or request.url.path in ["/api/stats", "/"]:
+        session_id = request.cookies.get("admin_session")
+        if not verify_session(session_id):
+            if request.url.path == "/":
+                return RedirectResponse(url="/login", status_code=302)
+            return JSONResponse(status_code=401, content={"detail": "Not authenticated"})
+
+    return await call_next(request)
 
 app.add_middleware(
     CORSMiddleware,
@@ -446,11 +445,8 @@ async def debug_sessions():
     }
 
 @app.get("/")
-async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_session")):
-    # Проверяем авторизацию
-    if not verify_session(session_id):
-        return RedirectResponse(url="/login", status_code=302)
-
+async def admin_dashboard():
+    # Авторизация проверяется в middleware
     html_content = """
     <!DOCTYPE html>
     <html>
@@ -2087,7 +2083,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
 
 # API endpoints
 @app.get("/api/stats")
-async def get_stats(current_user: str = Depends(get_current_user)):
+async def get_stats():
     data = load_data()
     return {
         "profiles_count": len(data["profiles"]),
@@ -2100,14 +2096,13 @@ async def get_stats(current_user: str = Depends(get_current_user)):
 
 
 @app.get("/api/admin/profiles")
-async def get_admin_profiles(current_user: str = Depends(get_current_user)):
+async def get_admin_profiles():
     data = load_data()
     return {"profiles": data["profiles"]}
 
 
 @app.post("/api/admin/profiles")
 async def create_profile(
-        current_user: str = Depends(get_current_user),
         name: str = Form(...),
         age: int = Form(...),
         gender: str = Form(...),
@@ -2165,7 +2160,7 @@ async def create_profile(
 
 
 @app.post("/api/admin/profiles/{profile_id}/toggle")
-async def toggle_profile(profile_id: int, visible_data: dict, current_user: str = Depends(get_current_user)):
+async def toggle_profile(profile_id: int, visible_data: dict):
     data = load_data()
     profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
     if profile:
@@ -2175,7 +2170,7 @@ async def toggle_profile(profile_id: int, visible_data: dict, current_user: str 
 
 
 @app.delete("/api/admin/profiles/{profile_id}")
-async def delete_profile(profile_id: int, current_user: str = Depends(get_current_user)):
+async def delete_profile(profile_id: int):
     data = load_data()
 
     # Удаляем анкету
@@ -2199,13 +2194,13 @@ async def delete_profile(profile_id: int, current_user: str = Depends(get_curren
 
 
 @app.get("/api/admin/chats")
-async def get_admin_chats(current_user: str = Depends(get_current_user)):
+async def get_admin_chats():
     data = load_data()
     return {"chats": data["chats"]}
 
 
 @app.get("/api/admin/chats/{profile_id}/messages")
-async def get_chat_messages_admin(profile_id: int, current_user: str = Depends(get_current_user)):
+async def get_chat_messages_admin(profile_id: int):
     data = load_data()
     chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
     if not chat:
@@ -2218,7 +2213,7 @@ async def get_chat_messages_admin(profile_id: int, current_user: str = Depends(g
 async def send_admin_reply(
         profile_id: int,
         request: Request,
-        current_user: str = Depends(get_current_user)
+        
 ):
     data = load_data()
 
@@ -2299,7 +2294,7 @@ async def send_admin_reply(
 
 
 @app.post("/api/admin/chats/{profile_id}/system-message")
-async def send_system_message(profile_id: int, message_data: dict, current_user: str = Depends(get_current_user)):
+async def send_system_message(profile_id: int, message_data: dict):
     """Отправка системного сообщения"""
     data = load_data()
 
@@ -2335,20 +2330,20 @@ async def send_system_message(profile_id: int, message_data: dict, current_user:
 
 # Комментарии API для админки
 @app.get("/api/admin/comments")
-async def get_admin_comments(current_user: str = Depends(get_current_user)):
+async def get_admin_comments():
     data = load_data()
     return {"comments": data.get("comments", [])}
 
 
 # Промокоды API
 @app.get("/api/admin/promocodes")
-async def get_admin_promocodes(current_user: str = Depends(get_current_user)):
+async def get_admin_promocodes():
     data = load_data()
     return {"promocodes": data.get("promocodes", [])}
 
 
 @app.post("/api/admin/promocodes")
-async def create_admin_promocode(promocode: dict, current_user: str = Depends(get_current_user)):
+async def create_admin_promocode(promocode: dict):
     data = load_data()
 
     # Проверяем, существует ли уже такой промокод
@@ -2371,7 +2366,7 @@ async def create_admin_promocode(promocode: dict, current_user: str = Depends(ge
 
 
 @app.post("/api/admin/promocodes/{promocode_id}/toggle")
-async def toggle_admin_promocode(promocode_id: int, current_user: str = Depends(get_current_user)):
+async def toggle_admin_promocode(promocode_id: int):
     data = load_data()
     promocode = next((p for p in data["promocodes"] if p["id"] == promocode_id), None)
     if promocode:
@@ -2381,7 +2376,7 @@ async def toggle_admin_promocode(promocode_id: int, current_user: str = Depends(
 
 
 @app.delete("/api/admin/promocodes/{promocode_id}")
-async def delete_admin_promocode(promocode_id: int, current_user: str = Depends(get_current_user)):
+async def delete_admin_promocode(promocode_id: int):
     data = load_data()
     data["promocodes"] = [p for p in data["promocodes"] if p["id"] != promocode_id]
     save_data(data)
@@ -2390,13 +2385,13 @@ async def delete_admin_promocode(promocode_id: int, current_user: str = Depends(
 
 # Баннер API
 @app.get("/api/admin/banner")
-async def get_admin_banner(current_user: str = Depends(get_current_user)):
+async def get_admin_banner():
     data = load_data()
     return data.get("settings", {}).get("banner", {})
 
 
 @app.post("/api/admin/banner")
-async def update_admin_banner(banner: dict, current_user: str = Depends(get_current_user)):
+async def update_admin_banner(banner: dict):
     data = load_data()
     if "settings" not in data:
         data["settings"] = {}
@@ -2406,13 +2401,13 @@ async def update_admin_banner(banner: dict, current_user: str = Depends(get_curr
 
 
 @app.get("/api/admin/crypto_wallets")
-async def get_admin_crypto_wallets(current_user: str = Depends(get_current_user)):
+async def get_admin_crypto_wallets():
     data = load_data()
     return data.get("settings", {}).get("crypto_wallets", {})
 
 
 @app.post("/api/admin/crypto_wallets")
-async def update_admin_crypto_wallets(wallets: dict, current_user: str = Depends(get_current_user)):
+async def update_admin_crypto_wallets(wallets: dict):
     data = load_data()
     if "settings" not in data:
         data["settings"] = {}
@@ -2423,14 +2418,13 @@ async def update_admin_crypto_wallets(wallets: dict, current_user: str = Depends
 
 # VIP Профили API
 @app.get("/api/admin/vip-profiles")
-async def get_admin_vip_profiles(current_user: str = Depends(get_current_user)):
+async def get_admin_vip_profiles():
     """Получить все VIP профили"""
     data = load_data()
     return {"profiles": data.get("vip_profiles", [])}
 
 @app.post("/api/admin/vip-profiles")
 async def create_vip_profile(
-        current_user: str = Depends(get_current_user),
         name: str = Form(...),
         age: int = Form(...),
         city: str = Form(...),
@@ -2471,7 +2465,7 @@ async def create_vip_profile(
     return {"status": "created", "profile": new_profile}
 
 @app.delete("/api/admin/vip-profiles/{profile_id}")
-async def delete_vip_profile(profile_id: int, current_user: str = Depends(get_current_user)):
+async def delete_vip_profile(profile_id: int):
     """Удалить VIP профиль"""
     data = load_data()
     data["vip_profiles"] = [p for p in data.get("vip_profiles", []) if p["id"] != profile_id]
@@ -2480,13 +2474,13 @@ async def delete_vip_profile(profile_id: int, current_user: str = Depends(get_cu
 
 # VIP Каталоги API
 @app.get("/api/admin/vip-catalogs")
-async def get_admin_vip_catalogs(current_user: str = Depends(get_current_user)):
+async def get_admin_vip_catalogs():
     """Получить настройки VIP каталогов"""
     data = load_data()
     return data.get("settings", {}).get("vip_catalogs", {})
 
 @app.post("/api/admin/vip-catalogs")
-async def update_vip_catalogs(catalogs: dict, current_user: str = Depends(get_current_user)):
+async def update_vip_catalogs(catalogs: dict):
     """Обновить настройки VIP каталогов"""
     data = load_data()
     if "settings" not in data:
@@ -2496,7 +2490,7 @@ async def update_vip_catalogs(catalogs: dict, current_user: str = Depends(get_cu
     return {"status": "updated"}
 
 @app.post("/api/admin/vip-catalogs/upload-preview-photo")
-async def upload_preview_photo(current_user: str = Depends(get_current_user), file: UploadFile = File(...)):
+async def upload_preview_photo(file: UploadFile = File(...)):
     """Загрузить фото для preview профиля VIP каталога"""
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
@@ -2506,7 +2500,7 @@ async def upload_preview_photo(current_user: str = Depends(get_current_user), fi
 
 # Удаление комментариев
 @app.delete("/api/admin/comments/{profile_id}/{comment_id}")
-async def delete_comment(profile_id: int, comment_id: int, current_user: str = Depends(get_current_user)):
+async def delete_comment(profile_id: int, comment_id: int):
     """Удалить комментарий"""
     data = load_data()
 
