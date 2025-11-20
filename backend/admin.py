@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Depends
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -14,14 +14,21 @@ import json
 import shutil
 from datetime import datetime, timedelta
 from typing import Optional
+import logging
 import secrets
+import re
+import mimetypes
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Security Configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-this-secret-key-in-production-" + secrets.token_urlsafe(16))
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
 
-# Admin credentials
+# Admin credentials (in production, store in environment variables)
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "$2b$12$YroIoz7e1mqecEnIjIADC.V2nITQvypDUoYy2gfHT3K4trP.BjATK")  # Default: "admin123"
 
@@ -34,16 +41,15 @@ security = HTTPBearer()
 # Rate limiting
 limiter = Limiter(key_func=get_remote_address)
 
-# Login attempts tracking
+# Login attempts tracking (in-memory, use Redis in production)
 login_attempts = {}
 MAX_LOGIN_ATTEMPTS = 5
 LOCKOUT_DURATION = timedelta(minutes=15)
 
-app = FastAPI(title="Muji Admin Panel", version="15.0.0")
+app = FastAPI(title="Admin Panel - Muji")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Разрешаем CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -55,25 +61,14 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-# Пути
 current_dir = os.path.dirname(os.path.abspath(__file__))
-frontend_dir = os.path.join(current_dir, "../frontend")
 DATA_FILE = os.path.join(current_dir, "data.json")
 UPLOAD_DIR = os.path.join(current_dir, "uploads")
 
-# Создаем папку для загрузок если её нет
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-print("🚀 Запускаем сервер Muji на порту 8001...")
-
-# Раздаем статические файлы
-if os.path.exists(frontend_dir):
-    app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
-
-# Раздаем загруженные файлы
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# Загрузка данных
+
 def load_data():
     if not os.path.exists(DATA_FILE):
         return {
@@ -84,14 +79,6 @@ def load_data():
             "comments": [],
             "promocodes": [],
             "settings": {
-                "app": {
-                    "app_name": "Muji",
-                    "default_age": 25,
-                    "default_city": "Moscow",
-                    "vip_blurred_count": 3,
-                    "extra_vip_blurred_count": 3,
-                    "secret_blurred_count": 3
-                },
                 "crypto_wallets": {
                     "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
                     "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
@@ -108,37 +95,19 @@ def load_data():
                         "name": "VIP Catalog",
                         "price": 100,
                         "redirect_url": "https://t.me/vip_channel",
-                        "visible": True,
-                        "preview_count": 3,
-                        "preview_profiles": [
-                            {"name": "Anna", "age": 23, "city": "Moscow", "photo": ""},
-                            {"name": "Sofia", "age": 21, "city": "Saint Petersburg", "photo": ""},
-                            {"name": "Maria", "age": 25, "city": "Kazan", "photo": ""}
-                        ]
+                        "visible": True
                     },
                     "extra_vip": {
                         "name": "Extra VIP",
                         "price": 200,
                         "redirect_url": "https://t.me/extra_vip_channel",
-                        "visible": True,
-                        "preview_count": 3,
-                        "preview_profiles": [
-                            {"name": "Elena", "age": 22, "city": "Novosibirsk", "photo": ""},
-                            {"name": "Victoria", "age": 24, "city": "Yekaterinburg", "photo": ""},
-                            {"name": "Daria", "age": 20, "city": "Krasnoyarsk", "photo": ""}
-                        ]
+                        "visible": True
                     },
                     "secret": {
                         "name": "Secret Catalog",
                         "price": 300,
                         "redirect_url": "https://t.me/secret_channel",
-                        "visible": True,
-                        "preview_count": 3,
-                        "preview_profiles": [
-                            {"name": "Anastasia", "age": 26, "city": "Vladivostok", "photo": ""},
-                            {"name": "Polina", "age": 23, "city": "Rostov", "photo": ""},
-                            {"name": "Alina", "age": 21, "city": "Sochi", "photo": ""}
-                        ]
+                        "visible": True
                     }
                 }
             }
@@ -146,7 +115,6 @@ def load_data():
     try:
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
             data = json.loads(f.read())
-            # Ensure settings exist
             if "settings" not in data:
                 data["settings"] = {
                     "crypto_wallets": {
@@ -165,22 +133,19 @@ def load_data():
                             "name": "VIP Catalog",
                             "price": 100,
                             "redirect_url": "https://t.me/vip_channel",
-                            "visible": True,
-                            "preview_count": 3
+                            "visible": True
                         },
                         "extra_vip": {
                             "name": "Extra VIP",
                             "price": 200,
                             "redirect_url": "https://t.me/extra_vip_channel",
-                            "visible": True,
-                            "preview_count": 3
+                            "visible": True
                         },
                         "secret": {
                             "name": "Secret Catalog",
                             "price": 300,
                             "redirect_url": "https://t.me/secret_channel",
-                            "visible": True,
-                            "preview_count": 3
+                            "visible": True
                         }
                     }
                 }
@@ -192,7 +157,7 @@ def load_data():
                 data["vip_profiles"] = []
             return data
     except Exception as e:
-        print(f"Error loading data: {e}")
+        logger.error(f"Error loading data: {e}")
         return {
             "profiles": [],
             "vip_profiles": [],
@@ -201,14 +166,6 @@ def load_data():
             "comments": [],
             "promocodes": [],
             "settings": {
-                "app": {
-                    "app_name": "Muji",
-                    "default_age": 25,
-                    "default_city": "Moscow",
-                    "vip_blurred_count": 3,
-                    "extra_vip_blurred_count": 3,
-                    "secret_blurred_count": 3
-                },
                 "crypto_wallets": {
                     "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
                     "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
@@ -225,55 +182,36 @@ def load_data():
                         "name": "VIP Catalog",
                         "price": 100,
                         "redirect_url": "https://t.me/vip_channel",
-                        "visible": True,
-                        "preview_count": 3,
-                        "preview_profiles": [
-                            {"name": "Anna", "age": 23, "city": "Moscow", "photo": ""},
-                            {"name": "Sofia", "age": 21, "city": "Saint Petersburg", "photo": ""},
-                            {"name": "Maria", "age": 25, "city": "Kazan", "photo": ""}
-                        ]
+                        "visible": True
                     },
                     "extra_vip": {
                         "name": "Extra VIP",
                         "price": 200,
                         "redirect_url": "https://t.me/extra_vip_channel",
-                        "visible": True,
-                        "preview_count": 3,
-                        "preview_profiles": [
-                            {"name": "Elena", "age": 22, "city": "Novosibirsk", "photo": ""},
-                            {"name": "Victoria", "age": 24, "city": "Yekaterinburg", "photo": ""},
-                            {"name": "Daria", "age": 20, "city": "Krasnoyarsk", "photo": ""}
-                        ]
+                        "visible": True
                     },
                     "secret": {
                         "name": "Secret Catalog",
                         "price": 300,
                         "redirect_url": "https://t.me/secret_channel",
-                        "visible": True,
-                        "preview_count": 3,
-                        "preview_profiles": [
-                            {"name": "Anastasia", "age": 26, "city": "Vladivostok", "photo": ""},
-                            {"name": "Polina", "age": 23, "city": "Rostov", "photo": ""},
-                            {"name": "Alina", "age": 21, "city": "Sochi", "photo": ""}
-                        ]
+                        "visible": True
                     }
                 }
             }
         }
 
-# Сохранение данных
+
 def save_data(data):
     try:
         with open(DATA_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return True
     except Exception as e:
-        print(f"Error saving data: {e}")
+        logger.error(f"Error saving data: {e}")
         return False
 
-# Сохранение файла
+
 def save_uploaded_file(file: UploadFile) -> str:
-    """Сохраняет загруженный файл и возвращает путь к нему"""
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filename = f"{timestamp}_{file.filename}"
@@ -284,10 +222,10 @@ def save_uploaded_file(file: UploadFile) -> str:
 
         return f"/uploads/{filename}"
     except Exception as e:
-        print(f"Error saving file: {e}")
+        logger.error(f"Error saving file: {e}")
         return ""
 
-# Определяем тип файла по расширению
+
 def get_file_type(filename: str) -> str:
     extension = filename.lower().split('.')[-1]
     image_extensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']
@@ -300,60 +238,97 @@ def get_file_type(filename: str) -> str:
     else:
         return 'file'
 
-# ======================
-# JWT Authentication
-# ======================
 
-def verify_password(plain_password, hashed_password):
+# Security Functions
+def validate_file_upload(file: UploadFile) -> bool:
+    """Validate uploaded file for security"""
+    if not file.filename:
+        return False
+
+    # Allowed extensions
+    allowed_extensions = {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'mp4', 'avi', 'mov', 'mkv', 'webm'}
+    extension = file.filename.lower().split('.')[-1]
+
+    if extension not in allowed_extensions:
+        return False
+
+    # Check MIME type
+    mime_type = file.content_type
+    allowed_mimes = {
+        'image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp',
+        'video/mp4', 'video/x-msvideo', 'video/quicktime', 'video/x-matroska', 'video/webm'
+    }
+
+    if mime_type not in allowed_mimes:
+        return False
+
+    return True
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against its hash"""
     return pwd_context.verify(plain_password, hashed_password)
 
-def create_access_token(data: dict):
+
+def create_access_token(data: dict) -> str:
+    """Create JWT access token"""
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+
 def check_login_attempts(username: str, ip: str) -> bool:
+    """Check if user/IP is locked out due to too many failed attempts"""
     key = f"{username}:{ip}"
     if key in login_attempts:
         attempts, lockout_until = login_attempts[key]
-        if lockout_until and datetime.now() < lockout_until:
+        if lockout_until and datetime.utcnow() < lockout_until:
             return False
-        if datetime.now() >= lockout_until:
+        if datetime.utcnow() >= lockout_until:
+            # Reset after lockout period
             del login_attempts[key]
     return True
 
+
 def record_failed_login(username: str, ip: str):
+    """Record a failed login attempt"""
     key = f"{username}:{ip}"
-    if key not in login_attempts:
-        login_attempts[key] = [1, None]
-    else:
+    if key in login_attempts:
         attempts, _ = login_attempts[key]
         attempts += 1
         if attempts >= MAX_LOGIN_ATTEMPTS:
-            lockout_until = datetime.now() + LOCKOUT_DURATION
-            login_attempts[key] = [attempts, lockout_until]
+            lockout_until = datetime.utcnow() + LOCKOUT_DURATION
+            login_attempts[key] = (attempts, lockout_until)
+            logger.warning(f"Account locked for {username} from {ip} until {lockout_until}")
         else:
-            login_attempts[key] = [attempts, None]
+            login_attempts[key] = (attempts, None)
+    else:
+        login_attempts[key] = (1, None)
+
 
 def reset_login_attempts(username: str, ip: str):
+    """Reset login attempts after successful login"""
     key = f"{username}:{ip}"
     if key in login_attempts:
         del login_attempts[key]
 
-async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+
+async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """Verify JWT token and return payload"""
     try:
         token = credentials.credentials
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
         return payload
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
-# ======================
-# Authentication Routes
-# ======================
 
+# Authentication Routes
 @app.get("/login")
 async def login_page():
     """Login page"""
@@ -374,6 +349,7 @@ async def login_page():
             .btn { width: 100%; padding: 14px; background: #ff6b9d; border: none; border-radius: 8px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
             .btn:hover { background: #ff8fab; transform: translateY(-2px); }
             .error { color: #dc3545; margin-top: 10px; text-align: center; display: none; }
+            .attempts-warning { color: #ffc107; margin-top: 10px; text-align: center; font-size: 12px; }
         </style>
     </head>
     <body>
@@ -382,23 +358,29 @@ async def login_page():
             <form id="login-form">
                 <div class="form-group">
                     <label>Username:</label>
-                    <input type="text" id="username" required>
+                    <input type="text" id="username" required autocomplete="username">
                 </div>
                 <div class="form-group">
                     <label>Password:</label>
-                    <input type="password" id="password" required>
+                    <input type="password" id="password" required autocomplete="current-password">
                 </div>
                 <button type="submit" class="btn">Login</button>
                 <div id="error-message" class="error"></div>
+                <div id="attempts-warning" class="attempts-warning"></div>
             </form>
         </div>
+
         <script>
             document.getElementById('login-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
+
                 const username = document.getElementById('username').value;
                 const password = document.getElementById('password').value;
                 const errorDiv = document.getElementById('error-message');
+                const attemptsDiv = document.getElementById('attempts-warning');
+
                 errorDiv.style.display = 'none';
+                attemptsDiv.textContent = '';
 
                 try {
                     const response = await fetch('/api/login', {
@@ -415,6 +397,13 @@ async def login_page():
                     } else {
                         errorDiv.textContent = data.detail || 'Login failed';
                         errorDiv.style.display = 'block';
+
+                        if (data.attempts_left !== undefined) {
+                            attemptsDiv.textContent = `Attempts left: ${data.attempts_left}`;
+                        }
+                        if (data.lockout_until) {
+                            attemptsDiv.textContent = `Account locked until ${new Date(data.lockout_until).toLocaleString()}`;
+                        }
                     }
                 } catch (error) {
                     errorDiv.textContent = 'Network error. Please try again.';
@@ -427,27 +416,62 @@ async def login_page():
     """
     return HTMLResponse(content=html_content)
 
+
 @app.post("/api/login")
 @limiter.limit("10/minute")
 async def login(request: Request, credentials: dict):
+    """Login endpoint with brute-force protection"""
     username = credentials.get("username", "")
     password = credentials.get("password", "")
     client_ip = request.client.host
 
+    # Check if locked out
     if not check_login_attempts(username, client_ip):
-        raise HTTPException(status_code=429, detail="Too many login attempts. Please try again later.")
+        key = f"{username}:{client_ip}"
+        _, lockout_until = login_attempts[key]
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "detail": "Too many failed attempts. Account locked.",
+                "lockout_until": lockout_until.isoformat() if lockout_until else None
+            }
+        )
 
+    # Verify credentials
     if username != ADMIN_USERNAME or not verify_password(password, ADMIN_PASSWORD_HASH):
         record_failed_login(username, client_ip)
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        key = f"{username}:{client_ip}"
+        attempts_left = MAX_LOGIN_ATTEMPTS - login_attempts.get(key, (0, None))[0]
 
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "detail": "Invalid username or password",
+                "attempts_left": max(0, attempts_left)
+            }
+        )
+
+    # Success - reset attempts and create token
     reset_login_attempts(username, client_ip)
     access_token = create_access_token(data={"sub": username})
-    return {"access_token": access_token, "token_type": "bearer"}
+
+    logger.info(f"Successful login for {username} from {client_ip}")
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
+
+
+@app.get("/")
+async def root_redirect():
+    """Redirect root to login page"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/login")
+
 
 @app.get("/admin")
-async def admin_page():
-    """Simple admin page that redirects to main site"""
+async def admin_dashboard():
     html_content = """
     <!DOCTYPE html>
     <html>
@@ -456,114 +480,1633 @@ async def admin_page():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-            body { background: #1a1a1a; color: #ffffff; min-height: 100vh; display: flex; flex-direction: column; }
-            .header {
-                background: linear-gradient(135deg, #ff6b9d 0%, #8b225e 100%);
-                padding: 20px;
-                text-align: center;
-                border-bottom: 2px solid #ff6b9d;
+            body { background: #1a1a1a; color: #ffffff; padding: 20px; min-height: 100vh; }
+            .container { max-width: 1400px; margin: 0 auto; }
+
+            header { 
+                text-align: center; margin-bottom: 30px; padding: 30px; 
+                background: linear-gradient(135deg, #ff6b9d 0%, #8b225e 100%); 
+                border-radius: 15px; border: 1px solid #ff6b9d;
             }
-            .header h1 { font-size: 24px; margin-bottom: 10px; }
-            .header p { opacity: 0.9; }
-            .container {
-                flex: 1;
-                max-width: 1200px;
-                width: 100%;
-                margin: 0 auto;
-                padding: 30px 20px;
+
+            .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+            .stat-card { background: rgba(255, 107, 157, 0.2); padding: 25px; border-radius: 15px; text-align: center; border: 1px solid #ff6b9d; }
+
+            .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+            .tab { padding: 15px 25px; background: #ff6b9d; border: none; color: white; border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; }
+            .tab:hover { background: #ff8fab; transform: translateY(-2px); }
+            .tab.active { background: #ff8fab; box-shadow: 0 5px 15px rgba(255, 143, 171, 0.4); }
+
+            .content { display: none; background: rgba(255, 107, 157, 0.1); padding: 30px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #ff6b9d; }
+            .content.active { display: block; }
+
+            .profile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; }
+            .profile-card { background: rgba(255, 107, 157, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #ff6b9d; }
+
+            .profile-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid rgba(255, 107, 157, 0.3); }
+            .profile-id { background: #ff6b9d; color: white; padding: 5px 10px; border-radius: 8px; font-weight: 600; font-size: 14px; }
+            .profile-name { font-size: 18px; font-weight: 700; color: #ff6b9d; }
+
+            .btn { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; margin: 5px 2px; font-size: 14px; font-weight: 600; transition: all 0.3s ease; }
+            .btn-primary { background: #ff6b9d; color: white; }
+            .btn-primary:hover { background: #ff8fab; transform: translateY(-2px); }
+            .btn-danger { background: #dc3545; color: white; }
+            .btn-danger:hover { background: #e74c3c; transform: translateY(-2px); }
+            .btn-success { background: #28a745; color: white; }
+            .btn-success:hover { background: #2ecc71; transform: translateY(-2px); }
+            .btn-warning { background: #ff8c00; color: white; }
+            .btn-warning:hover { background: #ffa500; transform: translateY(-2px); }
+            .btn-system { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+            .btn-system:hover { background: linear-gradient(135deg, #764ba2 0%, #667eea 100%); transform: translateY(-2px); }
+            .btn-info { background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; }
+            .btn-info:hover { background: linear-gradient(135deg, #138496 0%, #117a8b 100%); transform: translateY(-2px); }
+
+            .form-group { margin-bottom: 20px; }
+            .form-group label { display: block; margin-bottom: 8px; color: #ff6b9d; font-weight: 600; }
+            .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 12px; background: rgba(255, 107, 157, 0.1); border: 1px solid #ff6b9d; border-radius: 8px; color: #fff; font-size: 14px; outline: none; }
+            .form-group textarea { min-height: 80px; resize: vertical; }
+
+            .photo-preview { display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
+            .photo-preview img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #ff6b9d; }
+
+            .profile-stats { display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
+            .stat-badge { background: rgba(255, 107, 157, 0.2); padding: 6px 12px; border-radius: 8px; font-size: 12px; border: 1px solid #ff6b9d; color: #ff6b9d; }
+
+            .file-upload {
+                margin: 15px 0; padding: 15px;
+                background: linear-gradient(135deg, #8b225e 0%, #1a1a1a 50%, #000000 100%);
+                border: 2px dashed #ff6b9d; border-radius: 10px; text-align: center; cursor: pointer;
+                position: relative; overflow: hidden;
             }
-            .logout-btn {
-                position: absolute;
-                top: 20px;
-                right: 20px;
-                padding: 10px 20px;
-                background: rgba(255, 255, 255, 0.2);
-                border: 1px solid rgba(255, 255, 255, 0.3);
-                border-radius: 8px;
-                color: white;
-                cursor: pointer;
-                transition: all 0.3s ease;
+            .file-upload::before {
+                content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+                background: linear-gradient(90deg, #ff6b9d, #8b225e, #ff6b9d);
+                animation: sunset-glow 2s infinite;
             }
-            .logout-btn:hover {
-                background: rgba(255, 255, 255, 0.3);
+            @keyframes sunset-glow {
+                0% { background-position: -200px 0; }
+                100% { background-position: 200px 0; }
             }
-            .info-box {
-                background: rgba(255, 107, 157, 0.1);
-                border: 1px solid #ff6b9d;
-                border-radius: 15px;
-                padding: 30px;
-                margin-bottom: 20px;
+
+            .uploaded-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin: 15px 0; }
+            .uploaded-photo { position: relative; width: 100px; height: 100px; border-radius: 8px; overflow: hidden; border: 1px solid #ff6b9d; }
+            .uploaded-photo img { width: 100%; height: 100%; object-fit: cover; }
+            .remove-photo { position: absolute; top: 5px; right: 5px; background: rgba(220, 53, 69, 0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; }
+
+            .chat-file-upload { margin: 10px 0; padding: 15px; background: rgba(255, 107, 157, 0.05); border: 2px dashed #ff6b9d; border-radius: 8px; text-align: center; }
+            .chat-file-list { margin-top: 10px; }
+            .file-item { display: flex; align-items: center; gap: 10px; padding: 8px; background: rgba(255, 107, 157, 0.1); border-radius: 6px; margin: 5px 0; font-size: 14px; color: #ff6b9d; }
+            .remove-file { color: #ff6b9d; cursor: pointer; font-weight: bold; margin-left: auto; }
+
+            .chat-message { padding: 15px; margin: 10px 0; border-radius: 10px; border: 1px solid #ff6b9d; }
+            .user-message { background: rgba(255, 107, 157, 0.1); margin-left: 20px; border-left: 3px solid #ff6b9d; }
+            .admin-message { background: rgba(255, 107, 157, 0.2); margin-right: 20px; border-right: 3px solid #ff8fab; }
+            .message-sender { font-weight: bold; margin-bottom: 8px; color: #ff6b9d; }
+            .back-btn { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; transition: all 0.3s ease; }
+            .back-btn:hover { background: #5a6268; transform: translateY(-2px); }
+            .chat-attachment { display: flex; gap: 15px; align-items: flex-start; margin: 15px 0; flex-wrap: wrap; }
+            .attachment-preview { max-width: 120px; max-height: 120px; border-radius: 8px; border: 1px solid #ff6b9d; }
+
+            /* Стиль для системных сообщений */
+            .system-message { text-align: center; margin: 20px 0; }
+            .system-bubble { 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                color: white; padding: 15px 25px; border-radius: 25px; 
+                display: inline-block; max-width: 80%; font-size: 14px; font-weight: 500; 
+                border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
             }
-            .info-box h2 {
-                color: #ff6b9d;
-                margin-bottom: 15px;
-            }
-            .info-box p {
-                line-height: 1.6;
-                margin-bottom: 10px;
-            }
-            .access-btn {
-                display: inline-block;
-                padding: 15px 30px;
-                background: #ff6b9d;
-                color: white;
-                text-decoration: none;
-                border-radius: 10px;
-                font-weight: 600;
-                transition: all 0.3s ease;
-                margin-top: 10px;
-            }
-            .access-btn:hover {
-                background: #ff8fab;
-                transform: translateY(-2px);
-            }
+
+            /* Стили для промокодов */
+            .promocode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+            .promocode-card { background: rgba(255, 107, 157, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #ff6b9d; }
+            .promocode-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+            .promocode-code { font-size: 20px; font-weight: 700; color: #ff6b9d; letter-spacing: 2px; }
+            .promocode-discount { background: #28a745; color: white; padding: 5px 10px; border-radius: 8px; font-weight: 600; }
+            .promocode-status { display: inline-block; padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+            .status-active { background: #28a745; color: white; }
+            .status-inactive { background: #dc3545; color: white; }
+
+            /* Стили для баннера */
+            .banner-settings { background: rgba(255, 107, 157, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #ff6b9d; margin-bottom: 20px; }
+            .banner-preview { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; margin: 15px 0; color: white; }
+            .banner-text { font-size: 16px; margin-bottom: 10px; }
+            .banner-link { color: white; text-decoration: underline; font-weight: 600; }
+            .switch { position: relative; display: inline-block; width: 60px; height: 34px; margin-left: 15px; }
+            .switch input { opacity: 0; width: 0; height: 0; }
+            .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+            .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+            input:checked + .slider { background-color: #ff6b9d; }
+            input:checked + .slider:before { transform: translateX(26px); }
+
+            /* Стили для комментариев */
+            .comments-section { margin-top: 30px; }
+            .comment { background: rgba(255, 107, 157, 0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(255, 107, 157, 0.2); }
+            .comment-header { display: flex; justify-content: between; align-items: center; margin-bottom: 10px; }
+            .comment-author { font-weight: 600; color: #ff6b9d; }
+            .comment-date { color: #b0b0b0; font-size: 12px; margin-left: auto; }
+            .comment-text { color: #ffffff; line-height: 1.5; }
+            .comment-actions { margin-top: 10px; }
+            .delete-comment { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
+            .delete-comment:hover { background: #c82333; }
+
+            /* Стили для управления комментариями */
+            .comments-management { margin-top: 30px; }
+            .comment-management-item { background: rgba(255, 107, 157, 0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(255, 107, 157, 0.2); }
+            .comment-management-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+            .comment-profile { font-weight: 600; color: #ff6b9d; }
+
+            /* Стили для VIP каталогов */
+            .vip-catalogs-settings { background: rgba(255, 107, 157, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #ff6b9d; margin-bottom: 20px; }
+            .catalog-item { background: rgba(255, 107, 157, 0.05); padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255, 107, 157, 0.2); }
+            .catalog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+            .catalog-name { font-size: 18px; font-weight: 700; color: #ff6b9d; }
+            .catalog-price { background: #28a745; color: white; padding: 5px 10px; border-radius: 8px; font-weight: 600; }
+
+            /* Стили для VIP анкет */
+            .vip-profile-card { background: rgba(102, 126, 234, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #667eea; margin-bottom: 15px; }
+            .vip-profile-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+            .vip-profile-name { font-size: 18px; font-weight: 700; color: #667eea; }
+            .vip-profile-age { background: #667eea; color: white; padding: 5px 10px; border-radius: 8px; font-weight: 600; }
+
+            /* Стили для управления VIP превью */
+            .vip-preview-management { background: rgba(102, 126, 234, 0.1); padding: 20px; border-radius: 15px; border: 1px solid #667eea; margin-bottom: 20px; }
+            .vip-preview-item { background: rgba(102, 126, 234, 0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(102, 126, 234, 0.2); }
+            .vip-preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+            .vip-preview-name { font-weight: 600; color: #667eea; }
         </style>
     </head>
     <body>
-        <div class="header">
-            <button class="logout-btn" onclick="logout()">Logout</button>
-            <h1>🔐 Admin Panel</h1>
-            <p>Welcome to Muji Admin Panel</p>
-        </div>
         <div class="container">
-            <div class="info-box">
-                <h2>✅ Authentication Successful</h2>
-                <p>You have been successfully authenticated as an administrator.</p>
-                <p>The main site is available at port 8001. Click the button below to access it:</p>
-                <a href="http://localhost:8001" target="_blank" class="access-btn">Open Main Site (Port 8001)</a>
+            <header>
+                <h1>Admin Panel - Muji</h1>
+                <p>App Configuration | Crypto Wallets | VIP Catalogs</p>
+            </header>
+
+            <div class="stats">
+                <div class="stat-card"><h3>Profiles</h3><p id="profiles-count">0</p></div>
+                <div class="stat-card"><h3>VIP Profiles</h3><p id="vip-profiles-count">0</p></div>
+                <div class="stat-card"><h3>Chats</h3><p id="chats-count">0</p></div>
+                <div class="stat-card"><h3>Messages</h3><p id="messages-count">0</p></div>
+                <div class="stat-card"><h3>Comments</h3><p id="comments-count">0</p></div>
+                <div class="stat-card"><h3>Promocodes</h3><p id="promocodes-count">0</p></div>
             </div>
-            <div class="info-box">
-                <h2>📊 Admin Features</h2>
-                <p>• JWT Authentication enabled</p>
-                <p>• Rate limiting protection</p>
-                <p>• Brute-force protection</p>
-                <p>• Session timeout: 8 hours</p>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('profiles')">Profiles</button>
+                <button class="tab" onclick="showTab('chats')">Chats</button>
+                <button class="tab" onclick="showTab('comments')">Comments</button>
+                <button class="tab" onclick="showTab('add-profile')">Add Profile</button>
+                <button class="tab" onclick="showTab('promocodes')">Promocodes</button>
+                <button class="tab" onclick="showTab('banner-settings')">Banner Settings</button>
+                <button class="tab" onclick="showTab('crypto-settings')">Crypto Settings</button>
             </div>
+
+            <div id="profiles" class="content active">
+                <h3>Manage Profiles</h3>
+                <div id="profiles-list" class="profile-grid"></div>
+            </div>
+
+
+            <div id="chats" class="content">
+                <h3>Manage Chats</h3>
+                <div id="chats-list"></div>
+            </div>
+
+            <div id="comments" class="content">
+                <h3>Manage Comments</h3>
+                <div class="comments-management">
+                    <div id="comments-list-admin"></div>
+                </div>
+            </div>
+
+            <div id="add-profile" class="content">
+                <h3>Add New Profile</h3>
+                <form id="add-profile-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label>Name:</label>
+                        <input type="text" id="name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Age:</label>
+                        <input type="number" id="age" required min="18" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Gender:</label>
+                        <select id="gender" required>
+                            <option value="female">Female</option>
+                            <option value="male">Male</option>
+                            <option value="transgender">Transgender</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Nationality:</label>
+                        <input type="text" id="nationality" required placeholder="e.g., Russian, Japanese, Korean">
+                    </div>
+
+                    <div class="form-group">
+                        <label>City:</label>
+                        <input type="text" id="city" required placeholder="e.g., Moscow">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Travel Cities (comma separated):</label>
+                        <input type="text" id="travel-cities" placeholder="Moscow, Saint Petersburg, London">
+                        <small style="color: #ff6b9d;">Cities where the profile can travel to</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Height (cm):</label>
+                        <input type="number" id="height" required min="120" max="220" value="165">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Weight (kg):</label>
+                        <input type="number" id="weight" required min="35" max="120" value="55">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Chest size:</label>
+                        <select id="chest" required>
+                            <option value="1">1 chest</option>
+                            <option value="2">2 chest</option>
+                            <option value="3" selected>3 chest</option>
+                            <option value="4">4 chest</option>
+                            <option value="5">5 chest</option>
+                            <option value="6">6 chest</option>
+                            <option value="7">7 chest</option>
+                            <option value="8">8 chest</option>
+                            <option value="9">9 chest</option>
+                            <option value="10">10 chest</option>
+                            <option value="11">11 chest</option>
+                            <option value="12">12 chest</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <textarea id="description" required placeholder="Enter profile description..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Upload Photos:</label>
+                        <div class="file-upload">
+                            <input type="file" id="photo-upload" accept="image/*" multiple style="display: none;">
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('photo-upload').click()">
+                                Select Photos (Multiple)
+                            </button>
+                            <div class="uploaded-photos" id="uploaded-photos"></div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success">Add Profile</button>
+                </form>
+            </div>
+
+
+            <div id="promocodes" class="content">
+                <h3>Manage Promocodes</h3>
+                <div class="form-group">
+                    <label>Create New Promocode:</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="promocode-code" placeholder="Enter promocode (e.g., WELCOME15)" style="flex: 1;">
+                        <input type="number" id="promocode-discount" placeholder="Discount %" min="1" max="100" value="15" style="width: 120px;">
+                        <button class="btn btn-success" onclick="createPromocode()">Create</button>
+                    </div>
+                </div>
+                <div id="promocodes-list" class="promocode-grid"></div>
+            </div>
+
+            <div id="banner-settings" class="content">
+                <h3>Banner Settings</h3>
+                <div class="banner-settings">
+                    <div class="form-group">
+                        <label>Banner Text:</label>
+                        <input type="text" id="banner-text" placeholder="Enter banner text...">
+                    </div>
+                    <div class="form-group">
+                        <label>Banner Link:</label>
+                        <input type="text" id="banner-link" placeholder="https://t.me/yourchannel">
+                    </div>
+                    <div class="form-group">
+                        <label>Link Text:</label>
+                        <input type="text" id="banner-link-text" placeholder="Join Channel">
+                    </div>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center;">
+                            Show Banner:
+                            <label class="switch">
+                                <input type="checkbox" id="banner-visible">
+                                <span class="slider"></span>
+                            </label>
+                        </label>
+                    </div>
+                    <div class="banner-preview" id="banner-preview">
+                        <div class="banner-text" id="preview-text">Banner preview text</div>
+                        <a href="#" class="banner-link" id="preview-link">Preview Link</a>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveBannerSettings()">Save Banner Settings</button>
+                </div>
+            </div>
+
+            <div id="crypto-settings" class="content">
+                <h3>Crypto Wallet Settings</h3>
+                <div class="crypto-settings">
+                    <div class="form-group">
+                        <label>TRC20 Wallet Address:</label>
+                        <input type="text" id="trc20-wallet" class="wallet-address" value="TY76gU8J9o8j7U6tY5r4E3W2Q1">
+                    </div>
+                    <div class="form-group">
+                        <label>ERC20 Wallet Address:</label>
+                        <input type="text" id="erc20-wallet" class="wallet-address" value="0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5">
+                    </div>
+                    <div class="form-group">
+                        <label>BNB Wallet Address:</label>
+                        <input type="text" id="bnb-wallet" class="wallet-address" value="bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveCryptoWallets()">Save Wallet Addresses</button>
+                </div>
+            </div>
+
         </div>
+
         <script>
-            // Check if user is authenticated
-            const token = localStorage.getItem('admin_token');
-            if (!token) {
+            // HTML Escaping Function to prevent XSS attacks
+            function escapeHtml(unsafe) {
+                if (typeof unsafe !== 'string') return unsafe;
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            // JWT Token storage
+            let authToken = localStorage.getItem('admin_token');
+
+            // Check if user is authenticated, redirect to login if not
+            if (!authToken) {
                 window.location.href = '/login';
             }
 
-            function logout() {
-                localStorage.removeItem('admin_token');
-                window.location.href = '/login';
+            // Add token to all API requests
+            async function fetchWithAuth(url, options = {}) {
+                if (!authToken) {
+                    window.location.href = '/login';
+                    throw new Error('Not authenticated');
+                }
+
+                const headers = {
+                    ...options.headers,
+                    'Authorization': `Bearer ${authToken}`
+                };
+
+                const response = await fetch(url, { ...options, headers });
+
+                if (response.status === 401) {
+                    localStorage.removeItem('admin_token');
+                    window.location.href = '/login';
+                    throw new Error('Authentication failed');
+                }
+
+                return response;
             }
+
+            let uploadedPhotoFiles = [];
+
+            // Функции для переключения вкладок
+            function showTab(tabName) {
+                document.querySelectorAll('.content').forEach(tab => tab.classList.remove('active'));
+                document.querySelectorAll('.tab').forEach(btn => btn.classList.remove('active'));
+                document.getElementById(tabName).classList.add('active');
+                event.target.classList.add('active');
+
+                if (tabName === 'profiles') loadProfiles();
+                if (tabName === 'chats') loadChats();
+                if (tabName === 'comments') loadCommentsAdmin();
+                if (tabName === 'promocodes') loadPromocodes();
+                if (tabName === 'banner-settings') loadBannerSettings();
+                if (tabName === 'crypto-settings') loadCryptoWallets();
+                if (tabName === 'vip-catalogs') loadVipCatalogs();
+            }
+
+            // Загрузка статистики
+            async function loadStats() {
+                try {
+                    const response = await fetch('/api/stats');
+                    const stats = await response.json();
+                    document.getElementById('profiles-count').textContent = stats.profiles_count;
+                    document.getElementById('vip-profiles-count').textContent = stats.vip_profiles_count;
+                    document.getElementById('chats-count').textContent = stats.chats_count;
+                    document.getElementById('messages-count').textContent = stats.messages_count;
+                    document.getElementById('comments-count').textContent = stats.comments_count;
+                    document.getElementById('promocodes-count').textContent = stats.promocodes_count;
+                } catch (error) {
+                    console.error('Error loading stats:', error);
+                }
+            }
+
+            // Загрузка анкет
+            async function loadProfiles() {
+                try {
+                    const response = await fetchWithAuth('/api/admin/profiles');
+                    const data = await response.json();
+                    const list = document.getElementById('profiles-list');
+                    list.innerHTML = '';
+
+                    data.profiles.forEach(profile => {
+                        const travelCities = profile.travel_cities ? profile.travel_cities.join(', ') : 'None';
+                        const photosHtml = profile.photos.map(photo =>
+                            `<img src="http://localhost:8002${escapeHtml(photo)}" alt="Profile photo" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #ff6b9d;">`
+                        ).join('');
+
+                        const profileDiv = document.createElement('div');
+                        profileDiv.className = 'profile-card';
+                        profileDiv.innerHTML = `
+                            <div class="profile-header">
+                                <span class="profile-id">ID: ${profile.id}</span>
+                                <span class="profile-name">${escapeHtml(profile.name)}</span>
+                            </div>
+                            <p><strong>Gender:</strong> ${escapeHtml(profile.gender || 'Not specified')}</p>
+                            <p><strong>Nationality:</strong> ${escapeHtml(profile.nationality || 'Not specified')}</p>
+                            <p><strong>City:</strong> ${escapeHtml(profile.city)}</p>
+                            <p><strong>Travel Cities:</strong> ${escapeHtml(travelCities)}</p>
+                            <div class="profile-stats">
+                                <span class="stat-badge">Height: ${profile.height} cm</span>
+                                <span class="stat-badge">Weight: ${profile.weight} kg</span>
+                                <span class="stat-badge">Chest: ${profile.chest}</span>
+                            </div>
+                            <p><strong>Description:</strong> ${escapeHtml(profile.description)}</p>
+                            <p><strong>Status:</strong> ${profile.visible ? 'Visible' : 'Hidden'}</p>
+                            <p><strong>Photos:</strong></p>
+                            <div class="photo-preview">
+                                ${photosHtml}
+                            </div>
+                            <div style="margin-top: 15px;">
+                                <button class="btn btn-warning" onclick="toggleProfile(${profile.id}, ${!profile.visible})">
+                                    ${profile.visible ? 'Hide' : 'Show'}
+                                </button>
+                                <button class="btn btn-danger" onclick="deleteProfile(${profile.id})">
+                                    Delete
+                                </button>
+                            </div>
+                        `;
+                        list.appendChild(profileDiv);
+                    });
+
+                    loadStats();
+                } catch (error) {
+                    console.error('Error loading profiles:', error);
+                }
+            }
+
+            // Загрузка VIP анкет
+            async function loadVipProfiles() {
+                try {
+                    const response = await fetchWithAuth('/api/admin/vip-profiles');
+                    const data = await response.json();
+                    const list = document.getElementById('vip-profiles-list');
+                    list.innerHTML = '';
+
+                    data.profiles.forEach(profile => {
+                        const photosHtml = profile.photos.map(photo => 
+                            `<img src="http://localhost:8002${photo}" alt="Profile photo" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #667eea;">`
+                        ).join('');
+
+                        const profileDiv = document.createElement('div');
+                        profileDiv.className = 'vip-profile-card';
+                        profileDiv.innerHTML = `
+                            <div class="vip-profile-header">
+                                <span class="vip-profile-name">${escapeHtml(profile.name)}</span>
+                                <span class="vip-profile-age">${profile.age} y.o.</span>
+                            </div>
+                            <p><strong>Gender:</strong> ${escapeHtml(profile.gender || 'Not specified')}</p>
+                            <p><strong>City:</strong> ${escapeHtml(profile.city)}</p>
+                            <p><strong>Photos:</strong></p>
+                            <div class="photo-preview">
+                                ${photosHtml}
+                            </div>
+                            <div style="margin-top: 15px;">
+                                <button class="btn btn-danger" onclick="deleteVipProfile(${profile.id})">
+                                    Delete
+                                </button>
+                            </div>
+                        `;
+                        list.appendChild(profileDiv);
+                    });
+
+                    loadStats();
+                } catch (error) {
+                    console.error('Error loading VIP profiles:', error);
+                }
+            }
+
+            // Удаление VIP анкеты
+            async function deleteVipProfile(profileId) {
+                if (!confirm('Delete VIP profile? This action cannot be undone!')) return;
+
+                try {
+                    const response = await fetchWithAuth(`/api/admin/vip-profiles/${profileId}`, {method: 'DELETE'});
+                    if (response.ok) {
+                        alert('VIP Profile deleted!');
+                        loadVipProfiles();
+                    } else {
+                        alert('Error deleting VIP profile');
+                    }
+                } catch (error) {
+                    console.error('Error deleting VIP profile:', error);
+                    alert('Error deleting VIP profile');
+                }
+            }
+
+            // Переключение видимости анкеты
+            async function toggleProfile(profileId, visible) {
+                if (!confirm(visible ? 'Show profile?' : 'Hide profile?')) return;
+
+                try {
+                    await fetchWithAuth(`/api/admin/profiles/${profileId}/toggle`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ visible: visible })
+                    });
+                    loadProfiles();
+                } catch (error) {
+                    console.error('Error toggling profile:', error);
+                    alert('Error updating profile');
+                }
+            }
+
+            // Удаление анкеты
+            async function deleteProfile(profileId) {
+                if (!confirm('Delete profile? This action cannot be undone!')) return;
+
+                try {
+                    const response = await fetchWithAuth(`/api/admin/profiles/${profileId}`, {method: 'DELETE'});
+                    if (response.ok) {
+                        alert('Profile deleted!');
+                        loadProfiles();
+                    } else {
+                        alert('Error deleting profile');
+                    }
+                } catch (error) {
+                    console.error('Error deleting profile:', error);
+                    alert('Error deleting profile');
+                }
+            }
+
+            // Загрузка чатов
+            async function loadChats() {
+                try {
+                    const response = await fetchWithAuth('/api/admin/chats');
+                            if (profile.photo) {
+                                showPhotoPreview(`vip-preview-${i+1}-photo-preview`, profile.photo);
+                            }
+                        }
+                    }
+
+                    document.getElementById('extra-vip-catalog-name').value = catalogs.extra_vip?.name || 'Extra VIP';
+                    document.getElementById('extra-vip-catalog-price').value = catalogs.extra_vip?.price || 200;
+                    document.getElementById('extra-vip-catalog-url').value = catalogs.extra_vip?.redirect_url || 'https://t.me/extra_vip_channel';
+                    document.getElementById('extra-vip-catalog-preview-count').value = catalogs.extra_vip?.preview_count || 3;
+                    document.getElementById('extra-vip-catalog-visible').checked = catalogs.extra_vip?.visible !== false;
+                    if (catalogs.extra_vip?.preview_profiles) {
+                        for (let i = 0; i < 3; i++) {
+                            const profile = catalogs.extra_vip.preview_profiles[i] || {};
+                            document.getElementById(`extra-vip-preview-${i+1}-name`).value = profile.name || '';
+                            document.getElementById(`extra-vip-preview-${i+1}-age`).value = profile.age || '';
+                            document.getElementById(`extra-vip-preview-${i+1}-city`).value = profile.city || '';
+                            vipPreviewPhotos.extra_vip[i] = profile.photo || '';
+                            if (profile.photo) {
+                                showPhotoPreview(`extra-vip-preview-${i+1}-photo-preview`, profile.photo);
+                            }
+                        }
+                    }
+
+                    document.getElementById('secret-catalog-name').value = catalogs.secret?.name || 'Secret Catalog';
+                    document.getElementById('secret-catalog-price').value = catalogs.secret?.price || 300;
+                    document.getElementById('secret-catalog-url').value = catalogs.secret?.redirect_url || 'https://t.me/secret_channel';
+                    document.getElementById('secret-catalog-preview-count').value = catalogs.secret?.preview_count || 3;
+                    document.getElementById('secret-catalog-visible').checked = catalogs.secret?.visible !== false;
+                    if (catalogs.secret?.preview_profiles) {
+                        for (let i = 0; i < 3; i++) {
+                            const profile = catalogs.secret.preview_profiles[i] || {};
+                            document.getElementById(`secret-preview-${i+1}-name`).value = profile.name || '';
+                            document.getElementById(`secret-preview-${i+1}-age`).value = profile.age || '';
+                            document.getElementById(`secret-preview-${i+1}-city`).value = profile.city || '';
+                            vipPreviewPhotos.secret[i] = profile.photo || '';
+                            if (profile.photo) {
+                                showPhotoPreview(`secret-preview-${i+1}-photo-preview`, profile.photo);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading VIP catalogs:', error);
+                }
+            }
+
+            // Сохранение VIP каталогов
+            async function saveVipCatalogs() {
+                try {
+                    const catalogs = {
+                        vip: {
+                            name: document.getElementById('vip-catalog-name').value,
+                            price: parseInt(document.getElementById('vip-catalog-price').value),
+                            redirect_url: document.getElementById('vip-catalog-url').value,
+                            preview_count: parseInt(document.getElementById('vip-catalog-preview-count').value),
+                            visible: document.getElementById('vip-catalog-visible').checked,
+                            preview_profiles: [
+                                {
+                                    name: document.getElementById('vip-preview-1-name').value,
+                                    age: parseInt(document.getElementById('vip-preview-1-age').value) || 0,
+                                    city: document.getElementById('vip-preview-1-city').value,
+                                    photo: vipPreviewPhotos.vip[0] || ''
+                                },
+                                {
+                                    name: document.getElementById('vip-preview-2-name').value,
+                                    age: parseInt(document.getElementById('vip-preview-2-age').value) || 0,
+                                    city: document.getElementById('vip-preview-2-city').value,
+                                    photo: vipPreviewPhotos.vip[1] || ''
+                                },
+                                {
+                                    name: document.getElementById('vip-preview-3-name').value,
+                                    age: parseInt(document.getElementById('vip-preview-3-age').value) || 0,
+                                    city: document.getElementById('vip-preview-3-city').value,
+                                    photo: vipPreviewPhotos.vip[2] || ''
+                                }
+                            ]
+                        },
+                        extra_vip: {
+                            name: document.getElementById('extra-vip-catalog-name').value,
+                            price: parseInt(document.getElementById('extra-vip-catalog-price').value),
+                            redirect_url: document.getElementById('extra-vip-catalog-url').value,
+                            preview_count: parseInt(document.getElementById('extra-vip-catalog-preview-count').value),
+                            visible: document.getElementById('extra-vip-catalog-visible').checked,
+                            preview_profiles: [
+                                {
+                                    name: document.getElementById('extra-vip-preview-1-name').value,
+                                    age: parseInt(document.getElementById('extra-vip-preview-1-age').value) || 0,
+                                    city: document.getElementById('extra-vip-preview-1-city').value,
+                                    photo: vipPreviewPhotos.extra_vip[0] || ''
+                                },
+                                {
+                                    name: document.getElementById('extra-vip-preview-2-name').value,
+                                    age: parseInt(document.getElementById('extra-vip-preview-2-age').value) || 0,
+                                    city: document.getElementById('extra-vip-preview-2-city').value,
+                                    photo: vipPreviewPhotos.extra_vip[1] || ''
+                                },
+                                {
+                                    name: document.getElementById('extra-vip-preview-3-name').value,
+                                    age: parseInt(document.getElementById('extra-vip-preview-3-age').value) || 0,
+                                    city: document.getElementById('extra-vip-preview-3-city').value,
+                                    photo: vipPreviewPhotos.extra_vip[2] || ''
+                                }
+                            ]
+                        },
+                        secret: {
+                            name: document.getElementById('secret-catalog-name').value,
+                            price: parseInt(document.getElementById('secret-catalog-price').value),
+                            redirect_url: document.getElementById('secret-catalog-url').value,
+                            preview_count: parseInt(document.getElementById('secret-catalog-preview-count').value),
+                            visible: document.getElementById('secret-catalog-visible').checked,
+                            preview_profiles: [
+                                {
+                                    name: document.getElementById('secret-preview-1-name').value,
+                                    age: parseInt(document.getElementById('secret-preview-1-age').value) || 0,
+                                    city: document.getElementById('secret-preview-1-city').value,
+                                    photo: vipPreviewPhotos.secret[0] || ''
+                                },
+                                {
+                                    name: document.getElementById('secret-preview-2-name').value,
+                                    age: parseInt(document.getElementById('secret-preview-2-age').value) || 0,
+                                    city: document.getElementById('secret-preview-2-city').value,
+                                    photo: vipPreviewPhotos.secret[1] || ''
+                                },
+                                {
+                                    name: document.getElementById('secret-preview-3-name').value,
+                                    age: parseInt(document.getElementById('secret-preview-3-age').value) || 0,
+                                    city: document.getElementById('secret-preview-3-city').value,
+                                    photo: vipPreviewPhotos.secret[2] || ''
+                                }
+                            ]
+                        }
+                    };
+
+                    const response = await fetch('http://localhost:8002/api/vip-catalogs', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(catalogs)
+                    });
+
+                    if (response.ok) {
+                        alert('VIP catalogs settings saved!');
+                    } else {
+                        alert('Error saving VIP catalogs settings');
+                    }
+                } catch (error) {
+                    console.error('Error saving VIP catalogs:', error);
+                    alert('Error saving VIP catalogs settings');
+                }
+            }
+
+            // Функция отображения превью фото
+            function showPhotoPreview(previewId, photoUrl) {
+                const previewDiv = document.getElementById(previewId);
+                if (previewDiv) {
+                    previewDiv.innerHTML = `<img src="http://localhost:8002${photoUrl}" style="max-width: 200px; max-height: 150px; border-radius: 8px;">`;
+                }
+            }
+
+            // Обработчики загрузки фото для preview профилей
+            document.addEventListener('DOMContentLoaded', () => {
+                // VIP catalog
+                ['vip', 'extra-vip', 'secret'].forEach(catalog => {
+                    for (let i = 1; i <= 3; i++) {
+                        const inputId = `${catalog}-preview-${i}-photo`;
+                        const previewId = `${catalog}-preview-${i}-photo-preview`;
+                        const catalogKey = catalog.replace('-', '_');
+
+                        const input = document.getElementById(inputId);
+                        if (input) {
+                            input.addEventListener('change', async function(e) {
+                                const file = e.target.files[0];
+                                if (file) {
+                                    const formData = new FormData();
+                                    formData.append('file', file);
+
+                                    try {
+                                        const response = await fetch('http://localhost:8002/api/vip-catalogs/upload-preview-photo', {
+                                            method: 'POST',
+                                            body: formData
+                                        });
+
+                                        if (response.ok) {
+                                            const data = await response.json();
+                                            vipPreviewPhotos[catalogKey][i-1] = data.photo_url;
+                                            showPhotoPreview(previewId, data.photo_url);
+                                        } else {
+                                            alert('Error uploading photo');
+                                        }
+                                    } catch (error) {
+                                        console.error('Error uploading photo:', error);
+                                        alert('Error uploading photo');
+                                    }
+                                }
+                            });
+                        }
+                    }
+                });
+            });
+
+            // Загрузка управления VIP превью
+            async function loadVipPreviewManagement() {
+                await loadAvailableVipProfiles();
+                await loadVipPreviewProfiles();
+            }
+
+            // Загрузка доступных VIP анкет
+            async function loadAvailableVipProfiles() {
+                try {
+                    const response = await fetchWithAuth('/api/admin/vip-profiles');
+                    const data = await response.json();
+                    availableVipProfiles = data.profiles;
+
+                    const select = document.getElementById('available-vip-profiles');
+                    select.innerHTML = '';
+
+                    availableVipProfiles.forEach(profile => {
+                        const option = document.createElement('option');
+                        option.value = profile.id;
+                        option.textContent = `${profile.name} (${profile.age} y.o., ${profile.city})`;
+                        select.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Error loading VIP profiles:', error);
+                }
+            }
+
+            // Загрузка выбранных превью профилей
+            async function loadVipPreviewProfiles() {
+                const catalogKey = document.getElementById('vip-catalog-select').value;
+                // Здесь будет загрузка сохраненных превью профилей для выбранного каталога
+                // Пока просто очищаем выбранные профили
+                selectedPreviewProfiles = [];
+                updateSelectedPreviewDisplay();
+            }
+
+            // Обновление отображения выбранных превью профилей
+            function updateSelectedPreviewDisplay() {
+                const container = document.getElementById('selected-preview-profiles');
+                container.innerHTML = '';
+
+                selectedPreviewProfiles.forEach(profileId => {
+                    const profile = availableVipProfiles.find(p => p.id == profileId);
+                    if (profile) {
+                        const profileDiv = document.createElement('div');
+                        profileDiv.className = 'vip-preview-item';
+                        profileDiv.innerHTML = `
+                            <div class="vip-preview-header">
+                                <span class="vip-preview-name">${escapeHtml(profile.name)}</span>
+                                <button class="btn btn-danger" onclick="removePreviewProfile(${profile.id})">Remove</button>
+                            </div>
+                            <p>Age: ${profile.age}</p>
+                            <p>City: ${escapeHtml(profile.city)}</p>
+                            <img src="http://localhost:8002${profile.photos[0]}" alt="${escapeHtml(profile.name)}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;">
+                        `;
+                        container.appendChild(profileDiv);
+                    }
+                });
+            }
+
+            // Добавление профиля в превью
+            function addPreviewProfile() {
+                const select = document.getElementById('available-vip-profiles');
+                const selectedOptions = Array.from(select.selectedOptions);
+
+                selectedOptions.forEach(option => {
+                    const profileId = parseInt(option.value);
+                    if (!selectedPreviewProfiles.includes(profileId) && selectedPreviewProfiles.length < 3) {
+                        selectedPreviewProfiles.push(profileId);
+                    }
+                });
+
+                updateSelectedPreviewDisplay();
+            }
+
+            // Удаление профиля из превью
+            function removePreviewProfile(profileId) {
+                selectedPreviewProfiles = selectedPreviewProfiles.filter(id => id !== profileId);
+                updateSelectedPreviewDisplay();
+            }
+
+            // Сохранение настроек превью
+            async function saveVipPreview() {
+                const catalogKey = document.getElementById('vip-catalog-select').value;
+
+                // Здесь будет сохранение выбранных профилей для превью
+                // Пока просто показываем сообщение
+                alert(`Preview settings saved for ${catalogKey} catalog with ${selectedPreviewProfiles.length} profiles`);
+            }
+
+            // Загрузка чатов
+            async function loadChats() {
+                try {
+                    const response = await fetchWithAuth('/api/admin/chats');
+                    const data = await response.json();
+                    const list = document.getElementById('chats-list');
+                    list.innerHTML = '';
+
+                    if (data.chats.length === 0) {
+                        list.innerHTML = '<p>No active chats</p>';
+                        return;
+                    }
+
+                    data.chats.forEach(chat => {
+                        const chatDiv = document.createElement('div');
+                        chatDiv.className = 'profile-card';
+                        chatDiv.innerHTML = `
+                            <div class="profile-header">
+                                <span class="profile-id">ID: ${chat.profile_id}</span>
+                                <span class="profile-name">${escapeHtml(chat.profile_name)}</span>
+                            </div>
+                            <p><strong>Created:</strong> ${new Date(chat.created_at).toLocaleString()}</p>
+                            <button class="btn btn-primary" onclick="openChat(${chat.profile_id})">
+                                Open Chat
+                            </button>
+                        `;
+                        list.appendChild(chatDiv);
+                    });
+                } catch (error) {
+                    console.error('Error loading chats:', error);
+                }
+            }
+
+            // Открытие чата
+            async function openChat(profileId) {
+                try {
+                    const response = await fetchWithAuth(`/api/admin/chats/${profileId}/messages`);
+                    const messages = await response.json();
+
+                    const list = document.getElementById('chats-list');
+
+                    let messagesHtml = '';
+                    messages.messages.forEach(msg => {
+                        if (msg.is_system) {
+                            // Системное сообщение
+                            messagesHtml += `
+                                <div class="system-message">
+                                    <div class="system-bubble">${escapeHtml(msg.text)}</div>
+                                </div>
+                            `;
+                        } else if (msg.file_url) {
+                            // Сообщение с файлом
+                            if (msg.file_type === 'image') {
+                                messagesHtml += `
+                                    <div class="chat-message ${msg.is_from_user ? 'user-message' : 'admin-message'}">
+                                        <div class="message-sender">
+                                            ${msg.is_from_user ? 'User' : 'Admin'}:
+                                        </div>
+                                        <div class="chat-attachment">
+                                            <img src="http://localhost:8002${msg.file_url}" alt="Image" class="attachment-preview">
+                                            <div>
+                                                <div>${escapeHtml(msg.text || '')}</div>
+                                            </div>
+                                        </div>
+                                        <small style="color: #ff6b9d; font-size: 12px;">
+                                            ${new Date(msg.created_at).toLocaleString()}
+                                        </small>
+                                    </div>
+                                `;
+                            } else if (msg.file_type === 'video') {
+                                messagesHtml += `
+                                    <div class="chat-message ${msg.is_from_user ? 'user-message' : 'admin-message'}">
+                                        <div class="message-sender">
+                                            ${msg.is_from_user ? 'User' : 'Admin'}:
+                                        </div>
+                                        <div class="chat-attachment">
+                                            <video controls class="attachment-preview">
+                                                <source src="http://localhost:8002${msg.file_url}" type="video/mp4">
+                                                Your browser does not support video.
+                                            </video>
+                                            <div>
+                                                <div>${escapeHtml(msg.text || '')}</div>
+                                            </div>
+                                        </div>
+                                        <small style="color: #ff6b9d; font-size: 12px;">
+                                            ${new Date(msg.created_at).toLocaleString()}
+                                        </small>
+                                    </div>
+                                `;
+                            } else {
+                                messagesHtml += `
+                                    <div class="chat-message ${msg.is_from_user ? 'user-message' : 'admin-message'}">
+                                        <div class="message-sender">
+                                            ${msg.is_from_user ? 'User' : 'Admin'}:
+                                        </div>
+                                        <div class="file-message">
+                                            <strong>File: ${escapeHtml(msg.file_name)}</strong>
+                                            <div>${escapeHtml(msg.text || '')}</div>
+                                            <a href="http://localhost:8002${msg.file_url}" target="_blank" style="color: #ff6b9d;">Download file</a>
+                                        </div>
+                                        <small style="color: #ff6b9d; font-size: 12px;">
+                                            ${new Date(msg.created_at).toLocaleString()}
+                                        </small>
+                                    </div>
+                                `;
+                            }
+                        } else {
+                            // Текстовое сообщение
+                            messagesHtml += `
+                                <div class="chat-message ${msg.is_from_user ? 'user-message' : 'admin-message'}">
+                                    <div class="message-sender">
+                                        ${msg.is_from_user ? 'User' : 'Admin'}:
+                                    </div>
+                                    <div>${escapeHtml(msg.text)}</div>
+                                    <small style="color: #ff6b9d; font-size: 12px;">
+                                        ${new Date(msg.created_at).toLocaleString()}
+                                    </small>
+                                </div>
+                            `;
+                        }
+                    });
+
+                    list.innerHTML = `
+                        <button class="back-btn" onclick="loadChats()">Back to chats</button>
+                        <div class="profile-card">
+                            <h3>Chat</h3>
+                            <div style="margin: 15px 0;">
+                                <button class="btn btn-system" onclick="sendSystemMessage(${profileId})">
+                                    Send Transaction Success Message
+                                </button>
+                            </div>
+                            <div id="chat-messages" style="max-height: 500px; overflow-y: auto; margin: 20px 0;">
+                                ${messagesHtml}
+                            </div>
+                            <div>
+                                <h4>Reply:</h4>
+                                <div class="chat-file-upload">
+                                    <input type="file" id="admin-chat-file" accept="image/*,video/*,.pdf,.doc,.docx" multiple style="display: none;">
+                                    <button type="button" class="btn btn-primary" onclick="document.getElementById('admin-chat-file').click()">
+                                        Attach Files
+                                    </button>
+                                    <div class="chat-file-list" id="chat-file-list"></div>
+                                </div>
+                                <textarea id="reply-text" rows="3" style="width: 100%; margin: 15px 0; padding: 12px; background: rgba(255, 107, 157, 0.1); color: white; border: 1px solid #ff6b9d; border-radius: 8px;" placeholder="Type your message..."></textarea>
+                                <button class="btn btn-primary" onclick="sendAdminReply(${profileId})">
+                                    Send Reply
+                                </button>
+                            </div>
+                        </div>
+                    `;
+
+                    // Настройка загрузки файлов для чата
+                    setupChatFileUpload();
+
+                    // Прокрутка вниз
+                    const chatMessages = document.getElementById('chat-messages');
+                    if (chatMessages) {
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+                } catch (error) {
+                    console.error('Error opening chat:', error);
+                    alert('Error opening chat: ' + error.message);
+                }
+            }
+
+            // Отправка системного сообщения
+            async function sendSystemMessage(profileId) {
+                if (!confirm('Send transaction success message?')) return;
+
+                try {
+                    const response = await fetchWithAuth(`/api/admin/chats/${profileId}/system-message`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            text: 'Transaction successful, your booking has been confirmed'
+                        })
+                    });
+
+                    if (response.ok) {
+                        openChat(profileId); // Перезагружаем чат
+                    } else {
+                        alert('Error sending system message');
+                    }
+                } catch (error) {
+                    console.error('Error sending system message:', error);
+                    alert('Error sending system message');
+                }
+            }
+
+            // Настройка загрузки файлов для чата
+            function setupChatFileUpload() {
+                const fileInput = document.getElementById('admin-chat-file');
+                const fileList = document.getElementById('chat-file-list');
+                let selectedFiles = [];
+
+                fileInput.addEventListener('change', function(e) {
+                    const files = Array.from(e.target.files);
+                    selectedFiles = [...selectedFiles, ...files];
+                    updateChatFileList();
+                });
+
+                function updateChatFileList() {
+                    fileList.innerHTML = '';
+                    selectedFiles.forEach((file, index) => {
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'file-item';
+                        fileItem.innerHTML = `
+                            <span>${escapeHtml(file.name)}</span>
+                            <span class="remove-file" onclick="removeChatFile(${index})">×</span>
+                        `;
+                        fileList.appendChild(fileItem);
+                    });
+                }
+
+                window.removeChatFile = function(index) {
+                    selectedFiles.splice(index, 1);
+                    updateChatFileList();
+                    fileInput.value = '';
+                };
+
+                window.getSelectedChatFiles = function() {
+                    return selectedFiles;
+                };
+
+                window.clearChatFiles = function() {
+                    selectedFiles = [];
+                    updateChatFileList();
+                    fileInput.value = '';
+                };
+            }
+
+            // Отправка ответа с файлами - ИСПРАВЛЕННАЯ ВЕРСИЯ
+            async function sendAdminReply(profileId) {
+                const text = document.getElementById('reply-text').value.trim();
+                const files = window.getSelectedChatFiles();
+
+                console.log('Sending reply:', { text, files: files.length });
+
+                if (!text && files.length === 0) {
+                    alert('Please enter message text or attach files');
+                    return;
+                }
+
+                try {
+                    const formData = new FormData();
+                    if (text) {
+                        formData.append('text', text);
+                    }
+
+                    // Добавляем все файлы
+                    files.forEach(file => {
+                        formData.append('files', file);
+                    });
+
+                    console.log('FormData entries:', Array.from(formData.entries()));
+
+                    const response = await fetchWithAuth(`/api/admin/chats/${profileId}/reply`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        document.getElementById('reply-text').value = '';
+                        window.clearChatFiles();
+                        openChat(profileId); // Перезагружаем чат
+                    } else {
+                        const errorData = await response.json();
+                        console.error('Server error:', errorData);
+                        alert('Error sending message: ' + (errorData.detail || 'Unknown error'));
+                    }
+
+                } catch (error) {
+                    console.error('Error sending reply:', error);
+                    alert('Error sending message: ' + error.message);
+                }
+            }
+
+            // Управление комментариями
+            async function loadCommentsAdmin() {
+                try {
+                    const response = await fetchWithAuth('/api/admin/comments');
+                    const data = await response.json();
+                    const list = document.getElementById('comments-list-admin');
+                    list.innerHTML = '';
+
+                    if (data.comments.length === 0) {
+                        list.innerHTML = '<p>No comments yet</p>';
+                        return;
+                    }
+
+                    data.comments.forEach(comment => {
+                        const commentDiv = document.createElement('div');
+                        commentDiv.className = 'comment-management-item';
+                        commentDiv.innerHTML = `
+                            <div class="comment-management-header">
+                                <span class="comment-profile">Profile ID: ${comment.profile_id}</span>
+                                <span class="comment-date">${new Date(comment.created_at).toLocaleString()}</span>
+                            </div>
+                            <div class="comment-header">
+                                <span class="comment-author">${escapeHtml(comment.user_name)}</span>
+                            </div>
+                            <div class="comment-text">${escapeHtml(comment.text)}</div>
+                            <div class="comment-actions">
+                                <button class="delete-comment" onclick="deleteComment(${comment.profile_id}, ${comment.id})">
+                                    Delete Comment
+                                </button>
+                            </div>
+                        `;
+                        list.appendChild(commentDiv);
+                    });
+
+                    loadStats();
+                } catch (error) {
+                    console.error('Error loading comments:', error);
+                }
+            }
+
+            // Удаление комментария
+            async function deleteComment(profileId, commentId) {
+                if (!confirm('Delete this comment?')) return;
+
+                try {
+                    const response = await fetch(`/api/profiles/${profileId}/comments/${commentId}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (response.ok) {
+                        alert('Comment deleted!');
+                        loadCommentsAdmin();
+                    } else {
+                        alert('Error deleting comment');
+                    }
+                } catch (error) {
+                    console.error('Error deleting comment:', error);
+                    alert('Error deleting comment');
+                }
+            }
+
+            // Промокоды
+            async function loadPromocodes() {
+                try {
+                    const response = await fetchWithAuth('/api/admin/promocodes');
+                    const data = await response.json();
+                    const list = document.getElementById('promocodes-list');
+                    list.innerHTML = '';
+
+                    data.promocodes.forEach(promo => {
+                        const promoDiv = document.createElement('div');
+                        promoDiv.className = 'promocode-card';
+                        promoDiv.innerHTML = `
+                            <div class="promocode-header">
+                                <span class="promocode-code">${escapeHtml(promo.code)}</span>
+                                <span class="promocode-discount">${promo.discount}% OFF</span>
+                            </div>
+                            <p><strong>Created:</strong> ${new Date(promo.created_at).toLocaleString()}</p>
+                            <p><strong>Status:</strong> 
+                                <span class="promocode-status ${promo.is_active ? 'status-active' : 'status-inactive'}">
+                                    ${promo.is_active ? 'ACTIVE' : 'INACTIVE'}
+                                </span>
+                            </p>
+                            <p><strong>Used:</strong> ${promo.used_by ? promo.used_by.length : 0} times</p>
+                            <div style="margin-top: 15px;">
+                                <button class="btn btn-warning" onclick="togglePromocode(${promo.id}, ${!promo.is_active})">
+                                    ${promo.is_active ? 'Deactivate' : 'Activate'}
+                                </button>
+                                <button class="btn btn-danger" onclick="deletePromocode(${promo.id})">
+                                    Delete
+                                </button>
+                            </div>
+                        `;
+                        list.appendChild(promoDiv);
+                    });
+
+                    loadStats();
+                } catch (error) {
+                    console.error('Error loading promocodes:', error);
+                }
+            }
+
+            async function createPromocode() {
+                const code = document.getElementById('promocode-code').value.trim();
+                const discount = parseInt(document.getElementById('promocode-discount').value);
+
+                if (!code) {
+                    alert('Please enter promocode');
+                    return;
+                }
+
+                if (discount < 1 || discount > 100) {
+                    alert('Discount must be between 1 and 100%');
+                    return;
+                }
+
+                try {
+                    const response = await fetchWithAuth('/api/admin/promocodes', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            code: code,
+                            discount: discount
+                        })
+                    });
+
+                    if (response.ok) {
+                        alert('Promocode created!');
+                        document.getElementById('promocode-code').value = '';
+                        loadPromocodes();
+                    } else {
+                        alert('Error creating promocode');
+                    }
+                } catch (error) {
+                    console.error('Error creating promocode:', error);
+                    alert('Error creating promocode');
+                }
+            }
+
+            async function togglePromocode(promocodeId, active) {
+                try {
+                    await fetchWithAuth(`/api/admin/promocodes/${promocodeId}/toggle`, {
+                        method: 'POST'
+                    });
+                    loadPromocodes();
+                } catch (error) {
+                    console.error('Error toggling promocode:', error);
+                    alert('Error updating promocode');
+                }
+            }
+
+            async function deletePromocode(promocodeId) {
+                if (!confirm('Delete promocode? This action cannot be undone!')) return;
+
+                try {
+                    const response = await fetchWithAuth(`/api/admin/promocodes/${promocodeId}`, {method: 'DELETE'});
+                    if (response.ok) {
+                        alert('Promocode deleted!');
+                        loadPromocodes();
+                    } else {
+                        alert('Error deleting promocode');
+                    }
+                } catch (error) {
+                    console.error('Error deleting promocode:', error);
+                    alert('Error deleting promocode');
+                }
+            }
+
+            // Баннер
+            async function loadBannerSettings() {
+                try {
+                    const response = await fetchWithAuth('/api/admin/banner');
+                    const banner = await response.json();
+
+                    document.getElementById('banner-text').value = banner.text || '';
+                    document.getElementById('banner-link').value = banner.link || '';
+                    document.getElementById('banner-link-text').value = banner.link_text || '';
+                    document.getElementById('banner-visible').checked = banner.visible !== false;
+
+                    updateBannerPreview();
+                } catch (error) {
+                    console.error('Error loading banner settings:', error);
+                }
+            }
+
+            function updateBannerPreview() {
+                const text = document.getElementById('banner-text').value || 'Banner preview text';
+                const link = document.getElementById('banner-link').value || '#';
+                const linkText = document.getElementById('banner-link-text').value || 'Preview Link';
+
+                document.getElementById('preview-text').textContent = text;
+                document.getElementById('preview-link').textContent = linkText;
+                document.getElementById('preview-link').href = link;
+            }
+
+            async function saveBannerSettings() {
+                try {
+                    const banner = {
+                        text: document.getElementById('banner-text').value,
+                        link: document.getElementById('banner-link').value,
+                        link_text: document.getElementById('banner-link-text').value,
+                        visible: document.getElementById('banner-visible').checked
+                    };
+
+                    const response = await fetchWithAuth('/api/admin/banner', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(banner)
+                    });
+
+                    if (response.ok) {
+                        alert('Banner settings saved!');
+                        updateBannerPreview();
+                    } else {
+                        alert('Error saving banner settings');
+                    }
+                } catch (error) {
+                    console.error('Error saving banner settings:', error);
+                    alert('Error saving banner settings');
+                }
+            }
+
+            // Загрузка фото для профиля
+            document.getElementById('photo-upload').addEventListener('change', function(e) {
+                const files = Array.from(e.target.files);
+                const uploadedPhotosContainer = document.getElementById('uploaded-photos');
+
+                files.forEach(file => {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const photoData = e.target.result;
+                            uploadedPhotoFiles.push(file);
+
+                            const photoDiv = document.createElement('div');
+                            photoDiv.className = 'uploaded-photo';
+                            photoDiv.innerHTML = `
+                                <img src="${photoData}" alt="Uploaded photo">
+                                <button type="button" class="remove-photo" onclick="removeUploadedPhoto(${uploadedPhotoFiles.length - 1})">×</button>
+                            `;
+                            uploadedPhotosContainer.appendChild(photoDiv);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+
+                this.value = '';
+            });
+
+            // Загрузка фото для VIP профиля
+            document.getElementById('vip-photo-upload').addEventListener('change', function(e) {
+                const files = Array.from(e.target.files);
+                const uploadedPhotosContainer = document.getElementById('vip-uploaded-photos');
+
+                files.forEach(file => {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const photoData = e.target.result;
+                            uploadedVipPhotoFiles.push(file);
+
+                            const photoDiv = document.createElement('div');
+                            photoDiv.className = 'uploaded-photo';
+                            photoDiv.innerHTML = `
+                                <img src="${photoData}" alt="Uploaded photo">
+                                <button type="button" class="remove-photo" onclick="removeVipUploadedPhoto(${uploadedVipPhotoFiles.length - 1})">×</button>
+                            `;
+                            uploadedPhotosContainer.appendChild(photoDiv);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+
+                this.value = '';
+            });
+
+            // Удаление загруженного фото
+            window.removeUploadedPhoto = function(index) {
+                uploadedPhotoFiles.splice(index, 1);
+                updateUploadedPhotosDisplay();
+            };
+
+            // Удаление загруженного VIP фото
+            window.removeVipUploadedPhoto = function(index) {
+                uploadedVipPhotoFiles.splice(index, 1);
+                updateVipUploadedPhotosDisplay();
+            };
+
+            // Обновление отображения загруженных фото
+            function updateUploadedPhotosDisplay() {
+                const uploadedPhotosContainer = document.getElementById('uploaded-photos');
+                uploadedPhotosContainer.innerHTML = '';
+
+                uploadedPhotoFiles.forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const photoDiv = document.createElement('div');
+                        photoDiv.className = 'uploaded-photo';
+                        photoDiv.innerHTML = `
+                            <img src="${e.target.result}" alt="Uploaded photo">
+                            <button type="button" class="remove-photo" onclick="removeUploadedPhoto(${index})">×</button>
+                        `;
+                        uploadedPhotosContainer.appendChild(photoDiv);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            // Обновление отображения загруженных VIP фото
+            function updateVipUploadedPhotosDisplay() {
+                const uploadedPhotosContainer = document.getElementById('vip-uploaded-photos');
+                uploadedPhotosContainer.innerHTML = '';
+
+                uploadedVipPhotoFiles.forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const photoDiv = document.createElement('div');
+                        photoDiv.className = 'uploaded-photo';
+                        photoDiv.innerHTML = `
+                            <img src="${e.target.result}" alt="Uploaded photo">
+                            <button type="button" class="remove-photo" onclick="removeVipUploadedPhoto(${index})">×</button>
+                        `;
+                        uploadedPhotosContainer.appendChild(photoDiv);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            // Обработчик формы добавления анкеты
+            document.getElementById('add-profile-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                if (uploadedPhotoFiles.length === 0) {
+                    alert('Please upload at least one photo');
+                    return;
+                }
+
+                const travelCities = document.getElementById('travel-cities').value
+                    .split(',')
+                    .map(city => city.trim())
+                    .filter(city => city);
+
+                // Создаем FormData для отправки файлов
+                const formData = new FormData();
+                formData.append('name', document.getElementById('name').value);
+                formData.append('age', document.getElementById('age').value);
+                formData.append('gender', document.getElementById('gender').value);
+                formData.append('nationality', document.getElementById('nationality').value);
+                formData.append('city', document.getElementById('city').value);
+                formData.append('travel_cities', JSON.stringify(travelCities));
+                formData.append('description', document.getElementById('description').value);
+                formData.append('height', document.getElementById('height').value);
+                formData.append('weight', document.getElementById('weight').value);
+                formData.append('chest', document.getElementById('chest').value);
+
+                // Добавляем фото
+                uploadedPhotoFiles.forEach(file => {
+                    formData.append('photos', file);
+                });
+
+                try {
+                    const response = await fetchWithAuth('/api/admin/profiles', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        alert('Profile added successfully!');
+                        this.reset();
+                        uploadedPhotoFiles = [];
+                        updateUploadedPhotosDisplay();
+                        showTab('profiles');
+                    } else {
+                        const errorData = await response.json();
+                        alert('Error adding profile: ' + (errorData.detail || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Error adding profile:', error);
+                    alert('Error adding profile: ' + error.message);
+                }
+            });
+
+            // Обработчик формы добавления VIP анкеты
+            document.getElementById('add-vip-profile-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                if (uploadedVipPhotoFiles.length === 0) {
+                    alert('Please upload at least one photo');
+                    return;
+                }
+
+                // Создаем FormData для отправки файлов
+                const formData = new FormData();
+                formData.append('name', document.getElementById('vip-name').value);
+                formData.append('age', document.getElementById('vip-age').value);
+                formData.append('gender', document.getElementById('vip-gender').value);
+                formData.append('city', document.getElementById('vip-city').value);
+
+                // Добавляем фото
+                uploadedVipPhotoFiles.forEach(file => {
+                    formData.append('photos', file);
+                });
+
+                try {
+                    const response = await fetchWithAuth('/api/admin/vip-profiles', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        alert('VIP Profile added successfully!');
+                        this.reset();
+                        uploadedVipPhotoFiles = [];
+                        updateVipUploadedPhotosDisplay();
+                        showTab('vip-profiles');
+                    } else {
+                        const errorData = await response.json();
+                        alert('Error adding VIP profile: ' + (errorData.detail || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Error adding VIP profile:', error);
+                    alert('Error adding VIP profile: ' + error.message);
+                }
+            });
+
+            // Загрузка крипто-кошельков
+            async function loadCryptoWallets() {
+                try {
+                    const response = await fetchWithAuth('/api/admin/crypto_wallets');
+                    const wallets = await response.json();
+
+                    document.getElementById('trc20-wallet').value = wallets.trc20 || '';
+                    document.getElementById('erc20-wallet').value = wallets.erc20 || '';
+                    document.getElementById('bnb-wallet').value = wallets.bnb || '';
+                } catch (error) {
+                    console.error('Error loading crypto wallets:', error);
+                }
+            }
+
+            // Сохранение крипто-кошельков
+            async function saveCryptoWallets() {
+                try {
+                    const wallets = {
+                        trc20: document.getElementById('trc20-wallet').value,
+                        erc20: document.getElementById('erc20-wallet').value,
+                        bnb: document.getElementById('bnb-wallet').value
+                    };
+
+                    const response = await fetchWithAuth('/api/admin/crypto_wallets', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(wallets)
+                    });
+
+                    if (response.ok) {
+                        alert('Wallet addresses saved successfully!');
+                    } else {
+                        alert('Error saving wallet addresses');
+                    }
+                } catch (error) {
+                    console.error('Error saving crypto wallets:', error);
+                    alert('Error saving wallet addresses');
+                }
+            }
+
+            // Загружаем анкеты при старте
+            loadProfiles();
+
+            // Обновляем превью баннера при изменении
+            document.getElementById('banner-text').addEventListener('input', updateBannerPreview);
+            document.getElementById('banner-link').addEventListener('input', updateBannerPreview);
+            document.getElementById('banner-link-text').addEventListener('input', updateBannerPreview);
         </script>
     </body>
     </html>
     """
     return HTMLResponse(content=html_content)
 
-# API endpoints
-@app.get("/")
-async def main():
-    """Redirect root to login page"""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/login")
 
+# Public API endpoints (for frontend)
 @app.get("/api/profiles")
 async def get_profiles(
     page: int = 0,
@@ -635,71 +2178,6 @@ async def get_profiles(
         "total": len(profiles)
     }
 
-@app.get("/api/vip-profiles")
-async def get_vip_profiles():
-    """Получить VIP анкеты для каталогов"""
-    data = load_data()
-    vip_profiles = data.get("vip_profiles", [])
-
-    # Перемешиваем для рандомного отображения
-    import random
-    random.shuffle(vip_profiles)
-
-    return {"profiles": vip_profiles}
-
-@app.get("/api/vip-catalogs")
-async def get_vip_catalogs():
-    """Получить настройки VIP каталогов"""
-    data = load_data()
-    return data.get("settings", {}).get("vip_catalogs", {})
-
-@app.post("/api/vip-catalogs")
-async def update_vip_catalogs(catalogs: dict):
-    """Обновить настройки VIP каталогов"""
-    data = load_data()
-    if "settings" not in data:
-        data["settings"] = {}
-    data["settings"]["vip_catalogs"] = catalogs
-    save_data(data)
-    return {"status": "updated"}
-
-@app.post("/api/vip-catalogs/upload-preview-photo")
-async def upload_preview_photo(file: UploadFile = File(...)):
-    """Загрузить фото для preview профиля VIP каталога"""
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image")
-
-    file_path = save_uploaded_file(file)
-    return {"photo_url": file_path}
-
-@app.get("/api/filters/cities")
-async def get_cities():
-    """Получить список всех городов для фильтра"""
-    data = load_data()
-    cities = list(set([p.get("city", "") for p in data["profiles"] if p.get("city")]))
-    return {"cities": sorted(cities)}
-
-@app.get("/api/filters/nationalities")
-async def get_nationalities():
-    """Получить список всех национальностей для фильтра"""
-    data = load_data()
-    nationalities = list(set([p.get("nationality", "") for p in data["profiles"] if p.get("nationality")]))
-    return {"nationalities": sorted(nationalities)}
-
-@app.get("/api/filters/travel_cities")
-async def get_travel_cities():
-    """Получить список всех городов вылета"""
-    data = load_data()
-    travel_cities = set()
-    for profile in data["profiles"]:
-        if "travel_cities" in profile:
-            travel_cities.update(profile["travel_cities"])
-    return {"travel_cities": sorted(list(travel_cities))}
-
-@app.get("/api/filters/genders")
-async def get_genders():
-    """Получить список всех полов"""
-    return {"genders": ["male", "female", "transgender"]}
 
 @app.get("/api/profiles/{profile_id}")
 async def get_profile(profile_id: int):
@@ -714,114 +2192,82 @@ async def get_profile(profile_id: int):
 
     return profile
 
-@app.post("/api/admin/profiles")
-async def create_profile(
-        name: str = Form(...),
-        age: int = Form(...),
-        nationality: str = Form(...),
-        city: str = Form(...),
-        travel_cities: str = Form(...),
-        description: str = Form(...),
-        height: int = Form(...),
-        weight: int = Form(...),
-        chest: int = Form(...),
-        gender: str = Form("female"),
-        photos: list[UploadFile] = File(...)
-):
+
+@app.get("/api/vip-profiles")
+async def get_vip_profiles():
+    """Получить VIP анкеты для каталогов"""
     data = load_data()
+    vip_profiles = data.get("vip_profiles", [])
 
-    # Находим максимальный ID
-    max_id = max([p["id"] for p in data["profiles"]]) if data["profiles"] else 0
+    # Перемешиваем для рандомного отображения
+    import random
+    random.shuffle(vip_profiles)
 
-    # Сохраняем загруженные фото
-    photo_urls = []
-    for photo in photos:
-        if photo.filename:
-            photo_url = save_uploaded_file(photo)
-            if photo_url:
-                photo_urls.append(photo_url)
+    return {"profiles": vip_profiles}
 
-    if not photo_urls:
-        raise HTTPException(status_code=400, detail="At least one photo is required")
 
-    # Парсим travel cities
-    try:
-        travel_cities_list = json.loads(travel_cities)
-    except:
-        travel_cities_list = [city.strip() for city in travel_cities.split(',') if city.strip()]
+@app.get("/api/vip-catalogs")
+async def get_vip_catalogs():
+    """Получить настройки VIP каталогов"""
+    data = load_data()
+    return data.get("settings", {}).get("vip_catalogs", {})
 
-    new_profile = {
-        "id": max_id + 1,
-        "name": name,
-        "age": age,
-        "nationality": nationality,
-        "city": city,
-        "travel_cities": travel_cities_list,
-        "description": description,
-        "photos": photo_urls,
-        "height": height,
-        "weight": weight,
-        "chest": chest,
-        "gender": gender,
-        "visible": True,
-        "created_at": datetime.now().isoformat()
-    }
 
-    data["profiles"].append(new_profile)
+@app.post("/api/vip-catalogs")
+async def update_vip_catalogs(catalogs: dict, _: dict = Depends(verify_token)):
+    """Обновить настройки VIP каталогов"""
+    data = load_data()
+    if "settings" not in data:
+        data["settings"] = {}
+    data["settings"]["vip_catalogs"] = catalogs
     save_data(data)
-    return {"status": "created", "profile": new_profile}
+    return {"status": "updated"}
 
-@app.post("/api/admin/vip-profiles")
-async def create_vip_profile(
-        name: str = Form(...),
-        age: int = Form(...),
-        city: str = Form(...),
-        gender: str = Form("female"),
-        photos: list[UploadFile] = File(...)
-):
+
+@app.post("/api/vip-catalogs/upload-preview-photo")
+async def upload_preview_photo(file: UploadFile = File(...), _: dict = Depends(verify_token)):
+    """Загрузить фото для preview профиля VIP каталога"""
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    if not validate_file_upload(file):
+        raise HTTPException(status_code=400, detail=f"Invalid file: {file.filename}")
+
+    file_path = save_uploaded_file(file)
+    return {"photo_url": file_path}
+
+
+@app.get("/api/filters/cities")
+async def get_cities():
+    """Получить список всех городов для фильтра"""
     data = load_data()
+    cities = list(set([p.get("city", "") for p in data["profiles"] if p.get("city")]))
+    return {"cities": sorted(cities)}
 
-    # Находим максимальный ID
-    max_id = max([p["id"] for p in data.get("vip_profiles", [])]) if data.get("vip_profiles") else 0
 
-    # Сохраняем загруженные фото
-    photo_urls = []
-    for photo in photos:
-        if photo.filename:
-            photo_url = save_uploaded_file(photo)
-            if photo_url:
-                photo_urls.append(photo_url)
-
-    if not photo_urls:
-        raise HTTPException(status_code=400, detail="At least one photo is required")
-
-    new_profile = {
-        "id": max_id + 1,
-        "name": name,
-        "age": age,
-        "city": city,
-        "gender": gender,
-        "photos": photo_urls,
-        "created_at": datetime.now().isoformat()
-    }
-
-    if "vip_profiles" not in data:
-        data["vip_profiles"] = []
-    data["vip_profiles"].append(new_profile)
-    save_data(data)
-    return {"status": "created", "profile": new_profile}
-
-@app.get("/api/admin/vip-profiles")
-async def get_admin_vip_profiles():
+@app.get("/api/filters/nationalities")
+async def get_nationalities():
+    """Получить список всех национальностей для фильтра"""
     data = load_data()
-    return {"profiles": data.get("vip_profiles", [])}
+    nationalities = list(set([p.get("nationality", "") for p in data["profiles"] if p.get("nationality")]))
+    return {"nationalities": sorted(nationalities)}
 
-@app.delete("/api/admin/vip-profiles/{profile_id}")
-async def delete_vip_profile(profile_id: int):
+
+@app.get("/api/filters/travel_cities")
+async def get_travel_cities():
+    """Получить список всех городов вылета"""
     data = load_data()
-    data["vip_profiles"] = [p for p in data.get("vip_profiles", []) if p["id"] != profile_id]
-    save_data(data)
-    return {"status": "deleted"}
+    travel_cities = set()
+    for profile in data["profiles"]:
+        if "travel_cities" in profile:
+            travel_cities.update(profile["travel_cities"])
+    return {"travel_cities": sorted(list(travel_cities))}
+
+
+@app.get("/api/filters/genders")
+async def get_genders():
+    """Получить список всех полов"""
+    return {"genders": ["male", "female", "transgender"]}
+
 
 @app.post("/api/chats/{profile_id}/messages")
 async def send_message(
@@ -858,6 +2304,8 @@ async def send_message(
 
     # Если есть файл
     if file and file.filename:
+        if not validate_file_upload(file):
+            raise HTTPException(status_code=400, detail=f"Invalid file: {file.filename}")
         file_url = save_uploaded_file(file)
         file_type = get_file_type(file.filename)
 
@@ -865,17 +2313,18 @@ async def send_message(
             "file_url": file_url,
             "file_type": file_type,
             "file_name": file.filename,
-            "text": text or ""  # Убираем автоматический текст с именем файла
+            "text": text or ""
         })
     else:
         # Только текст
         if not text:
             raise HTTPException(status_code=400, detail="Text or file is required")
-        message_data["text"] = text
+        message_data["text"] = escapeHtml(text)
 
     data["messages"].append(message_data)
     save_data(data)
     return {"status": "sent", "message_id": message_data["id"]}
+
 
 @app.get("/api/chats/{profile_id}/messages")
 async def get_chat_messages(profile_id: int):
@@ -886,6 +2335,7 @@ async def get_chat_messages(profile_id: int):
 
     messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
     return {"messages": messages}
+
 
 @app.get("/api/chats/{profile_id}/updates")
 async def get_chat_updates(profile_id: int, last_message_id: int = 0):
@@ -899,12 +2349,13 @@ async def get_chat_updates(profile_id: int, last_message_id: int = 0):
 
     return {"messages": messages, "last_message_id": max_id}
 
-# Комментарии к профилям
+
 @app.get("/api/profiles/{profile_id}/comments")
 async def get_profile_comments(profile_id: int):
     data = load_data()
     comments = [c for c in data.get("comments", []) if c["profile_id"] == profile_id]
     return {"comments": comments}
+
 
 @app.post("/api/profiles/{profile_id}/comments")
 async def add_profile_comment(profile_id: int, comment_data: dict):
@@ -933,8 +2384,8 @@ async def add_profile_comment(profile_id: int, comment_data: dict):
     new_comment = {
         "id": len(data.get("comments", [])) + 1,
         "profile_id": profile_id,
-        "user_name": "Anonymous User",  # Всегда анонимный
-        "text": comment_data["text"],
+        "user_name": "Anonymous User",
+        "text": escapeHtml(comment_data["text"]),
         "created_at": datetime.now().isoformat()
     }
 
@@ -945,25 +2396,6 @@ async def add_profile_comment(profile_id: int, comment_data: dict):
 
     return {"status": "added", "comment": new_comment}
 
-@app.delete("/api/profiles/{profile_id}/comments/{comment_id}")
-async def delete_profile_comment(profile_id: int, comment_id: int):
-    """Удаление комментария (для админки)"""
-    data = load_data()
-
-    if "comments" not in data:
-        raise HTTPException(status_code=404, detail="No comments found")
-
-    # Находим комментарий
-    comment_index = next((i for i, c in enumerate(data["comments"]) if c["id"] == comment_id and c["profile_id"] == profile_id), None)
-
-    if comment_index is None:
-        raise HTTPException(status_code=404, detail="Comment not found")
-
-    # Удаляем комментарий
-    deleted_comment = data["comments"].pop(comment_index)
-    save_data(data)
-
-    return {"status": "deleted", "comment": deleted_comment}
 
 @app.get("/api/settings/crypto_wallets")
 async def get_crypto_wallets():
@@ -971,8 +2403,9 @@ async def get_crypto_wallets():
     data = load_data()
     return data.get("settings", {}).get("crypto_wallets", {})
 
+
 @app.post("/api/settings/crypto_wallets")
-async def update_crypto_wallets(wallets: dict):
+async def update_crypto_wallets(wallets: dict, _: dict = Depends(verify_token)):
     """Обновить настройки крипто-кошельков"""
     data = load_data()
     if "settings" not in data:
@@ -981,14 +2414,16 @@ async def update_crypto_wallets(wallets: dict):
     save_data(data)
     return {"status": "updated"}
 
+
 @app.get("/api/settings/banner")
 async def get_banner():
     """Получить настройки баннера"""
     data = load_data()
     return data.get("settings", {}).get("banner", {})
 
+
 @app.post("/api/settings/banner")
-async def update_banner(banner: dict):
+async def update_banner(banner: dict, _: dict = Depends(verify_token)):
     """Обновить настройки баннера"""
     data = load_data()
     if "settings" not in data:
@@ -996,6 +2431,7 @@ async def update_banner(banner: dict):
     data["settings"]["banner"] = banner
     save_data(data)
     return {"status": "updated"}
+
 
 @app.get("/api/settings/app")
 async def get_app_settings():
@@ -1011,8 +2447,9 @@ async def get_app_settings():
     }
     return data.get("settings", {}).get("app", default_settings)
 
+
 @app.post("/api/settings/app")
-async def update_app_settings(settings: dict):
+async def update_app_settings(settings: dict, _: dict = Depends(verify_token)):
     """Обновить настройки приложения"""
     data = load_data()
     if "settings" not in data:
@@ -1023,20 +2460,21 @@ async def update_app_settings(settings: dict):
     save_data(data)
     return {"status": "updated"}
 
-# Промокоды
+
 @app.get("/api/promocodes")
 async def get_promocodes():
     """Получить все промокоды"""
     data = load_data()
     return {"promocodes": data.get("promocodes", [])}
 
+
 @app.post("/api/promocodes")
-async def create_promocode(promocode: dict):
+async def create_promocode(promocode: dict, _: dict = Depends(verify_token)):
     """Создать новый промокод"""
     data = load_data()
 
     new_promocode = {
-        "id": len(data["promocodes"]) + 1,
+        "id": len(data.get("promocodes", [])) + 1,
         "code": promocode["code"].upper(),
         "discount": promocode["discount"],
         "is_active": True,
@@ -1044,27 +2482,33 @@ async def create_promocode(promocode: dict):
         "created_at": datetime.now().isoformat()
     }
 
+    if "promocodes" not in data:
+        data["promocodes"] = []
     data["promocodes"].append(new_promocode)
     save_data(data)
     return {"status": "created", "promocode": new_promocode}
 
+
 @app.post("/api/promocodes/{promocode_id}/toggle")
-async def toggle_promocode(promocode_id: int):
+async def toggle_promocode(promocode_id: int, _: dict = Depends(verify_token)):
     """Активировать/деактивировать промокод"""
     data = load_data()
-    promocode = next((p for p in data["promocodes"] if p["id"] == promocode_id), None)
+    promocode = next((p for p in data.get("promocodes", []) if p["id"] == promocode_id), None)
     if promocode:
         promocode["is_active"] = not promocode["is_active"]
         save_data(data)
     return {"status": "updated"}
 
+
 @app.delete("/api/promocodes/{promocode_id}")
-async def delete_promocode(promocode_id: int):
+async def delete_promocode(promocode_id: int, _: dict = Depends(verify_token)):
     """Удалить промокод"""
     data = load_data()
-    data["promocodes"] = [p for p in data["promocodes"] if p["id"] != promocode_id]
-    save_data(data)
+    if "promocodes" in data:
+        data["promocodes"] = [p for p in data["promocodes"] if p["id"] != promocode_id]
+        save_data(data)
     return {"status": "deleted"}
+
 
 @app.post("/api/promocodes/validate")
 async def validate_promocode(validation: dict):
@@ -1072,7 +2516,7 @@ async def validate_promocode(validation: dict):
     data = load_data()
     code = validation["code"].upper()
 
-    promocode = next((p for p in data["promocodes"] if p["code"] == code), None)
+    promocode = next((p for p in data.get("promocodes", []) if p["code"] == code), None)
 
     if not promocode:
         return {"valid": False, "message": "Promocode not found"}
@@ -1086,7 +2530,7 @@ async def validate_promocode(validation: dict):
         "message": f"Promocode activated! {promocode['discount']}% discount applied"
     }
 
-# Система оплаты
+
 @app.post("/api/payment/crypto")
 async def process_crypto_payment(payment_data: dict):
     """Обработка крипто-платежа"""
@@ -1099,7 +2543,7 @@ async def process_crypto_payment(payment_data: dict):
         "amount": payment_data["amount"],
         "currency": payment_data["currency"],
         "wallet": payment_data["wallet"],
-        "status": "pending",  # Изменено на pending для ожидания подтверждения
+        "status": "pending",
         "created_at": datetime.now().isoformat()
     }
 
@@ -1114,756 +2558,354 @@ async def process_crypto_payment(payment_data: dict):
         "payment_id": payment_log["id"]
     }
 
-@app.get("/api/translations/{lang}")
-async def get_translations(lang: str):
-    """Получить переводы для указанного языка"""
-    translations = {
-        "en": {
-            "app_name": "Muji",
-            "subtitle": "100% Anonymous Dating",
-            "premium_profiles": "Premium Profiles",
-            "online_now": "Online Now",
-            "anonymous_dating": "Anonymous Dating",
-            "filters": "Filters",
-            "city": "City",
-            "nationality": "Nationality",
-            "travel_city": "Travel City",
-            "all_cities": "All cities",
-            "all_nationalities": "All nationalities",
-            "age": "Age",
-            "height": "Height (cm)",
-            "weight": "Weight (kg)",
-            "chest": "Chest",
-            "gender": "Gender",
-            "all_genders": "All genders",
-            "male": "Male",
-            "female": "Female",
-            "transgender": "Transgender",
-            "chest_sizes": {
-                "1": "1 chest",
-                "2": "2 chest",
-                "3": "3 chest",
-                "4": "4 chest",
-                "5": "5 chest",
-                "6": "6 chest",
-                "7": "7 chest",
-                "8": "8 chest",
-                "9": "9 chest",
-                "10": "10 chest",
-                "11": "11 chest",
-                "12": "12 chest"
-            },
-            "reset": "Reset",
-            "apply": "Apply",
-            "loading": "Loading profiles...",
-            "loading_more": "Loading more profiles...",
-            "view_profile": "View Profile",
-            "write_message": "Write Message",
-            "book_with_crypto": "Book with Crypto",
-            "more": "More",
-            "share": "Share",
-            "chat_with": "Chat with",
-            "type_message": "Type a message...",
-            "send": "➤",
-            "no_chats": "No active chats",
-            "no_profiles": "No profiles found",
-            "new": "NEW",
-            "years": "years",
-            "cm": "cm",
-            "kg": "kg",
-            "download": "Download",
-            "pay_with_crypto": "Pay with Crypto",
-            "crypto_payment": "Crypto Payment",
-            "select_network": "Select Network",
-            "wallet_address": "Wallet Address",
-            "copy": "Copy",
-            "copied": "Copied!",
-            "close": "Close",
-            "payment_awaiting": "Awaiting Confirmation",
-            "payment_processing": "Your reservation will be confirmed in chat, you can close this page.",
-            "timer_label": "Time remaining",
-            "travel_cities": "Travel Cities",
-            "description": "Description",
-            "welcome_message": "Hello! Write me a message",
-            "error_sending": "Error sending message",
-            "promocode": "Promo Code",
-            "enter_promocode": "Enter promo code",
-            "apply_promocode": "Apply",
-            "promocode_applied": "Promo code applied!",
-            "promocode_invalid": "Invalid promo code",
-            "discount": "Discount",
-            "banner_join": "Join Channel",
-            "attach_file": "📎",
-            "file": "File",
-            "photo": "Photo",
-            "video": "Video",
-            "add_comment": "Add Comment",
-            "comments": "Comments",
-            "no_comments": "No comments yet",
-            "your_comment": "Your comment",
-            "post_comment": "Post Comment",
-            "rating": "Rating",
-            "payment_processing": "Processing payment...",
-            "select_crypto": "Select Cryptocurrency",
-            "amount": "Amount",
-            "usd": "USD",
-            "pay_now": "Pay",
-            "booking_profile": "Booking Profile",
-            "vip_catalog": "VIP Catalog",
-            "extra_vip_catalog": "Extra VIP",
-            "secret_catalog": "Secret Catalog",
-            "unlock_access": "Unlock Access",
-            "premium_profiles_count": "premium profiles",
-            "blurred_preview": "Blurred Preview",
-            "access_denied": "Access Denied",
-            "pay_to_unlock": "Pay to unlock full access",
-            "view_all_profiles": "View All Profiles",
-            "from_age": "from",
-            "years_short": "y.o",
-            "comment_permission_required": "To leave comments, you need to use our services first",
-            "complete_transaction_to_comment": "Complete a transaction to unlock comments"
-        },
-        "ja": {
-            "app_name": "Muji",
-            "subtitle": "100% 匿名デート",
-            "premium_profiles": "プレミアムプロフィール",
-            "online_now": "オンライン",
-            "anonymous_dating": "匿名デート",
-            "filters": "フィルター",
-            "city": "都市",
-            "nationality": "国籍",
-            "travel_city": "旅行先都市",
-            "all_cities": "すべての都市",
-            "all_nationalities": "すべての国籍",
-            "age": "年齢",
-            "height": "身長 (cm)",
-            "weight": "体重 (kg)",
-            "chest": "バスト",
-            "gender": "性別",
-            "all_genders": "すべての性別",
-            "male": "男性",
-            "female": "女性",
-            "transgender": "トランスジェンダー",
-            "chest_sizes": {
-                "1": "1 バスト",
-                "2": "2 バスト",
-                "3": "3 バスト",
-                "4": "4 バスト",
-                "5": "5 バスト",
-                "6": "6 バスト",
-                "7": "7 バスト",
-                "8": "8 バスト",
-                "9": "9 バスト",
-                "10": "10 バスト",
-                "11": "11 バスト",
-                "12": "12 バスト"
-            },
-            "reset": "リセット",
-            "apply": "適用",
-            "loading": "プロフィールを読み込み中...",
-            "loading_more": "さらに読み込み中...",
-            "view_profile": "プロフィールを見る",
-            "write_message": "メッセージを送る",
-            "book_with_crypto": "暗号通貨で予約",
-            "more": "もっと見る",
-            "share": "共有",
-            "chat_with": "とのチャット",
-            "type_message": "メッセージを入力...",
-            "send": "➤",
-            "no_chats": "アクティブなチャットはありません",
-            "no_profiles": "プロフィールが見つかりません",
-            "new": "新着",
-            "years": "歳",
-            "cm": "cm",
-            "kg": "kg",
-            "download": "ダウンロード",
-            "pay_with_crypto": "暗号通貨で支払う",
-            "crypto_payment": "暗号通貨決済",
-            "select_network": "ネットワークを選択",
-            "wallet_address": "ウォレットアドレス",
-            "copy": "コピー",
-            "copied": "コピーしました！",
-            "close": "閉じる",
-            "payment_awaiting": "確認待ち",
-            "payment_processing": "予約はチャットで確認されます。このページを閉じてください。",
-            "timer_label": "残り時間",
-            "travel_cities": "旅行先都市",
-            "description": "説明",
-            "welcome_message": "こんにちは！メッセージをお待ちしています",
-            "error_sending": "メッセージ送信エラー",
-            "promocode": "プロモコード",
-            "enter_promocode": "プロモコードを入力",
-            "apply_promocode": "適用",
-            "promocode_applied": "プロモコードが適用されました！",
-            "promocode_invalid": "無効なプロモコード",
-            "discount": "割引",
-            "banner_join": "チャンネルに参加",
-            "attach_file": "📎",
-            "file": "ファイル",
-            "photo": "写真",
-            "video": "ビデオ",
-            "add_comment": "コメントを追加",
-            "comments": "コメント",
-            "no_comments": "まだコメントはありません",
-            "your_comment": "コメントを入力",
-            "post_comment": "コメントを投稿",
-            "rating": "評価",
-            "payment_processing": "支払いを処理中...",
-            "select_crypto": "暗号通貨を選択",
-            "amount": "金額",
-            "usd": "USD",
-            "pay_now": "支払う",
-            "booking_profile": "予約プロフィール",
-            "vip_catalog": "VIPカタログ",
-            "extra_vip_catalog": "エクストラVIP",
-            "secret_catalog": "シークレットカタログ",
-            "unlock_access": "アクセスを解除",
-            "premium_profiles_count": "プレミアムプロフィール",
-            "blurred_preview": "ぼかしプレビュー",
-            "access_denied": "アクセス拒否",
-            "pay_to_unlock": "フルアクセスを解除するには支払いが必要です",
-            "view_all_profiles": "すべてのプロフィールを見る",
-            "from_age": "から",
-            "years_short": "歳",
-            "comment_permission_required": "コメントを投稿するには、まずサービスをご利用ください",
-            "complete_transaction_to_comment": "取引を完了してコメントを解除してください"
-        },
-        "ko": {
-            "app_name": "Muji",
-            "subtitle": "100% 익명 데이트",
-            "premium_profiles": "프리미엄 프로필",
-            "online_now": "온라인",
-            "anonymous_dating": "익명 데이트",
-            "filters": "필터",
-            "city": "도시",
-            "nationality": "국적",
-            "travel_city": "여행 도시",
-            "all_cities": "모든 도시",
-            "all_nationalities": "모든 국적",
-            "age": "나이",
-            "height": "키 (cm)",
-            "weight": "체중 (kg)",
-            "chest": "가슴",
-            "gender": "성별",
-            "all_genders": "모든 성별",
-            "male": "남성",
-            "female": "여성",
-            "transgender": "트랜스젠더",
-            "chest_sizes": {
-                "1": "1 가슴",
-                "2": "2 가슴",
-                "3": "3 가슴",
-                "4": "4 가슴",
-                "5": "5 가슴",
-                "6": "6 가슴",
-                "7": "7 가슴",
-                "8": "8 가슴",
-                "9": "9 가슴",
-                "10": "10 가슴",
-                "11": "11 가슴",
-                "12": "12 가슴"
-            },
-            "reset": "초기화",
-            "apply": "적용",
-            "loading": "프로필 로딩 중...",
-            "loading_more": "더 불러오는 중...",
-            "view_profile": "프로필 보기",
-            "write_message": "메시지 보내기",
-            "book_with_crypto": "암호화폐로 예약",
-            "more": "더보기",
-            "share": "공유",
-            "chat_with": "와의 채팅",
-            "type_message": "메시지를 입력하세요...",
-            "send": "➤",
-            "no_chats": "활성화된 채팅이 없습니다",
-            "no_profiles": "프로필을 찾을 수 없습니다",
-            "new": "새로운",
-            "years": "세",
-            "cm": "cm",
-            "kg": "kg",
-            "download": "다운로드",
-            "pay_with_crypto": "암호화폐로 결제",
-            "crypto_payment": "암호화폐 결제",
-            "select_network": "네트워크 선택",
-            "wallet_address": "지갑 주소",
-            "copy": "복사",
-            "copied": "복사되었습니다!",
-            "close": "닫기",
-            "payment_awaiting": "확인 대기 중",
-            "payment_processing": "예약은 채팅에서 확인됩니다. 이 페이지를 닫으셔도 됩니다.",
-            "timer_label": "남은 시간",
-            "travel_cities": "여행 도시",
-            "description": "설명",
-            "welcome_message": "안녕하세요! 메시지를 보내주세요",
-            "error_sending": "메시지 전송 오류",
-            "promocode": "프로모 코드",
-            "enter_promocode": "프로모 코드 입력",
-            "apply_promocode": "적용",
-            "promocode_applied": "프로모 코드가 적용되었습니다!",
-            "promocode_invalid": "유효하지 않은 프로모 코드",
-            "discount": "할인",
-            "banner_join": "채널 참여",
-            "attach_file": "📎",
-            "file": "파일",
-            "photo": "사진",
-            "video": "동영상",
-            "add_comment": "댓글 추가",
-            "comments": "댓글",
-            "no_comments": "아직 댓글이 없습니다",
-            "your_comment": "댓글 입력",
-            "post_comment": "댓글 작성",
-            "rating": "평점",
-            "payment_processing": "결제 처리 중...",
-            "select_crypto": "암호화폐 선택",
-            "amount": "금액",
-            "usd": "USD",
-            "pay_now": "결제",
-            "booking_profile": "예약 프로필",
-            "vip_catalog": "VIP 카탈로그",
-            "extra_vip_catalog": "익스트라 VIP",
-            "secret_catalog": "시크릿 카탈로그",
-            "unlock_access": "액세스 잠금 해제",
-            "premium_profiles_count": "프리미엄 프로필",
-            "blurred_preview": "흐릿한 미리보기",
-            "access_denied": "액세스 거부",
-            "pay_to_unlock": "전체 액세스를 해제하려면 결제가 필요합니다",
-            "view_all_profiles": "모든 프로필 보기",
-            "from_age": "부터",
-            "years_short": "세",
-            "comment_permission_required": "댓글을 남기려면 먼저 서비스를 이용해야 합니다",
-            "complete_transaction_to_comment": "거래를 완료하여 댓글을 잠금 해제하세요"
-        },
-        "zh": {
-            "app_name": "Muji",
-            "subtitle": "100% 匿名约会",
-            "premium_profiles": "高级资料",
-            "online_now": "在线",
-            "anonymous_dating": "匿名约会",
-            "filters": "筛选",
-            "city": "城市",
-            "nationality": "国籍",
-            "travel_city": "旅行城市",
-            "all_cities": "所有城市",
-            "all_nationalities": "所有国籍",
-            "age": "年龄",
-            "height": "身高 (厘米)",
-            "weight": "体重 (公斤)",
-            "chest": "胸围",
-            "gender": "性别",
-            "all_genders": "所有性别",
-            "male": "男性",
-            "female": "女性",
-            "transgender": "跨性别",
-            "chest_sizes": {
-                "1": "1 胸围",
-                "2": "2 胸围",
-                "3": "3 胸围",
-                "4": "4 胸围",
-                "5": "5 胸围",
-                "6": "6 胸围",
-                "7": "7 胸围",
-                "8": "8 胸围",
-                "9": "9 胸围",
-                "10": "10 胸围",
-                "11": "11 胸围",
-                "12": "12 胸围"
-            },
-            "reset": "重置",
-            "apply": "应用",
-            "loading": "正在加载资料...",
-            "loading_more": "正在加载更多资料...",
-            "view_profile": "查看资料",
-            "write_message": "发送消息",
-            "book_with_crypto": "用加密货币预订",
-            "more": "更多",
-            "share": "分享",
-            "chat_with": "与聊天",
-            "type_message": "输入消息...",
-            "send": "➤",
-            "no_chats": "没有活跃聊天",
-            "no_profiles": "未找到资料",
-            "new": "新",
-            "years": "岁",
-            "cm": "厘米",
-            "kg": "公斤",
-            "download": "下载",
-            "pay_with_crypto": "用加密货币支付",
-            "crypto_payment": "加密货币支付",
-            "select_network": "选择网络",
-            "wallet_address": "钱包地址",
-            "copy": "复制",
-            "copied": "已复制！",
-            "close": "关闭",
-            "payment_awaiting": "等待确认",
-            "payment_processing": "您的预订将在聊天中确认，您可以关闭此页面。",
-            "timer_label": "剩余时间",
-            "travel_cities": "旅行城市",
-            "description": "描述",
-            "welcome_message": "你好！给我发消息",
-            "error_sending": "发送消息错误",
-            "promocode": "优惠码",
-            "enter_promocode": "输入优惠码",
-            "apply_promocode": "应用",
-            "promocode_applied": "优惠码已应用！",
-            "promocode_invalid": "无效的优惠码",
-            "discount": "折扣",
-            "banner_join": "加入频道",
-            "attach_file": "📎",
-            "file": "文件",
-            "photo": "照片",
-            "video": "视频",
-            "add_comment": "添加评论",
-            "comments": "评论",
-            "no_comments": "暂无评论",
-            "your_comment": "您的评论",
-            "post_comment": "发表评论",
-            "rating": "评分",
-            "payment_processing": "处理付款中...",
-            "select_crypto": "选择加密货币",
-            "amount": "金额",
-            "usd": "美元",
-            "pay_now": "支付",
-            "booking_profile": "预订资料",
-            "vip_catalog": "VIP目录",
-            "extra_vip_catalog": "额外VIP",
-            "secret_catalog": "秘密目录",
-            "unlock_access": "解锁访问",
-            "premium_profiles_count": "高级资料",
-            "blurred_preview": "模糊预览",
-            "access_denied": "访问被拒绝",
-            "pay_to_unlock": "支付以解锁完整访问",
-            "view_all_profiles": "查看所有资料",
-            "from_age": "从",
-            "years_short": "岁",
-            "comment_permission_required": "要发表评论，您需要先使用我们的服务",
-            "complete_transaction_to_comment": "完成交易以解锁评论"
-        },
-        "ar": {
-            "app_name": "Muji",
-            "subtitle": "مواعدة مجهولة 100%",
-            "premium_profiles": "الملفات المميزة",
-            "online_now": "متصل الآن",
-            "anonymous_dating": "مواعدة مجهولة",
-            "filters": "الفلاتر",
-            "city": "المدينة",
-            "nationality": "الجنسية",
-            "travel_city": "مدينة السفر",
-            "all_cities": "جميع المدن",
-            "all_nationalities": "جميع الجنسيات",
-            "age": "العمر",
-            "height": "الطول (سم)",
-            "weight": "الوزن (كجم)",
-            "chest": "الصدر",
-            "gender": "الجنس",
-            "all_genders": "جميع الأجناس",
-            "male": "ذكر",
-            "female": "أنثى",
-            "transgender": "متحول جنسي",
-            "chest_sizes": {
-                "1": "1 صدر",
-                "2": "2 صدر",
-                "3": "3 صدر",
-                "4": "4 صدر",
-                "5": "5 صدر",
-                "6": "6 صدر",
-                "7": "7 صدر",
-                "8": "8 صدر",
-                "9": "9 صدر",
-                "10": "10 صدر",
-                "11": "11 صدر",
-                "12": "12 صدر"
-            },
-            "reset": "إعادة تعيين",
-            "apply": "تطبيق",
-            "loading": "جاري تحميل الملفات...",
-            "loading_more": "جاري تحميل المزيد...",
-            "view_profile": "عرض الملف",
-            "write_message": "كتابة رسالة",
-            "book_with_crypto": "حجز بالعملة المشفرة",
-            "more": "المزيد",
-            "share": "مشاركة",
-            "chat_with": "الدردشة مع",
-            "type_message": "اكتب رسالة...",
-            "send": "➤",
-            "no_chats": "لا توجد دردشات نشطة",
-            "no_profiles": "لم يتم العثور على ملفات",
-            "new": "جديد",
-            "years": "سنة",
-            "cm": "سم",
-            "kg": "كجم",
-            "download": "تحميل",
-            "pay_with_crypto": "الدفع بالعملة المشفرة",
-            "crypto_payment": "دفع بالعملة المشفرة",
-            "select_network": "اختر الشبكة",
-            "wallet_address": "عنوان المحفظة",
-            "copy": "نسخ",
-            "copied": "تم النسخ!",
-            "close": "إغلاق",
-            "payment_awaiting": "بانتظار التأكيد",
-            "payment_processing": "سيتم تأكيد حجزك في الدردشة، يمكنك إغلاق هذه الصفحة.",
-            "timer_label": "الوقت المتبقي",
-            "travel_cities": "مدن السفر",
-            "description": "الوصف",
-            "welcome_message": "مرحباً! اكتب لي رسالة",
-            "error_sending": "خطأ في إرسال الرسالة",
-            "promocode": "كود الخصم",
-            "enter_promocode": "أدخل كود الخصم",
-            "apply_promocode": "تطبيق",
-            "promocode_applied": "تم تطبيق كود الخصم!",
-            "promocode_invalid": "كود خصم غير صالح",
-            "discount": "خصم",
-            "banner_join": "انضم إلى القناة",
-            "attach_file": "📎",
-            "file": "ملف",
-            "photo": "صورة",
-            "video": "فيديو",
-            "add_comment": "إضافة تعليق",
-            "comments": "التعليقات",
-            "no_comments": "لا توجد تعليقات بعد",
-            "your_comment": "تعليقك",
-            "post_comment": "نشر التعليق",
-            "rating": "التقييم",
-            "payment_processing": "جاري معالجة الدفع...",
-            "select_crypto": "اختر العملة المشفرة",
-            "amount": "المبلغ",
-            "usd": "دولار",
-            "pay_now": "ادفع",
-            "booking_profile": "حجز الملف",
-            "vip_catalog": "كتالوج VIP",
-            "extra_vip_catalog": "VIP الإضافي",
-            "secret_catalog": "الكتالوج السري",
-            "unlock_access": "فتح الوصول",
-            "premium_profiles_count": "الملفات المميزة",
-            "blurred_preview": "معاينة ضبابية",
-            "access_denied": "تم رفض الوصول",
-            "pay_to_unlock": "ادفع لفتح الوصول الكامل",
-            "view_all_profiles": "عرض جميع الملفات",
-            "from_age": "من",
-            "years_short": "سنة",
-            "comment_permission_required": "لترك تعليقات، تحتاج إلى استخدام خدماتنا أولاً",
-            "complete_transaction_to_comment": "أكمل معاملة لفتح التعليقات"
-        },
-        "de": {
-            "app_name": "Muji",
-            "subtitle": "100% Anonymes Dating",
-            "premium_profiles": "Premium Profile",
-            "online_now": "Jetzt online",
-            "anonymous_dating": "Anonymes Dating",
-            "filters": "Filter",
-            "city": "Stadt",
-            "nationality": "Nationalität",
-            "travel_city": "Reisestadt",
-            "all_cities": "Alle Städte",
-            "all_nationalities": "Alle Nationalitäten",
-            "age": "Alter",
-            "height": "Größe (cm)",
-            "weight": "Gewicht (kg)",
-            "chest": "Brust",
-            "gender": "Geschlecht",
-            "all_genders": "Alle Geschlechter",
-            "male": "Männlich",
-            "female": "Weiblich",
-            "transgender": "Transgender",
-            "chest_sizes": {
-                "1": "1 Brust",
-                "2": "2 Brust",
-                "3": "3 Brust",
-                "4": "4 Brust",
-                "5": "5 Brust",
-                "6": "6 Brust",
-                "7": "7 Brust",
-                "8": "8 Brust",
-                "9": "9 Brust",
-                "10": "10 Brust",
-                "11": "11 Brust",
-                "12": "12 Brust"
-            },
-            "reset": "Zurücksetzen",
-            "apply": "Anwenden",
-            "loading": "Profile werden geladen...",
-            "loading_more": "Weitere Profile werden geladen...",
-            "view_profile": "Profil anzeigen",
-            "write_message": "Nachricht schreiben",
-            "book_with_crypto": "Mit Krypto buchen",
-            "more": "Mehr",
-            "share": "Teilen",
-            "chat_with": "Chat mit",
-            "type_message": "Nachricht eingeben...",
-            "send": "➤",
-            "no_chats": "Keine aktiven Chats",
-            "no_profiles": "Keine Profile gefunden",
-            "new": "NEU",
-            "years": "Jahre",
-            "cm": "cm",
-            "kg": "kg",
-            "download": "Herunterladen",
-            "pay_with_crypto": "Mit Krypto bezahlen",
-            "crypto_payment": "Krypto-Zahlung",
-            "select_network": "Netzwerk auswählen",
-            "wallet_address": "Wallet-Adresse",
-            "copy": "Kopieren",
-            "copied": "Kopiert!",
-            "close": "Schließen",
-            "payment_awaiting": "Warte auf Bestätigung",
-            "payment_processing": "Ihre Buchung wird im Chat bestätigt, Sie können diese Seite schließen.",
-            "timer_label": "Verbleibende Zeit",
-            "travel_cities": "Reisestädte",
-            "description": "Beschreibung",
-            "welcome_message": "Hallo! Schreiben Sie mir eine Nachricht",
-            "error_sending": "Fehler beim Senden der Nachricht",
-            "promocode": "Promo-Code",
-            "enter_promocode": "Promo-Code eingeben",
-            "apply_promocode": "Anwenden",
-            "promocode_applied": "Promo-Code angewendet!",
-            "promocode_invalid": "Ungültiger Promo-Code",
-            "discount": "Rabatt",
-            "banner_join": "Kanal beitreten",
-            "attach_file": "📎",
-            "file": "Datei",
-            "photo": "Foto",
-            "video": "Video",
-            "add_comment": "Kommentar hinzufügen",
-            "comments": "Kommentare",
-            "no_comments": "Noch keine Kommentare",
-            "your_comment": "Ihr Kommentar",
-            "post_comment": "Kommentar posten",
-            "rating": "Bewertung",
-            "payment_processing": "Zahlung wird verarbeitet...",
-            "select_crypto": "Kryptowährung auswählen",
-            "amount": "Betrag",
-            "usd": "USD",
-            "pay_now": "Bezahlen",
-            "booking_profile": "Profil buchen",
-            "vip_catalog": "VIP-Katalog",
-            "extra_vip_catalog": "Extra VIP",
-            "secret_catalog": "Geheimer Katalog",
-            "unlock_access": "Zugang freischalten",
-            "premium_profiles_count": "Premium-Profile",
-            "blurred_preview": "Verschwommene Vorschau",
-            "access_denied": "Zugriff verweigert",
-            "pay_to_unlock": "Bezahlen Sie, um vollen Zugriff zu erhalten",
-            "view_all_profiles": "Alle Profile anzeigen",
-            "from_age": "von",
-            "years_short": "Jahre",
-            "comment_permission_required": "Um Kommentare zu hinterlassen, müssen Sie zuerst unsere Dienste nutzen",
-            "complete_transaction_to_comment": "Schließen Sie eine Transaktion ab, um Kommentare freizuschalten"
-        },
-        "es": {
-            "app_name": "Muji",
-            "subtitle": "Citas 100% Anónimas",
-            "premium_profiles": "Perfiles Premium",
-            "online_now": "En Línea",
-            "anonymous_dating": "Citas Anónimas",
-            "filters": "Filtros",
-            "city": "Ciudad",
-            "nationality": "Nacionalidad",
-            "travel_city": "Ciudad de Viaje",
-            "all_cities": "Todas las ciudades",
-            "all_nationalities": "Todas las nacionalidades",
-            "age": "Edad",
-            "height": "Altura (cm)",
-            "weight": "Peso (kg)",
-            "chest": "Pecho",
-            "gender": "Género",
-            "all_genders": "Todos los géneros",
-            "male": "Masculino",
-            "female": "Femenino",
-            "transgender": "Transgénero",
-            "chest_sizes": {
-                "1": "1 pecho",
-                "2": "2 pecho",
-                "3": "3 pecho",
-                "4": "4 pecho",
-                "5": "5 pecho",
-                "6": "6 pecho",
-                "7": "7 pecho",
-                "8": "8 pecho",
-                "9": "9 pecho",
-                "10": "10 pecho",
-                "11": "11 pecho",
-                "12": "12 pecho"
-            },
-            "reset": "Restablecer",
-            "apply": "Aplicar",
-            "loading": "Cargando perfiles...",
-            "loading_more": "Cargando más perfiles...",
-            "view_profile": "Ver Perfil",
-            "write_message": "Escribir Mensaje",
-            "book_with_crypto": "Reservar con Cripto",
-            "more": "Más",
-            "share": "Compartir",
-            "chat_with": "Chat con",
-            "type_message": "Escribe un mensaje...",
-            "send": "➤",
-            "no_chats": "No hay chats activos",
-            "no_profiles": "No se encontraron perfiles",
-            "new": "NUEVO",
-            "years": "años",
-            "cm": "cm",
-            "kg": "kg",
-            "download": "Descargar",
-            "pay_with_crypto": "Pagar con Cripto",
-            "crypto_payment": "Pago con Cripto",
-            "select_network": "Seleccionar Red",
-            "wallet_address": "Dirección de Wallet",
-            "copy": "Copiar",
-            "copied": "¡Copiado!",
-            "close": "Cerrar",
-            "payment_awaiting": "Esperando Confirmación",
-            "payment_processing": "Su reserva será confirmada en el chat, puede cerrar esta página.",
-            "timer_label": "Tiempo restante",
-            "travel_cities": "Ciudades de Viaje",
-            "description": "Descripción",
-            "welcome_message": "¡Hola! Escríbeme un mensaje",
-            "error_sending": "Error al enviar mensaje",
-            "promocode": "Código Promocional",
-            "enter_promocode": "Ingresar código promocional",
-            "apply_promocode": "Aplicar",
-            "promocode_applied": "¡Código promocional aplicado!",
-            "promocode_invalid": "Código promocional inválido",
-            "discount": "Descuento",
-            "banner_join": "Unirse al Canal",
-            "attach_file": "📎",
-            "file": "Archivo",
-            "photo": "Foto",
-            "video": "Video",
-            "add_comment": "Agregar Comentario",
-            "comments": "Comentarios",
-            "no_comments": "Aún no hay comentarios",
-            "your_comment": "Tu comentario",
-            "post_comment": "Publicar Comentario",
-            "rating": "Calificación",
-            "payment_processing": "Procesando pago...",
-            "select_crypto": "Seleccionar Criptomoneda",
-            "amount": "Cantidad",
-            "usd": "USD",
-            "pay_now": "Pagar",
-            "booking_profile": "Reservar Perfil",
-            "vip_catalog": "Catálogo VIP",
-            "extra_vip_catalog": "Extra VIP",
-            "secret_catalog": "Catálogo Secreto",
-            "unlock_access": "Desbloquear Acceso",
-            "premium_profiles_count": "perfiles premium",
-            "blurred_preview": "Vista Previa Difuminada",
-            "access_denied": "Acceso Denegado",
-            "pay_to_unlock": "Pague para desbloquear el acceso completo",
-            "view_all_profiles": "Ver Todos los Perfiles",
-            "from_age": "de",
-            "years_short": "años",
-            "comment_permission_required": "Para dejar comentarios, primero debe usar nuestros servicios",
-            "complete_transaction_to_comment": "Complete una transacción para desbloquear comentarios"
-        }
-    }
-
-    return translations.get(lang, translations["en"])
 
 @app.get("/api/test")
 async def test():
     return {"status": "ok", "message": "Сервер Muji работает!"}
 
+
+# Admin API endpoints
+@app.get("/api/stats")
+async def get_stats():
+    data = load_data()
+    return {
+        "profiles_count": len(data["profiles"]),
+        "vip_profiles_count": len(data.get("vip_profiles", [])),
+        "chats_count": len(data["chats"]),
+        "messages_count": len(data["messages"]),
+        "comments_count": len(data.get("comments", [])),
+        "promocodes_count": len(data.get("promocodes", []))
+    }
+
+
+@app.get("/api/admin/profiles")
+async def get_admin_profiles(_: dict = Depends(verify_token)):
+    data = load_data()
+    return {"profiles": data["profiles"]}
+
+
+@app.post("/api/admin/profiles")
+async def create_profile(
+        name: str = Form(...),
+        age: int = Form(...),
+        gender: str = Form(...),
+        nationality: str = Form(...),
+        city: str = Form(...),
+        travel_cities: str = Form(...),
+        description: str = Form(...),
+        height: int = Form(...),
+        weight: int = Form(...),
+        chest: int = Form(...),
+        photos: list[UploadFile] = File(...),
+        _: dict = Depends(verify_token)
+):
+    data = load_data()
+
+    # Находим максимальный ID
+    max_id = max([p["id"] for p in data["profiles"]]) if data["profiles"] else 0
+
+    # Сохраняем загруженные фото
+    photo_urls = []
+    for photo in photos:
+        if photo.filename:
+            # Validate file upload
+            if not validate_file_upload(photo):
+                raise HTTPException(status_code=400, detail=f"Invalid file: {photo.filename}")
+            photo_url = save_uploaded_file(photo)
+            if photo_url:
+                photo_urls.append(photo_url)
+
+    if not photo_urls:
+        raise HTTPException(status_code=400, detail="At least one photo is required")
+
+    # Парсим travel cities
+    try:
+        travel_cities_list = json.loads(travel_cities)
+    except:
+        travel_cities_list = [city.strip() for city in travel_cities.split(',') if city.strip()]
+
+    new_profile = {
+        "id": max_id + 1,
+        "name": name,
+        "age": age,
+        "gender": gender,
+        "nationality": nationality,
+        "city": city,
+        "travel_cities": travel_cities_list,
+        "description": description,
+        "photos": photo_urls,
+        "height": height,
+        "weight": weight,
+        "chest": chest,
+        "visible": True,
+        "created_at": datetime.now().isoformat()
+    }
+
+    data["profiles"].append(new_profile)
+    save_data(data)
+    return {"status": "created", "profile": new_profile}
+
+
+@app.post("/api/admin/profiles/{profile_id}/toggle")
+async def toggle_profile(profile_id: int, visible_data: dict, _: dict = Depends(verify_token)):
+    data = load_data()
+    profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+    if profile:
+        profile["visible"] = visible_data["visible"]
+        save_data(data)
+    return {"status": "updated"}
+
+
+@app.delete("/api/admin/profiles/{profile_id}")
+async def delete_profile(profile_id: int, _: dict = Depends(verify_token)):
+    data = load_data()
+
+    # Удаляем анкету
+    data["profiles"] = [p for p in data["profiles"] if p["id"] != profile_id]
+
+    # Находим чаты связанные с этой анкетой
+    profile_chats = [c for c in data["chats"] if c["profile_id"] == profile_id]
+    chat_ids = [c["id"] for c in profile_chats]
+
+    # Удаляем чаты
+    data["chats"] = [c for c in data["chats"] if c["profile_id"] != profile_id]
+
+    # Удаляем сообщения из этих чатов
+    data["messages"] = [m for m in data["messages"] if m["chat_id"] not in chat_ids]
+
+    # Удаляем комментарии к этой анкете
+    data["comments"] = [c for c in data.get("comments", []) if c["profile_id"] != profile_id]
+
+    save_data(data)
+    return {"status": "deleted"}
+
+
+@app.get("/api/admin/chats")
+async def get_admin_chats(_: dict = Depends(verify_token)):
+    data = load_data()
+    return {"chats": data["chats"]}
+
+
+@app.get("/api/admin/chats/{profile_id}/messages")
+async def get_chat_messages_admin(profile_id: int, _: dict = Depends(verify_token)):
+    data = load_data()
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        return {"messages": []}
+    messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+    return {"messages": messages}
+
+
+@app.post("/api/admin/chats/{profile_id}/reply")
+async def send_admin_reply(
+        profile_id: int,
+        request: Request,
+        _: dict = Depends(verify_token)
+):
+    data = load_data()
+
+    logger.info(f"📨 Sending reply to profile {profile_id}")
+
+    # Находим профиль для имени
+    profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        chat = {
+            "id": len(data["chats"]) + 1,
+            "profile_id": profile_id,
+            "profile_name": profile["name"],
+            "created_at": datetime.now().isoformat()
+        }
+        data["chats"].append(chat)
+
+    try:
+        # Получаем форму с файлами и текстом
+        form = await request.form()
+        text = form.get("text", "").strip()
+        files = form.getlist("files")
+
+        logger.info(f"📝 Text: '{text}'")
+        logger.info(f"📎 Files count: {len(files)}")
+
+        has_files = False
+        has_text = bool(text)
+
+        # Обрабатываем файлы
+        if files and any(hasattr(f, 'filename') and f.filename for f in files):
+            for file in files:
+                if hasattr(file, 'filename') and file.filename:
+                    file_url = save_uploaded_file(file)
+                    if file_url:
+                        file_type = get_file_type(file.filename)
+
+                        message_data = {
+                            "id": len(data["messages"]) + 1,
+                            "chat_id": chat["id"],
+                            "file_url": file_url,
+                            "file_type": file_type,
+                            "file_name": file.filename,
+                            "text": text or "",  # Убираем автоматический текст
+                            "is_from_user": False,
+                            "created_at": datetime.now().isoformat()
+                        }
+                        data["messages"].append(message_data)
+                        has_files = True
+                        logger.info(f"✅ File message added: {file.filename}")
+
+        # Если только текст (без файлов)
+        if not has_files and has_text:
+            message_data = {
+                "id": len(data["messages"]) + 1,
+                "chat_id": chat["id"],
+                "text": text,
+                "is_from_user": False,
+                "created_at": datetime.now().isoformat()
+            }
+            data["messages"].append(message_data)
+            logger.info("✅ Text message added")
+
+        # Если ничего не отправлено
+        if not has_files and not has_text:
+            raise HTTPException(status_code=400, detail="Text or files is required")
+
+        save_data(data)
+        logger.info("💾 Data saved successfully")
+        return {"status": "sent"}
+
+    except Exception as e:
+        logger.error(f"❌ Error sending reply: {e}")
+        raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
+
+
+@app.post("/api/admin/chats/{profile_id}/system-message")
+async def send_system_message(profile_id: int, message_data: dict, _: dict = Depends(verify_token)):
+    """Отправка системного сообщения"""
+    data = load_data()
+
+    # Находим профиль для имени
+    profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        chat = {
+            "id": len(data["chats"]) + 1,
+            "profile_id": profile_id,
+            "profile_name": profile["name"],
+            "created_at": datetime.now().isoformat()
+        }
+        data["chats"].append(chat)
+
+    # Создаем системное сообщение
+    system_message = {
+        "id": len(data["messages"]) + 1,
+        "chat_id": chat["id"],
+        "text": message_data["text"],
+        "is_system": True,
+        "created_at": datetime.now().isoformat()
+    }
+
+    data["messages"].append(system_message)
+    save_data(data)
+
+    return {"status": "sent", "message_id": system_message["id"]}
+
+
+# Комментарии API для админки
+@app.get("/api/admin/comments")
+async def get_admin_comments(_: dict = Depends(verify_token)):
+    data = load_data()
+    return {"comments": data.get("comments", [])}
+
+
+# Промокоды API
+@app.get("/api/admin/promocodes")
+async def get_admin_promocodes(_: dict = Depends(verify_token)):
+    data = load_data()
+    return {"promocodes": data.get("promocodes", [])}
+
+
+@app.post("/api/admin/promocodes")
+async def create_admin_promocode(promocode: dict, _: dict = Depends(verify_token)):
+    data = load_data()
+
+    # Проверяем, существует ли уже такой промокод
+    existing = next((p for p in data["promocodes"] if p["code"] == promocode["code"].upper()), None)
+    if existing:
+        raise HTTPException(status_code=400, detail="Promocode already exists")
+
+    new_promocode = {
+        "id": len(data["promocodes"]) + 1,
+        "code": promocode["code"].upper(),
+        "discount": promocode["discount"],
+        "is_active": True,
+        "used_by": [],
+        "created_at": datetime.now().isoformat()
+    }
+
+    data["promocodes"].append(new_promocode)
+    save_data(data)
+    return {"status": "created", "promocode": new_promocode}
+
+
+@app.post("/api/admin/promocodes/{promocode_id}/toggle")
+async def toggle_admin_promocode(promocode_id: int, _: dict = Depends(verify_token)):
+    data = load_data()
+    promocode = next((p for p in data["promocodes"] if p["id"] == promocode_id), None)
+    if promocode:
+        promocode["is_active"] = not promocode["is_active"]
+        save_data(data)
+    return {"status": "updated"}
+
+
+@app.delete("/api/admin/promocodes/{promocode_id}")
+async def delete_admin_promocode(promocode_id: int, _: dict = Depends(verify_token)):
+    data = load_data()
+    data["promocodes"] = [p for p in data["promocodes"] if p["id"] != promocode_id]
+    save_data(data)
+    return {"status": "deleted"}
+
+
+# Баннер API
+@app.get("/api/admin/banner")
+async def get_admin_banner(_: dict = Depends(verify_token)):
+    data = load_data()
+    return data.get("settings", {}).get("banner", {})
+
+
+@app.post("/api/admin/banner")
+async def update_admin_banner(banner: dict, _: dict = Depends(verify_token)):
+    data = load_data()
+    if "settings" not in data:
+        data["settings"] = {}
+    data["settings"]["banner"] = banner
+    save_data(data)
+    return {"status": "updated"}
+
+
+@app.get("/api/admin/crypto_wallets")
+async def get_admin_crypto_wallets(_: dict = Depends(verify_token)):
+    data = load_data()
+    return data.get("settings", {}).get("crypto_wallets", {})
+
+
+@app.post("/api/admin/crypto_wallets")
+async def update_admin_crypto_wallets(wallets: dict, _: dict = Depends(verify_token)):
+    data = load_data()
+    if "settings" not in data:
+        data["settings"] = {}
+    data["settings"]["crypto_wallets"] = wallets
+    save_data(data)
+    return {"status": "updated"}
+
+
 if __name__ == "__main__":
-    print("🚀 Админ панель Muji запущена на http://localhost:8002")
-    print("🔐 Страница входа: http://localhost:8002/login")
-    print("📊 Админ панель: http://localhost:8002/admin")
-    print("👤 Логин: admin | Пароль: admin123")
+    print("🚀 Сервер Muji запущен на http://localhost:8002")
+    print("📱 Основной сайт: http://localhost:8002")
+    print("🔐 Админ панель: http://localhost:8002/admin")
+    print("🎨 Функции: Безопасная авторизация, мультиязычность, VIP анкеты")
     uvicorn.run(app, host="0.0.0.0", port=8002, access_log=False)
