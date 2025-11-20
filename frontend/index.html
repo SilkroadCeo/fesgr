@@ -2709,7 +2709,7 @@
         });
 
         function showInstallPrompt(force = false) {
-            if (isStandalone && !force) {
+            if (isStandalone) {
                 // Если уже установлено, показываем сообщение
                 alert('Приложение уже установлено на вашем устройстве!');
                 return;
@@ -2719,37 +2719,8 @@
             const languageDropdown = document.getElementById('language-dropdown');
             if (languageDropdown) languageDropdown.classList.remove('active');
 
-            // Проверяем показывали ли баннер недавно (только для автоматического показа)
-            if (!force) {
-                const lastShown = localStorage.getItem('installPromptLastShown');
-                const now = Date.now();
-                if (lastShown && (now - parseInt(lastShown)) < 24 * 60 * 60 * 1000) {
-                    return; // Показывали менее 24 часов назад
-                }
-            }
-
-            // Удаляем старый баннер если есть
-            const existingBanner = document.getElementById('install-banner');
-            if (existingBanner) existingBanner.remove();
-
-            const banner = document.createElement('div');
-            banner.id = 'install-banner';
-            banner.innerHTML = `
-                <div style="position: fixed; bottom: 20px; left: 20px; right: 20px; background: linear-gradient(135deg, #ff6b9d, #667eea); padding: 18px 20px; border-radius: 20px; color: white; z-index: 10000; box-shadow: 0 10px 40px rgba(255, 107, 157, 0.6); display: flex; align-items: center; gap: 12px; animation: slideUp 0.6s ease, pulse 2s ease-in-out infinite; backdrop-filter: blur(10px);">
-                    <div style="font-size: 28px;">📱</div>
-                    <div style="flex: 1;">
-                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">Добавить на домашний экран</div>
-                        <div style="font-size: 13px; opacity: 0.9;">Быстрый доступ к приложению</div>
-                    </div>
-                    <button onclick="installPWA()" style="background: white; color: #ff6b9d; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: all 0.3s;">Установить</button>
-                    <button onclick="closeInstallBanner()" style="background: transparent; border: none; color: white; padding: 8px; cursor: pointer; font-size: 20px; opacity: 0.7; transition: opacity 0.3s;">✕</button>
-                </div>
-            `;
-            document.body.appendChild(banner);
-
-            if (!force) {
-                localStorage.setItem('installPromptLastShown', Date.now().toString());
-            }
+            // Сразу вызываем установку без баннера
+            installPWA();
         }
 
         async function installPWA() {
@@ -2758,13 +2729,20 @@
                 return;
             }
 
-            if (!deferredPrompt) return;
+            if (!deferredPrompt) {
+                alert('Установка недоступна. Попробуйте открыть сайт через браузер.');
+                return;
+            }
 
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
             console.log('Install outcome:', outcome);
+
+            if (outcome === 'accepted') {
+                console.log('✅ Приложение добавлено на домашний экран');
+            }
+
             deferredPrompt = null;
-            closeInstallBanner();
         }
 
         function showIOSInstructions() {
@@ -2772,7 +2750,7 @@
             modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10001; padding: 20px;';
             modal.innerHTML = `
                 <div style="background: #1a1a1a; border-radius: 20px; padding: 30px; max-width: 400px; text-align: center; border: 1px solid #ff6b9d;">
-                    <h3 style="color: #ff6b9d; margin-bottom: 20px; font-size: 20px;">Установка на iPhone</h3>
+                    <h3 style="color: #ff6b9d; margin-bottom: 20px; font-size: 20px;">Добавить на экран "Домой"</h3>
                     <ol style="text-align: left; color: white; line-height: 2; padding-left: 20px;">
                         <li>Нажмите кнопку "Поделиться" <span style="font-size: 24px;">⎋</span></li>
                         <li>Выберите "На экран Домой" <span style="font-size: 24px;">➕</span></li>
@@ -2782,12 +2760,6 @@
                 </div>
             `;
             document.body.appendChild(modal);
-            closeInstallBanner();
-        }
-
-        function closeInstallBanner() {
-            const banner = document.getElementById('install-banner');
-            if (banner) banner.remove();
         }
 
         // Автоматический показ промпта для iOS отключен
