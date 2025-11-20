@@ -133,8 +133,17 @@ def load_data():
                 "crypto_wallets": {
                     "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
                     "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
-                    "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0"
+                    "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0",
+                    "btc": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+                    "zetcash": "ZET1234567890abcdefghijklmnopqrstuvwxyz",
+                    "doge": "DH5yaieqoZN36fDVciNyRueRGvGLR3mr7L",
+                    "dash": "XnPBzXq3bRhQKjVqZvXmG5jKqVmPdWZgFj",
+                    "ltc": "LhK3pXq2BvRsQmNp7TyUjGkLmPqRsXwZyF",
+                    "usdt_bep20": "0x8b9C7e5D9b1E3a2F4c5B7E8D9C0A1B2C3D4E5F6",
+                    "eth": "0x7a8B6d4C8e0D2b1F3a4C5E6D7F8A9B0C1D2E3F4",
+                    "usdc_erc20": "0x6a7B5c3D7e9C1a0F2b3D4F5E6A7B8C9D0E1F2A3"
                 },
+                "bonus_percentage": 5,
                 "banner": {
                     "text": "Special Offer: 15% discount with promo code WELCOME15",
                     "visible": True,
@@ -144,7 +153,7 @@ def load_data():
                 "vip_catalogs": {
                     "vip": {
                         "name": "VIP Catalog",
-                        "price": 100,
+                        "price": 200,
                         "redirect_url": "https://t.me/vip_channel",
                         "visible": True,
                         "preview_count": 3,
@@ -156,7 +165,7 @@ def load_data():
                     },
                     "extra_vip": {
                         "name": "Extra VIP",
-                        "price": 200,
+                        "price": 500,
                         "redirect_url": "https://t.me/extra_vip_channel",
                         "visible": True,
                         "preview_count": 3,
@@ -168,7 +177,7 @@ def load_data():
                     },
                     "secret": {
                         "name": "Secret Catalog",
-                        "price": 300,
+                        "price": 1500,
                         "redirect_url": "https://t.me/secret_channel",
                         "visible": True,
                         "preview_count": 3,
@@ -193,8 +202,18 @@ def load_data():
             data["settings"]["crypto_wallets"] = {
                 "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
                 "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
-                "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0"
+                "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0",
+                "btc": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+                "zetcash": "ZET1234567890abcdefghijklmnopqrstuvwxyz",
+                "doge": "DH5yaieqoZN36fDVciNyRueRGvGLR3mr7L",
+                "dash": "XnPBzXq3bRhQKjVqZvXmG5jKqVmPdWZgFj",
+                "ltc": "LhK3pXq2BvRsQmNp7TyUjGkLmPqRsXwZyF",
+                "usdt_bep20": "0x8b9C7e5D9b1E3a2F4c5B7E8D9C0A1B2C3D4E5F6",
+                "eth": "0x7a8B6d4C8e0D2b1F3a4C5E6D7F8A9B0C1D2E3F4",
+                "usdc_erc20": "0x6a7B5c3D7e9C1a0F2b3D4F5E6A7B8C9D0E1F2A3"
             }
+        if "bonus_percentage" not in data["settings"]:
+            data["settings"]["bonus_percentage"] = 5
         if "banner" not in data["settings"]:
             data["settings"]["banner"] = {
                 "text": "Special Offer: 15% discount with promo code WELCOME15",
@@ -275,7 +294,7 @@ def load_data():
                 "vip_catalogs": {
                     "vip": {
                         "name": "VIP Catalog",
-                        "price": 100,
+                        "price": 200,
                         "redirect_url": "https://t.me/vip_channel",
                         "visible": True,
                         "preview_count": 3,
@@ -287,7 +306,7 @@ def load_data():
                     },
                     "extra_vip": {
                         "name": "Extra VIP",
-                        "price": 200,
+                        "price": 500,
                         "redirect_url": "https://t.me/extra_vip_channel",
                         "visible": True,
                         "preview_count": 3,
@@ -299,7 +318,7 @@ def load_data():
                     },
                     "secret": {
                         "name": "Secret Catalog",
-                        "price": 300,
+                        "price": 1500,
                         "redirect_url": "https://t.me/secret_channel",
                         "visible": True,
                         "preview_count": 3,
@@ -583,6 +602,61 @@ async def telegram_auth(request: Request):
     except Exception as e:
         logger.error(f"Telegram auth error: {e}")
         raise HTTPException(status_code=500, detail=f"Authentication error: {str(e)}")
+
+
+@app.post("/api/payment/crypto")
+async def crypto_payment(request: Request):
+    """Обработка крипто-платежа"""
+    try:
+        data = load_data()
+        body = await request.json()
+
+        profile_id = body.get("profile_id")
+        amount = float(body.get("amount", 0))
+        currency = body.get("currency", "USD")
+        wallet_type = body.get("wallet")
+
+        if not profile_id or amount <= 0:
+            raise HTTPException(status_code=400, detail="Invalid payment data")
+
+        # Применяем бонус 5%
+        bonus_percentage = data["settings"].get("bonus_percentage", 5)
+        bonus_amount = amount * (bonus_percentage / 100)
+        total_amount = amount + bonus_amount
+
+        # Создаем order
+        order = {
+            "id": len(data.get("orders", [])) + 1,
+            "profile_id": profile_id,
+            "amount": amount,
+            "bonus_amount": bonus_amount,
+            "total_amount": total_amount,
+            "crypto_type": wallet_type,
+            "currency": currency,
+            "status": "unpaid",
+            "created_at": datetime.now().isoformat(),
+            "expires_at": (datetime.now() + timedelta(hours=1)).isoformat()
+        }
+
+        if "orders" not in data:
+            data["orders"] = []
+        data["orders"].append(order)
+        save_data(data)
+
+        logger.info(f"💰 New payment order created: ${amount} + {bonus_percentage}% bonus = ${total_amount}")
+
+        return {
+            "status": "success",
+            "order_id": order["id"],
+            "amount": amount,
+            "bonus_amount": bonus_amount,
+            "total_amount": total_amount,
+            "wallet_address": data["settings"]["crypto_wallets"].get(wallet_type, ""),
+            "expires_in": 3600
+        }
+    except Exception as e:
+        logger.error(f"❌ Payment error: {e}")
+        raise HTTPException(status_code=500, detail=f"Payment processing error: {str(e)}")
 
 
 @app.post("/api/logout")
