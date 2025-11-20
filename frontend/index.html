@@ -3358,13 +3358,13 @@
 
         // Инициализация
         document.addEventListener('DOMContentLoaded', async function() {
-            // Загружаем незавершенный платеж если есть
-            loadPendingPayment();
+            // Загружаем незавершенные платежи если есть
+            loadPendingPayments();
 
-            // Обработчик клика на иконку незавершенного платежа
+            // Обработчик клика на иконку незавершенных платежей - переходим в раздел Pending
             const pendingPaymentIcon = document.getElementById('pending-payment-icon');
             if (pendingPaymentIcon) {
-                pendingPaymentIcon.addEventListener('click', openPendingPayment);
+                pendingPaymentIcon.addEventListener('click', () => switchPage('unpaid'));
             }
 
             // Сразу скрываем экран загрузки и показываем контент
@@ -4383,6 +4383,9 @@
 
             chatModal.style.display = 'block';
             document.body.style.overflow = 'hidden';
+
+            // Помечаем чат как прочитанный
+            markChatAsRead(currentProfile.id);
         }
 
         // Закрытие чата
@@ -4665,7 +4668,8 @@
 
         // Таймер оплаты (60 минут)
         let paymentTimerInterval = null;
-        let pendingPayment = null; // Текущий незавершенный платеж
+        let pendingPayments = []; // Массив незавершенных платежей
+        let currentPendingPayment = null; // Текущий открытый платеж
 
         function startPaymentTimer(seconds) {
             // Очищаем предыдущий таймер, если есть
@@ -4695,75 +4699,172 @@
         }
 
         // Управление незавершенными платежами
-        function savePendingPayment(profile, amount, cryptoType, startTime) {
-            pendingPayment = {
+        function savePendingPayment(profile, amount, cryptoType, startTime, paymentId) {
+            const payment = {
+                id: paymentId || Date.now(), // Уникальный ID платежа
                 profile: profile,
                 amount: amount,
                 cryptoType: cryptoType,
                 startTime: startTime,
                 endTime: startTime + (60 * 60 * 1000) // 60 минут
             };
-            localStorage.setItem('pendingPayment', JSON.stringify(pendingPayment));
-            showPendingPaymentIcon();
+
+            // Добавляем платеж в массив, если его еще нет
+            const existingIndex = pendingPayments.findIndex(p => p.id === payment.id);
+            if (existingIndex >= 0) {
+                pendingPayments[existingIndex] = payment;
+            } else {
+                pendingPayments.push(payment);
+            }
+
+            localStorage.setItem('pendingPayments', JSON.stringify(pendingPayments));
+            updatePendingPaymentBadges();
         }
 
-        function loadPendingPayment() {
-            const saved = localStorage.getItem('pendingPayment');
+        function loadPendingPayments() {
+            const saved = localStorage.getItem('pendingPayments');
             if (saved) {
-                pendingPayment = JSON.parse(saved);
-                const now = Date.now();
-                // Проверяем не истек ли таймер
-                if (pendingPayment.endTime > now) {
-                    showPendingPaymentIcon();
-                    return pendingPayment;
-                } else {
-                    clearPendingPayment();
+                try {
+                    const payments = JSON.parse(saved);
+                    const now = Date.now();
+
+                    // Фильтруем платежи, оставляем только не истекшие
+                    pendingPayments = payments.filter(p => p.endTime > now);
+
+                    // Обновляем localStorage
+                    if (pendingPayments.length > 0) {
+                        localStorage.setItem('pendingPayments', JSON.stringify(pendingPayments));
+                        updatePendingPaymentBadges();
+                    } else {
+                        localStorage.removeItem('pendingPayments');
+                    }
+                } catch (e) {
+                    console.error('Error loading pending payments:', e);
+                    pendingPayments = [];
                 }
             }
-            return null;
-        }
 
-        function clearPendingPayment() {
-            pendingPayment = null;
-            localStorage.removeItem('pendingPayment');
-            hidePendingPaymentIcon();
-        }
-
-        function showPendingPaymentIcon() {
-            const icon = document.getElementById('pending-payment-icon');
-            if (icon) {
-                icon.style.display = 'flex';
+            // Миграция старого формата (один платеж)
+            const oldSaved = localStorage.getItem('pendingPayment');
+            if (oldSaved) {
+                try {
+                    const oldPayment = JSON.parse(oldSaved);
+                    const now = Date.now();
+                    if (oldPayment.endTime > now) {
+                        oldPayment.id = Date.now();
+                        pendingPayments.push(oldPayment);
+                        localStorage.setItem('pendingPayments', JSON.stringify(pendingPayments));
+                        updatePendingPaymentBadges();
+                    }
+                } catch (e) {
+                    console.error('Error migrating old payment:', e);
+                }
+                localStorage.removeItem('pendingPayment');
             }
         }
 
-        function hidePendingPaymentIcon() {
+        function clearPendingPayment(paymentId) {
+            if (paymentId) {
+                // Удаляем конкретный платеж
+                pendingPayments = pendingPayments.filter(p => p.id !== paymentId);
+            } else {
+                // Удаляем текущий открытый платеж
+                if (currentPendingPayment) {
+                    pendingPayments = pendingPayments.filter(p => p.id !== currentPendingPayment.id);
+                    currentPendingPayment = null;
+                }
+            }
+
+            if (pendingPayments.length > 0) {
+                localStorage.setItem('pendingPayments', JSON.stringify(pendingPayments));
+            } else {
+                localStorage.removeItem('pendingPayments');
+            }
+
+            updatePendingPaymentBadges();
+        }
+
+        function updatePendingPaymentBadges() {
+            const count = pendingPayments.length;
+
+            // Обновляем иконку в хедере
             const icon = document.getElementById('pending-payment-icon');
             if (icon) {
-                icon.style.display = 'none';
+                if (count > 0) {
+                    icon.style.display = 'flex';
+                    const badge = icon.querySelector('.notification-badge');
+                    if (badge) {
+                        badge.textContent = count;
+                    }
+                } else {
+                    icon.style.display = 'none';
+                }
+            }
+
+            // Обновляем badge в навигации
+            const navBadge = document.getElementById('unpaid-badge');
+            if (navBadge) {
+                if (count > 0) {
+                    navBadge.textContent = count > 99 ? '99+' : count;
+                    navBadge.style.display = 'block';
+                } else {
+                    navBadge.style.display = 'none';
+                }
             }
         }
 
-        function openPendingPayment() {
-            if (!pendingPayment) return;
+        function openPendingPayment(paymentId) {
+            const payment = paymentId
+                ? pendingPayments.find(p => p.id === paymentId)
+                : pendingPayments[0]; // Открываем первый платеж если ID не указан
+
+            if (!payment) return;
+
+            currentPendingPayment = payment;
 
             // Восстанавливаем профиль и открываем окно оплаты
-            currentProfile = pendingPayment.profile;
+            currentProfile = payment.profile;
 
             // Открываем модальное окно
             paymentModal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
 
             // Показываем страницу успеха с таймером
             document.getElementById('payment-selection').style.display = 'none';
             paymentSuccess.style.display = 'block';
 
+            // Обновляем информацию о платеже
+            const cryptoTypeDisplay = {
+                'trc20': 'USDT (TRC20)',
+                'erc20': 'USDT (ERC20)',
+                'bnb': 'BNB (BEP20)',
+                'btc': 'Bitcoin'
+            };
+            document.getElementById('selected-crypto-type').textContent = cryptoTypeDisplay[payment.cryptoType] || payment.cryptoType;
+            document.getElementById('selected-amount').textContent = payment.amount;
+
+            // Получаем адрес кошелька из настроек
+            fetch('/api/settings/crypto_wallets')
+                .then(response => response.json())
+                .then(wallets => {
+                    const walletAddress = wallets[payment.cryptoType];
+                    if (walletAddress) {
+                        document.getElementById('wallet-address').textContent = walletAddress;
+                    }
+                })
+                .catch(error => console.error('Error loading wallet:', error));
+
             // Вычисляем оставшееся время
             const now = Date.now();
-            const remainingSeconds = Math.floor((pendingPayment.endTime - now) / 1000);
+            const remainingSeconds = Math.floor((payment.endTime - now) / 1000);
 
             if (remainingSeconds > 0) {
                 startPaymentTimer(remainingSeconds);
             } else {
-                clearPendingPayment();
+                clearPendingPayment(payment.id);
+                paymentModal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+                alert('Payment time has expired');
             }
         }
 
@@ -4807,7 +4908,9 @@
 
                     // Сохраняем незавершенный платеж
                     const startTime = Date.now();
-                    savePendingPayment(currentProfile, amount, cryptoType, startTime);
+                    const paymentId = result.payment_id || Date.now();
+                    savePendingPayment(currentProfile, amount, cryptoType, startTime, paymentId);
+                    currentPendingPayment = pendingPayments.find(p => p.id === paymentId);
 
                     // Запускаем таймер на 60 минут
                     startPaymentTimer(60 * 60);
@@ -4918,11 +5021,27 @@
             }
         }
 
-        function openChatFromList(profileId) {
-            const profile = currentProfiles.find(p => p.id === profileId);
+        async function openChatFromList(profileId) {
+            let profile = currentProfiles.find(p => p.id === profileId);
+
+            // Если профиль не найден в текущем списке, загружаем его из API
+            if (!profile) {
+                try {
+                    const response = await fetch(`/api/profiles/${profileId}`);
+                    if (response.ok) {
+                        profile = await response.json();
+                    }
+                } catch (error) {
+                    console.error('Error loading profile:', error);
+                }
+            }
+
             if (profile) {
-                openChat(profile);
+                currentProfile = profile;
+                openChat();
                 switchPage('home'); // Return to home to show chat modal
+            } else {
+                alert('Profile not found');
             }
         }
 
@@ -4935,6 +5054,36 @@
                 badge.style.display = 'none';
             }
         }
+
+        async function markChatAsRead(profileId) {
+            try {
+                await fetch(`/api/chats/${profileId}/mark_read`, {
+                    method: 'POST'
+                });
+                // Обновляем счетчики чатов после пометки как прочитанного
+                updateChatBadges();
+            } catch (error) {
+                console.error('Error marking chat as read:', error);
+            }
+        }
+
+        // Периодическое обновление счетчиков чатов
+        async function updateChatBadges() {
+            try {
+                const response = await fetch('/api/user/chats');
+                const data = await response.json();
+
+                if (data.chats) {
+                    const totalUnread = data.chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
+                    updateChatBadge(totalUnread);
+                }
+            } catch (error) {
+                console.error('Error updating chat badges:', error);
+            }
+        }
+
+        // Запускаем периодическое обновление счетчиков каждые 10 секунд
+        setInterval(updateChatBadges, 10000);
 
         // Load orders (booked/unpaid)
         async function loadOrders(type) {
@@ -4961,6 +5110,69 @@
                     const orderItem = document.createElement('div');
                     orderItem.className = 'order-item';
 
+                    // Для pending заказов добавляем курсор pointer и обработчик клика
+                    if (type === 'unpaid') {
+                        orderItem.style.cursor = 'pointer';
+
+                        // Находим соответствующий pending платеж в localStorage
+                        const pendingPayment = pendingPayments.find(p => p.id === order.id || p.profile.id === order.profile_id);
+
+                        orderItem.onclick = () => {
+                            if (pendingPayment) {
+                                openPendingPayment(pendingPayment.id);
+                            } else {
+                                // Если платежа нет в localStorage, но есть в backend, восстанавливаем его
+                                // Вычисляем оставшееся время
+                                if (order.expires_at) {
+                                    const expiresTime = new Date(order.expires_at).getTime();
+                                    const now = Date.now();
+                                    if (expiresTime > now) {
+                                        // Загружаем профиль и восстанавливаем платеж
+                                        fetch(`/api/profiles/${order.profile_id}`)
+                                            .then(res => res.json())
+                                            .then(profileData => {
+                                                const createdTime = new Date(order.created_at).getTime();
+                                                savePendingPayment(
+                                                    profileData,
+                                                    order.amount,
+                                                    order.wallet,
+                                                    createdTime,
+                                                    order.id
+                                                );
+                                                openPendingPayment(order.id);
+                                            })
+                                            .catch(err => console.error('Error loading profile:', err));
+                                    } else {
+                                        alert('Payment time has expired');
+                                    }
+                                }
+                            }
+                        };
+                    }
+
+                    // Вычисляем оставшееся время для pending платежей
+                    let timeRemaining = '';
+                    if (type === 'unpaid' && order.expires_at) {
+                        const now = Date.now();
+                        const expiresTime = new Date(order.expires_at).getTime();
+                        const remaining = expiresTime - now;
+
+                        if (remaining > 0) {
+                            const minutes = Math.floor(remaining / 1000 / 60);
+                            const seconds = Math.floor((remaining / 1000) % 60);
+                            timeRemaining = `<div style="color: #ffc107; font-weight: 600;">⏱ ${minutes}:${seconds.toString().padStart(2, '0')} remaining</div>`;
+                        } else {
+                            timeRemaining = '<div style="color: #dc3545;">⏱ Expired</div>';
+                        }
+                    }
+
+                    const cryptoTypeDisplay = {
+                        'trc20': 'USDT (TRC20)',
+                        'erc20': 'USDT (ERC20)',
+                        'bnb': 'BNB (BEP20)',
+                        'btc': 'Bitcoin'
+                    };
+
                     orderItem.innerHTML = `
                         <div class="order-header">
                             <span style="font-weight: 700; color: var(--text);">Order #${order.id}</span>
@@ -4970,13 +5182,13 @@
                             <img src="${order.profile_photo || '/default-avatar.png'}" alt="${order.profile_name}" class="order-avatar">
                             <div>
                                 <div style="font-weight: 600; color: var(--text);">${order.profile_name}</div>
-                                <div style="font-size: 12px; color: var(--text-secondary);">${order.profile_city || 'Unknown'}</div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">${cryptoTypeDisplay[order.wallet] || order.wallet || 'Crypto'}</div>
                             </div>
                         </div>
                         <div class="order-info">
-                            <div>Amount: <strong>${order.amount} ${order.crypto_type || 'USDT'}</strong></div>
-                            <div>Date: ${new Date(order.created_at).toLocaleString()}</div>
-                            ${order.expires_at && type === 'unpaid' ? `<div>Expires: ${new Date(order.expires_at).toLocaleString()}</div>` : ''}
+                            <div>Amount: <strong>$${order.amount}</strong></div>
+                            <div>Date: ${new Date(order.created_at).toLocaleString('en-US', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})}</div>
+                            ${timeRemaining}
                         </div>
                     `;
                     container.appendChild(orderItem);
