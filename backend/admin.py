@@ -15,7 +15,7 @@ import secrets
 import uuid
 from urllib.parse import parse_qs
 import asyncio
-from telegram import Bot
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
 
 # Настройка логирования
@@ -39,6 +39,10 @@ ADMIN_TELEGRAM_IDS = [int(id.strip()) for id in os.getenv("ADMIN_TELEGRAM_IDS", 
 # Хранилище для сопоставления Telegram сообщений с чатами
 # Ключ: message_id в Telegram, Значение: profile_id
 telegram_message_mapping = {}
+
+# Хранилище для активных диалогов (когда админ в режиме ответа)
+# Ключ: admin_telegram_id, Значение: profile_id
+active_reply_sessions = {}
 
 # Инициализация Telegram бота
 telegram_bot = None
@@ -152,9 +156,18 @@ async def send_telegram_notification(message: str, profile_id: int = None, profi
 
         notification += f"\n⏰ <b>Время:</b> {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}"
 
-        # Добавляем инструкцию для ответа
+        # Создаем inline-кнопки для быстрого ответа
+        keyboard = None
         if profile_id:
-            notification += f"\n\n💡 <i>Ответьте на это сообщение, чтобы отправить ответ пользователю</i>"
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("✉️ Ответить", callback_data=f"reply_{profile_id}"),
+                    InlineKeyboardButton("✅ Payment OK", callback_data=f"payment_{profile_id}")
+                ],
+                [
+                    InlineKeyboardButton("📋 Все чаты", callback_data="list_chats")
+                ]
+            ])
 
         # Отправляем уведомление всем администраторам
         for admin_id in ADMIN_TELEGRAM_IDS:
@@ -162,7 +175,8 @@ async def send_telegram_notification(message: str, profile_id: int = None, profi
                 sent_message = await telegram_bot.send_message(
                     chat_id=admin_id,
                     text=notification,
-                    parse_mode='HTML'
+                    parse_mode='HTML',
+                    reply_markup=keyboard
                 )
 
                 # Сохраняем mapping для возможности ответа
@@ -176,6 +190,143 @@ async def send_telegram_notification(message: str, profile_id: int = None, profi
 
     except Exception as e:
         logger.error(f"❌ Error sending Telegram notification: {e}")
+
+
+async def handle_command(message, admin_id):
+    """Обработка команд от администратора"""
+    command = message.text.split()[0].lower()
+
+    if command == '/start' or command == '/help':
+        help_text = """
+🤖 <b>Бот для управления чатами</b>
+
+<b>Команды:</b>
+/chats - Показать все активные чаты
+/cancel - Отменить режим ответа
+
+<b>Как отвечать пользователям:</b>
+1️⃣ Нажмите кнопку "✉️ Ответить" под уведомлением
+2️⃣ Напишите сообщение - оно отправится пользователю
+3️⃣ Или просто ответьте (Reply) на уведомление
+
+<b>Быстрые действия:</b>
+• "✅ Payment OK" - подтвердить оплату
+• "📋 Все чаты" - список всех чатов
+        """
+        await telegram_bot.send_message(
+            chat_id=admin_id,
+            text=help_text,
+            parse_mode='HTML'
+        )
+
+    elif command == '/chats':
+        await show_chats_list(admin_id)
+
+    elif command == '/cancel':
+        if admin_id in active_reply_sessions:
+            del active_reply_sessions[admin_id]
+            await telegram_bot.send_message(
+                chat_id=admin_id,
+                text="✅ Режим ответа отменен"
+            )
+        else:
+            await telegram_bot.send_message(
+                chat_id=admin_id,
+                text="ℹ️ Вы не в режиме ответа"
+            )
+
+
+async def handle_callback_query(callback_query, admin_id):
+    """Обработка нажатий на inline-кнопки"""
+    data = callback_query.data
+
+    try:
+        # Подтверждаем получение callback
+        await telegram_bot.answer_callback_query(callback_query.id)
+
+        if data.startswith('reply_'):
+            # Активируем режим ответа
+            profile_id = int(data.split('_')[1])
+            active_reply_sessions[admin_id] = profile_id
+
+            # Получаем информацию о профиле
+            app_data = load_data()
+            profile = next((p for p in app_data["profiles"] if p["id"] == profile_id), None)
+            profile_name = profile["name"] if profile else "Unknown"
+
+            await telegram_bot.send_message(
+                chat_id=admin_id,
+                text=f"✍️ Режим ответа активирован для: <b>{profile_name}</b>\n\nНапишите сообщение, и оно будет отправлено пользователю.\nДля отмены используйте /cancel",
+                parse_mode='HTML'
+            )
+
+        elif data.startswith('payment_'):
+            # Отправляем "payment successful"
+            profile_id = int(data.split('_')[1])
+            await send_admin_reply_from_telegram(profile_id, "payment successful")
+            await telegram_bot.send_message(
+                chat_id=admin_id,
+                text="✅ Подтверждение оплаты отправлено! Статус заказа обновлен на 'Booked'."
+            )
+
+        elif data == 'list_chats':
+            await show_chats_list(admin_id)
+
+    except Exception as e:
+        logger.error(f"❌ Error handling callback query: {e}")
+        await telegram_bot.send_message(
+            chat_id=admin_id,
+            text=f"❌ Ошибка: {str(e)}"
+        )
+
+
+async def show_chats_list(admin_id):
+    """Показать список всех активных чатов"""
+    try:
+        data = load_data()
+        chats = data.get("chats", [])
+
+        if not chats:
+            await telegram_bot.send_message(
+                chat_id=admin_id,
+                text="📭 Нет активных чатов"
+            )
+            return
+
+        # Формируем список чатов с кнопками
+        for chat in chats[-10:]:  # Показываем последние 10 чатов
+            profile_id = chat.get("profile_id")
+            profile_name = chat.get("profile_name", "Unknown")
+
+            # Получаем последнее сообщение
+            messages = [m for m in data.get("messages", []) if m.get("chat_id") == chat.get("id")]
+            last_message = messages[-1] if messages else None
+            last_text = last_message.get("text", "No messages")[:50] if last_message else "No messages"
+
+            chat_info = f"👤 <b>{profile_name}</b>\n💬 {last_text}"
+
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("✉️ Ответить", callback_data=f"reply_{profile_id}")]
+            ])
+
+            await telegram_bot.send_message(
+                chat_id=admin_id,
+                text=chat_info,
+                parse_mode='HTML',
+                reply_markup=keyboard
+            )
+
+        await telegram_bot.send_message(
+            chat_id=admin_id,
+            text=f"📊 Всего чатов: {len(chats)}"
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Error showing chats list: {e}")
+        await telegram_bot.send_message(
+            chat_id=admin_id,
+            text=f"❌ Ошибка при загрузке чатов: {str(e)}"
+        )
 
 
 async def process_telegram_updates():
@@ -197,21 +348,47 @@ async def process_telegram_updates():
                 for update in updates:
                     offset = update.update_id + 1
 
-                    # Проверяем что это сообщение от администратора
+                    # Проверяем что это от администратора
+                    admin_id = None
                     if update.message and update.message.from_user.id in ADMIN_TELEGRAM_IDS:
-                        # Проверяем что это ответ на наше уведомление
-                        if update.message.reply_to_message:
-                            replied_message_id = update.message.reply_to_message.message_id
+                        admin_id = update.message.from_user.id
+                    elif update.callback_query and update.callback_query.from_user.id in ADMIN_TELEGRAM_IDS:
+                        admin_id = update.callback_query.from_user.id
 
-                            # Ищем соответствующий profile_id
-                            if replied_message_id in telegram_message_mapping:
-                                profile_id = telegram_message_mapping[replied_message_id]
-                                admin_reply_text = update.message.text
+                    if not admin_id:
+                        continue
 
-                                logger.info(f"📨 Admin replied to profile {profile_id}: {admin_reply_text}")
+                    # Обработка callback queries (нажатия на кнопки)
+                    if update.callback_query:
+                        await handle_callback_query(update.callback_query, admin_id)
+                        continue
 
-                                # Отправляем ответ в чат
-                                await send_admin_reply_from_telegram(profile_id, admin_reply_text)
+                    # Обработка команд
+                    if update.message.text and update.message.text.startswith('/'):
+                        await handle_command(update.message, admin_id)
+                        continue
+
+                    # Обработка ответов на сообщения (reply)
+                    if update.message.reply_to_message:
+                        replied_message_id = update.message.reply_to_message.message_id
+                        if replied_message_id in telegram_message_mapping:
+                            profile_id = telegram_message_mapping[replied_message_id]
+                            await send_admin_reply_from_telegram(profile_id, update.message.text)
+                            await telegram_bot.send_message(
+                                chat_id=admin_id,
+                                text="✅ Ответ отправлен пользователю!"
+                            )
+                            continue
+
+                    # Обработка обычных сообщений (если админ в режиме ответа)
+                    if admin_id in active_reply_sessions:
+                        profile_id = active_reply_sessions[admin_id]
+                        await send_admin_reply_from_telegram(profile_id, update.message.text)
+                        await telegram_bot.send_message(
+                            chat_id=admin_id,
+                            text="✅ Ответ отправлен! Отправьте еще сообщение или /cancel для выхода."
+                        )
+                        continue
 
                 await asyncio.sleep(1)
 
