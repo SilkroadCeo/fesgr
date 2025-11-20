@@ -393,7 +393,7 @@ async def login_page():
 
                     if (response.ok) {
                         localStorage.setItem('admin_token', data.access_token);
-                        window.location.href = '/';
+                        window.location.href = '/admin';
                     } else {
                         errorDiv.textContent = data.detail || 'Login failed';
                         errorDiv.style.display = 'block';
