@@ -2704,8 +2704,8 @@
             e.preventDefault();
             deferredPrompt = e;
 
-            // Показываем кнопку установки через 5 секунд
-            setTimeout(showInstallPrompt, 5000);
+            // Автоматический показ баннера отключен
+            // Пользователь может вручную установить приложение через меню языков
         });
 
         function showInstallPrompt(force = false) {
@@ -2790,10 +2790,8 @@
             if (banner) banner.remove();
         }
 
-        // Показываем промпт для iOS
-        if (isIOS && !isStandalone && !localStorage.getItem('installPromptShown')) {
-            setTimeout(showInstallPrompt, 5000);
-        }
+        // Автоматический показ промпта для iOS отключен
+        // Пользователь может вручную установить приложение через меню языков
 
         // ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
         // Глобальные переменные
