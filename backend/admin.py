@@ -261,9 +261,21 @@ async def send_admin_reply_from_telegram(profile_id: int, text: str):
         }
         data["messages"].append(message_data)
 
+        # Проверяем если это подтверждение оплаты
+        if text and "payment successful" in text.lower():
+            # Находим последний unpaid ордер для этого профиля
+            profile_orders = [o for o in data.get("orders", [])
+                            if o.get("profile_id") == profile_id and o.get("status") == "unpaid"]
+            if profile_orders:
+                # Обновляем статус последнего ордера
+                last_order = profile_orders[-1]
+                last_order["status"] = "paid"
+                last_order["paid_at"] = datetime.now().isoformat()
+                logger.info(f"Order #{last_order['id']} marked as paid for profile {profile_id} (from Telegram)")
+
         # Сохраняем данные
         save_data(data)
-        logger.info(f"✅ Admin reply from Telegram sent to profile {profile_id}")
+        logger.info(f"Admin reply from Telegram sent to profile {profile_id}")
 
         # Отправляем подтверждение админу в Telegram
         for admin_id in ADMIN_TELEGRAM_IDS:
@@ -346,7 +358,7 @@ def load_data():
                 "vip_catalogs": {
                     "vip": {
                         "name": "VIP Catalog",
-                        "price": 200,
+                        "price": 199,
                         "redirect_url": "https://t.me/vip_channel",
                         "visible": True,
                         "preview_count": 3,
@@ -358,7 +370,7 @@ def load_data():
                     },
                     "extra_vip": {
                         "name": "Extra VIP",
-                        "price": 500,
+                        "price": 699,
                         "redirect_url": "https://t.me/extra_vip_channel",
                         "visible": True,
                         "preview_count": 3,
@@ -370,7 +382,7 @@ def load_data():
                     },
                     "secret": {
                         "name": "Secret Catalog",
-                        "price": 1500,
+                        "price": 2499,
                         "redirect_url": "https://t.me/secret_channel",
                         "visible": True,
                         "preview_count": 3,
@@ -418,7 +430,7 @@ def load_data():
             data["settings"]["vip_catalogs"] = {
                 "vip": {
                     "name": "VIP Catalog",
-                    "price": 100,
+                    "price": 199,
                     "redirect_url": "https://t.me/vip_channel",
                     "visible": True,
                     "preview_count": 3,
@@ -430,7 +442,7 @@ def load_data():
                 },
                 "extra_vip": {
                     "name": "Extra VIP",
-                    "price": 200,
+                    "price": 699,
                     "redirect_url": "https://t.me/extra_vip_channel",
                     "visible": True,
                     "preview_count": 3,
@@ -442,7 +454,7 @@ def load_data():
                 },
                 "secret": {
                     "name": "Secret Catalog",
-                    "price": 300,
+                    "price": 2499,
                     "redirect_url": "https://t.me/secret_channel",
                     "visible": True,
                     "preview_count": 3,
@@ -487,7 +499,7 @@ def load_data():
                 "vip_catalogs": {
                     "vip": {
                         "name": "VIP Catalog",
-                        "price": 200,
+                        "price": 199,
                         "redirect_url": "https://t.me/vip_channel",
                         "visible": True,
                         "preview_count": 3,
@@ -499,7 +511,7 @@ def load_data():
                     },
                     "extra_vip": {
                         "name": "Extra VIP",
-                        "price": 500,
+                        "price": 699,
                         "redirect_url": "https://t.me/extra_vip_channel",
                         "visible": True,
                         "preview_count": 3,
@@ -511,7 +523,7 @@ def load_data():
                     },
                     "secret": {
                         "name": "Secret Catalog",
-                        "price": 1500,
+                        "price": 2499,
                         "redirect_url": "https://t.me/secret_channel",
                         "visible": True,
                         "preview_count": 3,
@@ -1219,6 +1231,38 @@ async def admin_dashboard(request: Request):
                         <label>BNB Wallet Address:</label>
                         <input type="text" id="bnb-wallet" class="wallet-address" value="bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0">
                     </div>
+                    <div class="form-group">
+                        <label>BTC Wallet Address:</label>
+                        <input type="text" id="btc-wallet" class="wallet-address" value="bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh">
+                    </div>
+                    <div class="form-group">
+                        <label>ZetCash Wallet Address:</label>
+                        <input type="text" id="zetcash-wallet" class="wallet-address" value="t1Z9C7k5tCQZ8eQh7zVn9vJfGz1hYz2wQ3P">
+                    </div>
+                    <div class="form-group">
+                        <label>DOGE Wallet Address:</label>
+                        <input type="text" id="doge-wallet" class="wallet-address" value="D7Y3K5z1vJfCqZh9rTgL2sWp4xNm8eB3aQ">
+                    </div>
+                    <div class="form-group">
+                        <label>DASH Wallet Address:</label>
+                        <input type="text" id="dash-wallet" class="wallet-address" value="Xk7vR3z9tQm1cWp5yL8nH4fGx2sT6eJ9dP">
+                    </div>
+                    <div class="form-group">
+                        <label>LTC Wallet Address:</label>
+                        <input type="text" id="ltc-wallet" class="wallet-address" value="LZh8vT3k9mQp5wR2nF7cY4gX6sL1eJ9dP">
+                    </div>
+                    <div class="form-group">
+                        <label>USDT BEP20 Wallet Address:</label>
+                        <input type="text" id="usdt_bep20-wallet" class="wallet-address" value="0x1a2B3c4D5e6F7g8H9i0J1k2L3m4N5o6P7q8R9s0T">
+                    </div>
+                    <div class="form-group">
+                        <label>ETH Wallet Address:</label>
+                        <input type="text" id="eth-wallet" class="wallet-address" value="0x2B3c4D5e6F7g8H9i0J1k2L3m4N5o6P7q8R9s0T1u">
+                    </div>
+                    <div class="form-group">
+                        <label>USDC ERC20 Wallet Address:</label>
+                        <input type="text" id="usdc_erc20-wallet" class="wallet-address" value="0x3C4d5E6f7G8h9I0j1K2l3M4n5O6p7Q8r9S0t1U2v">
+                    </div>
                     <button class="btn btn-primary" onclick="saveCryptoWallets()">Save Wallet Addresses</button>
                 </div>
             </div>
@@ -1230,7 +1274,7 @@ async def admin_dashboard(request: Request):
                     <div class="catalog-item">
                         <div class="catalog-header">
                             <span class="catalog-name">VIP Catalog</span>
-                            <span class="catalog-price">$100</span>
+                            <span class="catalog-price">$199</span>
                         </div>
                         <div class="form-group">
                             <label>Catalog Name:</label>
@@ -1238,7 +1282,7 @@ async def admin_dashboard(request: Request):
                         </div>
                         <div class="form-group">
                             <label>Price ($):</label>
-                            <input type="number" id="vip-catalog-price" value="100" min="1">
+                            <input type="number" id="vip-catalog-price" value="199" min="1">
                         </div>
                         <div class="form-group">
                             <label>Redirect URL:</label>
@@ -1259,7 +1303,7 @@ async def admin_dashboard(request: Request):
                     <div class="catalog-item">
                         <div class="catalog-header">
                             <span class="catalog-name">Extra VIP Catalog</span>
-                            <span class="catalog-price">$200</span>
+                            <span class="catalog-price">$699</span>
                         </div>
                         <div class="form-group">
                             <label>Catalog Name:</label>
@@ -1267,7 +1311,7 @@ async def admin_dashboard(request: Request):
                         </div>
                         <div class="form-group">
                             <label>Price ($):</label>
-                            <input type="number" id="extra-vip-catalog-price" value="200" min="1">
+                            <input type="number" id="extra-vip-catalog-price" value="699" min="1">
                         </div>
                         <div class="form-group">
                             <label>Redirect URL:</label>
@@ -1288,7 +1332,7 @@ async def admin_dashboard(request: Request):
                     <div class="catalog-item">
                         <div class="catalog-header">
                             <span class="catalog-name">Secret Catalog</span>
-                            <span class="catalog-price">$300</span>
+                            <span class="catalog-price">$2499</span>
                         </div>
                         <div class="form-group">
                             <label>Catalog Name:</label>
@@ -1296,7 +1340,7 @@ async def admin_dashboard(request: Request):
                         </div>
                         <div class="form-group">
                             <label>Price ($):</label>
-                            <input type="number" id="secret-catalog-price" value="300" min="1">
+                            <input type="number" id="secret-catalog-price" value="2499" min="1">
                         </div>
                         <div class="form-group">
                             <label>Redirect URL:</label>
@@ -1956,17 +2000,17 @@ async def admin_dashboard(request: Request):
                     const catalogs = await response.json();
 
                     document.getElementById('vip-catalog-name').value = catalogs.vip?.name || 'VIP Catalog';
-                    document.getElementById('vip-catalog-price').value = catalogs.vip?.price || 100;
+                    document.getElementById('vip-catalog-price').value = catalogs.vip?.price || 199;
                     document.getElementById('vip-catalog-url').value = catalogs.vip?.redirect_url || 'https://t.me/vip_channel';
                     document.getElementById('vip-catalog-visible').checked = catalogs.vip?.visible !== false;
 
                     document.getElementById('extra-vip-catalog-name').value = catalogs.extra_vip?.name || 'Extra VIP';
-                    document.getElementById('extra-vip-catalog-price').value = catalogs.extra_vip?.price || 200;
+                    document.getElementById('extra-vip-catalog-price').value = catalogs.extra_vip?.price || 699;
                     document.getElementById('extra-vip-catalog-url').value = catalogs.extra_vip?.redirect_url || 'https://t.me/extra_vip_channel';
                     document.getElementById('extra-vip-catalog-visible').checked = catalogs.extra_vip?.visible !== false;
 
                     document.getElementById('secret-catalog-name').value = catalogs.secret?.name || 'Secret Catalog';
-                    document.getElementById('secret-catalog-price').value = catalogs.secret?.price || 300;
+                    document.getElementById('secret-catalog-price').value = catalogs.secret?.price || 2499;
                     document.getElementById('secret-catalog-url').value = catalogs.secret?.redirect_url || 'https://t.me/secret_channel';
                     document.getElementById('secret-catalog-visible').checked = catalogs.secret?.visible !== false;
                 } catch (error) {
@@ -2130,6 +2174,14 @@ async def admin_dashboard(request: Request):
                     document.getElementById('trc20-wallet').value = wallets.trc20 || '';
                     document.getElementById('erc20-wallet').value = wallets.erc20 || '';
                     document.getElementById('bnb-wallet').value = wallets.bnb || '';
+                    document.getElementById('btc-wallet').value = wallets.btc || '';
+                    document.getElementById('zetcash-wallet').value = wallets.zetcash || '';
+                    document.getElementById('doge-wallet').value = wallets.doge || '';
+                    document.getElementById('dash-wallet').value = wallets.dash || '';
+                    document.getElementById('ltc-wallet').value = wallets.ltc || '';
+                    document.getElementById('usdt_bep20-wallet').value = wallets.usdt_bep20 || '';
+                    document.getElementById('eth-wallet').value = wallets.eth || '';
+                    document.getElementById('usdc_erc20-wallet').value = wallets.usdc_erc20 || '';
                 } catch (error) {
                     console.error('Error loading crypto wallets:', error);
                 }
@@ -2141,7 +2193,15 @@ async def admin_dashboard(request: Request):
                     const wallets = {
                         trc20: document.getElementById('trc20-wallet').value,
                         erc20: document.getElementById('erc20-wallet').value,
-                        bnb: document.getElementById('bnb-wallet').value
+                        bnb: document.getElementById('bnb-wallet').value,
+                        btc: document.getElementById('btc-wallet').value,
+                        zetcash: document.getElementById('zetcash-wallet').value,
+                        doge: document.getElementById('doge-wallet').value,
+                        dash: document.getElementById('dash-wallet').value,
+                        ltc: document.getElementById('ltc-wallet').value,
+                        usdt_bep20: document.getElementById('usdt_bep20-wallet').value,
+                        eth: document.getElementById('eth-wallet').value,
+                        usdc_erc20: document.getElementById('usdc_erc20-wallet').value
                     };
 
                     const response = await authFetch('/api/admin/crypto_wallets', {
@@ -2402,8 +2462,20 @@ async def send_admin_reply(
         if not has_files and not has_text:
             raise HTTPException(status_code=400, detail="Text or files is required")
 
+        # Проверяем если это подтверждение оплаты
+        if text and "payment successful" in text.lower():
+            # Находим последний unpaid ордер для этого профиля
+            profile_orders = [o for o in data.get("orders", [])
+                            if o.get("profile_id") == profile_id and o.get("status") == "unpaid"]
+            if profile_orders:
+                # Обновляем статус последнего ордера
+                last_order = profile_orders[-1]
+                last_order["status"] = "paid"
+                last_order["paid_at"] = datetime.now().isoformat()
+                logger.info(f"Order #{last_order['id']} marked as paid for profile {profile_id}")
+
         save_data(data)
-        logger.info("💾 Data saved successfully")
+        logger.info("Data saved successfully")
         return {"status": "sent"}
 
     except Exception as e:
