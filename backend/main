@@ -480,6 +480,86 @@ async def get_chat_updates(profile_id: int, last_message_id: int = 0):
 
     return {"messages": messages, "last_message_id": max_id}
 
+@app.get("/api/user/chats")
+async def get_user_chats():
+    """Получить список всех чатов пользователя с последним сообщением и счетчиком непрочитанных"""
+    data = load_data()
+    chats = data.get("chats", [])
+
+    chat_list = []
+    for chat in chats:
+        # Получаем профиль
+        profile = next((p for p in data["profiles"] if p["id"] == chat["profile_id"]), None)
+        if not profile:
+            continue
+
+        # Получаем последнее сообщение
+        chat_messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+        last_message = None
+        last_message_time = None
+
+        if chat_messages:
+            # Сортируем по времени создания или id
+            chat_messages.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+            last_msg = chat_messages[0]
+
+            # Формируем текст последнего сообщения
+            if last_msg.get("file_url"):
+                if last_msg.get("file_type") == "image":
+                    last_message = "📷 Image"
+                elif last_msg.get("file_type") == "video":
+                    last_message = "🎥 Video"
+                else:
+                    last_message = "📎 File"
+            else:
+                last_message = last_msg.get("text", "")
+
+            last_message_time = last_msg.get("created_at")
+        else:
+            last_message = "No messages yet"
+            last_message_time = chat.get("created_at")
+
+        # Считаем непрочитанные сообщения (от модели, после последнего прочитанного)
+        last_read_id = chat.get("last_read_message_id", 0)
+        unread_count = len([m for m in chat_messages
+                           if not m.get("is_from_user", False)
+                           and not m.get("is_system", False)
+                           and m.get("id", 0) > last_read_id])
+
+        chat_item = {
+            "chat_id": chat["id"],
+            "profile_id": chat["profile_id"],
+            "profile_name": profile.get("name", "Unknown"),
+            "profile_photo": profile.get("photos", [None])[0] if profile.get("photos") else None,
+            "last_message": last_message,
+            "last_message_time": last_message_time,
+            "unread_count": unread_count
+        }
+
+        chat_list.append(chat_item)
+
+    # Сортируем по времени последнего сообщения
+    chat_list.sort(key=lambda x: x.get("last_message_time", ""), reverse=True)
+
+    return {"chats": chat_list}
+
+@app.post("/api/chats/{profile_id}/mark_read")
+async def mark_chat_read(profile_id: int):
+    """Пометить все сообщения чата как прочитанные"""
+    data = load_data()
+    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    if not chat:
+        return {"status": "chat_not_found"}
+
+    # Находим максимальный ID сообщения в чате
+    chat_messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+    if chat_messages:
+        max_message_id = max(m["id"] for m in chat_messages)
+        chat["last_read_message_id"] = max_message_id
+        save_data(data)
+
+    return {"status": "marked_read"}
+
 # Комментарии к профилям
 @app.get("/api/profiles/{profile_id}/comments")
 async def get_profile_comments(profile_id: int):
@@ -606,6 +686,58 @@ async def process_crypto_payment(payment_data: dict):
         "message": "Payment is being processed",
         "payment_id": payment_log["id"]
     }
+
+@app.get("/api/user/orders")
+async def get_user_orders(status: str = "all"):
+    """Получить список заказов пользователя (booked/unpaid/all)"""
+    data = load_data()
+    payments = data.get("payments", [])
+
+    # Фильтруем платежи по статусу
+    if status == "booked":
+        filtered_payments = [p for p in payments if p.get("status") in ["completed", "booked"]]
+    elif status == "unpaid":
+        filtered_payments = [p for p in payments if p.get("status") == "pending"]
+    else:
+        filtered_payments = payments
+
+    orders = []
+    for payment in filtered_payments:
+        # Получаем профиль
+        profile = next((p for p in data["profiles"] if p["id"] == payment["profile_id"]), None)
+        if not profile:
+            continue
+
+        order_item = {
+            "id": payment["id"],
+            "profile_id": payment["profile_id"],
+            "profile_name": profile.get("name", "Unknown"),
+            "profile_photo": profile.get("photos", [None])[0] if profile.get("photos") else None,
+            "amount": payment.get("amount"),
+            "currency": payment.get("currency", "USD"),
+            "wallet": payment.get("wallet"),
+            "status": payment.get("status"),
+            "created_at": payment.get("created_at"),
+            # Добавляем время истечения (60 минут от создания) для pending платежей
+            "expires_at": None
+        }
+
+        # Если платеж pending, добавляем время истечения
+        if payment.get("status") == "pending" and payment.get("created_at"):
+            from datetime import datetime, timedelta
+            try:
+                created_time = datetime.fromisoformat(payment["created_at"])
+                expires_time = created_time + timedelta(hours=1)
+                order_item["expires_at"] = expires_time.isoformat()
+            except:
+                pass
+
+        orders.append(order_item)
+
+    # Сортируем по времени создания (новые первыми)
+    orders.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+    return {"orders": orders}
 
 @app.get("/api/translations/{lang}")
 async def get_translations(lang: str):
