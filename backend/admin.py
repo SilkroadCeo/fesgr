@@ -1137,7 +1137,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                         }
                     };
 
-                    const response = await fetch('http://localhost:8001/api/vip-catalogs', {
+                    const response = await fetch('/api/admin/vip-catalogs', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(catalogs)
@@ -1180,7 +1180,7 @@ async def admin_dashboard(session_id: Optional[str] = Cookie(None, alias="admin_
                                     formData.append('file', file);
 
                                     try {
-                                        const response = await fetch('http://localhost:8001/api/vip-catalogs/upload-preview-photo', {
+                                        const response = await fetch('/api/admin/vip-catalogs/upload-preview-photo', {
                                             method: 'POST',
                                             body: formData
                                         });
@@ -2394,6 +2394,111 @@ async def update_admin_crypto_wallets(wallets: dict, current_user: str = Depends
     data["settings"]["crypto_wallets"] = wallets
     save_data(data)
     return {"status": "updated"}
+
+
+# VIP Профили API
+@app.get("/api/admin/vip-profiles")
+async def get_admin_vip_profiles(current_user: str = Depends(get_current_user)):
+    """Получить все VIP профили"""
+    data = load_data()
+    return {"profiles": data.get("vip_profiles", [])}
+
+@app.post("/api/admin/vip-profiles")
+async def create_vip_profile(
+        current_user: str = Depends(get_current_user),
+        name: str = Form(...),
+        age: int = Form(...),
+        city: str = Form(...),
+        gender: str = Form("female"),
+        photos: list[UploadFile] = File(...)
+):
+    """Создать новый VIP профиль"""
+    data = load_data()
+
+    # Находим максимальный ID
+    max_id = max([p["id"] for p in data.get("vip_profiles", [])]) if data.get("vip_profiles") else 0
+
+    # Сохраняем загруженные фото
+    photo_urls = []
+    for photo in photos:
+        if photo.filename:
+            photo_url = save_uploaded_file(photo)
+            if photo_url:
+                photo_urls.append(photo_url)
+
+    if not photo_urls:
+        raise HTTPException(status_code=400, detail="At least one photo is required")
+
+    new_profile = {
+        "id": max_id + 1,
+        "name": name,
+        "age": age,
+        "city": city,
+        "gender": gender,
+        "photos": photo_urls,
+        "created_at": datetime.now().isoformat()
+    }
+
+    if "vip_profiles" not in data:
+        data["vip_profiles"] = []
+    data["vip_profiles"].append(new_profile)
+    save_data(data)
+    return {"status": "created", "profile": new_profile}
+
+@app.delete("/api/admin/vip-profiles/{profile_id}")
+async def delete_vip_profile(profile_id: int, current_user: str = Depends(get_current_user)):
+    """Удалить VIP профиль"""
+    data = load_data()
+    data["vip_profiles"] = [p for p in data.get("vip_profiles", []) if p["id"] != profile_id]
+    save_data(data)
+    return {"status": "deleted"}
+
+# VIP Каталоги API
+@app.get("/api/admin/vip-catalogs")
+async def get_admin_vip_catalogs(current_user: str = Depends(get_current_user)):
+    """Получить настройки VIP каталогов"""
+    data = load_data()
+    return data.get("settings", {}).get("vip_catalogs", {})
+
+@app.post("/api/admin/vip-catalogs")
+async def update_vip_catalogs(catalogs: dict, current_user: str = Depends(get_current_user)):
+    """Обновить настройки VIP каталогов"""
+    data = load_data()
+    if "settings" not in data:
+        data["settings"] = {}
+    data["settings"]["vip_catalogs"] = catalogs
+    save_data(data)
+    return {"status": "updated"}
+
+@app.post("/api/admin/vip-catalogs/upload-preview-photo")
+async def upload_preview_photo(current_user: str = Depends(get_current_user), file: UploadFile = File(...)):
+    """Загрузить фото для preview профиля VIP каталога"""
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    file_path = save_uploaded_file(file)
+    return {"photo_url": file_path}
+
+# Удаление комментариев
+@app.delete("/api/admin/comments/{profile_id}/{comment_id}")
+async def delete_comment(profile_id: int, comment_id: int, current_user: str = Depends(get_current_user)):
+    """Удалить комментарий"""
+    data = load_data()
+
+    if "comments" not in data:
+        raise HTTPException(status_code=404, detail="No comments found")
+
+    # Находим комментарий
+    comment_index = next((i for i, c in enumerate(data["comments"]) if c["id"] == comment_id and c["profile_id"] == profile_id), None)
+
+    if comment_index is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    # Удаляем комментарий
+    deleted_comment = data["comments"].pop(comment_index)
+    save_data(data)
+
+    return {"status": "deleted", "comment": deleted_comment}
 
 
 if __name__ == "__main__":
