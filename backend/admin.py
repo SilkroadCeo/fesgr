@@ -847,31 +847,9 @@ async def admin_dashboard():
             // JWT Token storage
             let authToken = localStorage.getItem('admin_token');
 
-            // Check if user is authenticated, redirect to login if not
-            if (!authToken) {
-                window.location.href = '/login';
-            }
-
-            // Add token to all API requests
+            // Simple fetch wrapper (no auth required for admin API calls)
             async function fetchWithAuth(url, options = {}) {
-                if (!authToken) {
-                    window.location.href = '/login';
-                    throw new Error('Not authenticated');
-                }
-
-                const headers = {
-                    ...options.headers,
-                    'Authorization': `Bearer ${authToken}`
-                };
-
-                const response = await fetch(url, { ...options, headers });
-
-                if (response.status === 401) {
-                    localStorage.removeItem('admin_token');
-                    window.location.href = '/login';
-                    throw new Error('Authentication failed');
-                }
-
+                const response = await fetch(url, options);
                 return response;
             }
 
@@ -2214,7 +2192,7 @@ async def get_vip_catalogs():
 
 
 @app.post("/api/vip-catalogs")
-async def update_vip_catalogs(catalogs: dict, _: dict = Depends(verify_token)):
+async def update_vip_catalogs(catalogs: dict):
     """Обновить настройки VIP каталогов"""
     data = load_data()
     if "settings" not in data:
@@ -2225,7 +2203,7 @@ async def update_vip_catalogs(catalogs: dict, _: dict = Depends(verify_token)):
 
 
 @app.post("/api/vip-catalogs/upload-preview-photo")
-async def upload_preview_photo(file: UploadFile = File(...), _: dict = Depends(verify_token)):
+async def upload_preview_photo(file: UploadFile = File(...)):
     """Загрузить фото для preview профиля VIP каталога"""
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
@@ -2405,7 +2383,7 @@ async def get_crypto_wallets():
 
 
 @app.post("/api/settings/crypto_wallets")
-async def update_crypto_wallets(wallets: dict, _: dict = Depends(verify_token)):
+async def update_crypto_wallets(wallets: dict):
     """Обновить настройки крипто-кошельков"""
     data = load_data()
     if "settings" not in data:
@@ -2423,7 +2401,7 @@ async def get_banner():
 
 
 @app.post("/api/settings/banner")
-async def update_banner(banner: dict, _: dict = Depends(verify_token)):
+async def update_banner(banner: dict):
     """Обновить настройки баннера"""
     data = load_data()
     if "settings" not in data:
@@ -2449,7 +2427,7 @@ async def get_app_settings():
 
 
 @app.post("/api/settings/app")
-async def update_app_settings(settings: dict, _: dict = Depends(verify_token)):
+async def update_app_settings(settings: dict):
     """Обновить настройки приложения"""
     data = load_data()
     if "settings" not in data:
@@ -2469,7 +2447,7 @@ async def get_promocodes():
 
 
 @app.post("/api/promocodes")
-async def create_promocode(promocode: dict, _: dict = Depends(verify_token)):
+async def create_promocode(promocode: dict):
     """Создать новый промокод"""
     data = load_data()
 
@@ -2490,7 +2468,7 @@ async def create_promocode(promocode: dict, _: dict = Depends(verify_token)):
 
 
 @app.post("/api/promocodes/{promocode_id}/toggle")
-async def toggle_promocode(promocode_id: int, _: dict = Depends(verify_token)):
+async def toggle_promocode(promocode_id: int):
     """Активировать/деактивировать промокод"""
     data = load_data()
     promocode = next((p for p in data.get("promocodes", []) if p["id"] == promocode_id), None)
@@ -2501,7 +2479,7 @@ async def toggle_promocode(promocode_id: int, _: dict = Depends(verify_token)):
 
 
 @app.delete("/api/promocodes/{promocode_id}")
-async def delete_promocode(promocode_id: int, _: dict = Depends(verify_token)):
+async def delete_promocode(promocode_id: int):
     """Удалить промокод"""
     data = load_data()
     if "promocodes" in data:
@@ -2579,7 +2557,7 @@ async def get_stats():
 
 
 @app.get("/api/admin/profiles")
-async def get_admin_profiles(_: dict = Depends(verify_token)):
+async def get_admin_profiles():
     data = load_data()
     return {"profiles": data["profiles"]}
 
@@ -2597,7 +2575,7 @@ async def create_profile(
         weight: int = Form(...),
         chest: int = Form(...),
         photos: list[UploadFile] = File(...),
-        _: dict = Depends(verify_token)
+        
 ):
     data = load_data()
 
@@ -2647,7 +2625,7 @@ async def create_profile(
 
 
 @app.post("/api/admin/profiles/{profile_id}/toggle")
-async def toggle_profile(profile_id: int, visible_data: dict, _: dict = Depends(verify_token)):
+async def toggle_profile(profile_id: int, visible_data: dict):
     data = load_data()
     profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
     if profile:
@@ -2657,7 +2635,7 @@ async def toggle_profile(profile_id: int, visible_data: dict, _: dict = Depends(
 
 
 @app.delete("/api/admin/profiles/{profile_id}")
-async def delete_profile(profile_id: int, _: dict = Depends(verify_token)):
+async def delete_profile(profile_id: int):
     data = load_data()
 
     # Удаляем анкету
@@ -2681,13 +2659,13 @@ async def delete_profile(profile_id: int, _: dict = Depends(verify_token)):
 
 
 @app.get("/api/admin/chats")
-async def get_admin_chats(_: dict = Depends(verify_token)):
+async def get_admin_chats():
     data = load_data()
     return {"chats": data["chats"]}
 
 
 @app.get("/api/admin/chats/{profile_id}/messages")
-async def get_chat_messages_admin(profile_id: int, _: dict = Depends(verify_token)):
+async def get_chat_messages_admin(profile_id: int):
     data = load_data()
     chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
     if not chat:
@@ -2700,7 +2678,7 @@ async def get_chat_messages_admin(profile_id: int, _: dict = Depends(verify_toke
 async def send_admin_reply(
         profile_id: int,
         request: Request,
-        _: dict = Depends(verify_token)
+        
 ):
     data = load_data()
 
@@ -2781,7 +2759,7 @@ async def send_admin_reply(
 
 
 @app.post("/api/admin/chats/{profile_id}/system-message")
-async def send_system_message(profile_id: int, message_data: dict, _: dict = Depends(verify_token)):
+async def send_system_message(profile_id: int, message_data: dict):
     """Отправка системного сообщения"""
     data = load_data()
 
@@ -2817,20 +2795,20 @@ async def send_system_message(profile_id: int, message_data: dict, _: dict = Dep
 
 # Комментарии API для админки
 @app.get("/api/admin/comments")
-async def get_admin_comments(_: dict = Depends(verify_token)):
+async def get_admin_comments():
     data = load_data()
     return {"comments": data.get("comments", [])}
 
 
 # Промокоды API
 @app.get("/api/admin/promocodes")
-async def get_admin_promocodes(_: dict = Depends(verify_token)):
+async def get_admin_promocodes():
     data = load_data()
     return {"promocodes": data.get("promocodes", [])}
 
 
 @app.post("/api/admin/promocodes")
-async def create_admin_promocode(promocode: dict, _: dict = Depends(verify_token)):
+async def create_admin_promocode(promocode: dict):
     data = load_data()
 
     # Проверяем, существует ли уже такой промокод
@@ -2853,7 +2831,7 @@ async def create_admin_promocode(promocode: dict, _: dict = Depends(verify_token
 
 
 @app.post("/api/admin/promocodes/{promocode_id}/toggle")
-async def toggle_admin_promocode(promocode_id: int, _: dict = Depends(verify_token)):
+async def toggle_admin_promocode(promocode_id: int):
     data = load_data()
     promocode = next((p for p in data["promocodes"] if p["id"] == promocode_id), None)
     if promocode:
@@ -2863,7 +2841,7 @@ async def toggle_admin_promocode(promocode_id: int, _: dict = Depends(verify_tok
 
 
 @app.delete("/api/admin/promocodes/{promocode_id}")
-async def delete_admin_promocode(promocode_id: int, _: dict = Depends(verify_token)):
+async def delete_admin_promocode(promocode_id: int):
     data = load_data()
     data["promocodes"] = [p for p in data["promocodes"] if p["id"] != promocode_id]
     save_data(data)
@@ -2872,13 +2850,13 @@ async def delete_admin_promocode(promocode_id: int, _: dict = Depends(verify_tok
 
 # Баннер API
 @app.get("/api/admin/banner")
-async def get_admin_banner(_: dict = Depends(verify_token)):
+async def get_admin_banner():
     data = load_data()
     return data.get("settings", {}).get("banner", {})
 
 
 @app.post("/api/admin/banner")
-async def update_admin_banner(banner: dict, _: dict = Depends(verify_token)):
+async def update_admin_banner(banner: dict):
     data = load_data()
     if "settings" not in data:
         data["settings"] = {}
@@ -2888,13 +2866,13 @@ async def update_admin_banner(banner: dict, _: dict = Depends(verify_token)):
 
 
 @app.get("/api/admin/crypto_wallets")
-async def get_admin_crypto_wallets(_: dict = Depends(verify_token)):
+async def get_admin_crypto_wallets():
     data = load_data()
     return data.get("settings", {}).get("crypto_wallets", {})
 
 
 @app.post("/api/admin/crypto_wallets")
-async def update_admin_crypto_wallets(wallets: dict, _: dict = Depends(verify_token)):
+async def update_admin_crypto_wallets(wallets: dict):
     data = load_data()
     if "settings" not in data:
         data["settings"] = {}
