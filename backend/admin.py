@@ -2084,33 +2084,33 @@ async def admin_dashboard(request: Request):
                     list.innerHTML = '';
 
                     data.promocodes.forEach(promo => {
-                        // Генерация таблицы активаций
-                        let activationsTable = '';
-                        if (promo.used_by && promo.used_by.length > 0) {
-                            activationsTable = `
-                                <div style="margin-top: 15px;">
-                                    <h4 style="color: #ff6b9d; margin-bottom: 10px;">Активации (${promo.used_by.length}):</h4>
-                                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                                        <thead>
-                                            <tr style="background: rgba(255, 107, 157, 0.2);">
-                                                <th style="padding: 8px; text-align: left; border: 1px solid #ff6b9d;">Дата</th>
-                                                <th style="padding: 8px; text-align: left; border: 1px solid #ff6b9d;">Код</th>
-                                                <th style="padding: 8px; text-align: left; border: 1px solid #ff6b9d;">Скидка</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${promo.used_by.map(usage => `
-                                                <tr style="background: rgba(255, 107, 157, 0.05);">
-                                                    <td style="padding: 8px; border: 1px solid #ff6b9d;">${new Date(usage.date || usage.created_at || Date.now()).toLocaleString()}</td>
-                                                    <td style="padding: 8px; border: 1px solid #ff6b9d;">${promo.code}</td>
-                                                    <td style="padding: 8px; border: 1px solid #ff6b9d;">${promo.discount}%</td>
-                                                </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            `;
-                        }
+                        // Генерация таблицы активаций - УДАЛЕНО
+                        // let activationsTable = '';
+                        // if (promo.used_by && promo.used_by.length > 0) {
+                        //     activationsTable = `
+                        //         <div style="margin-top: 15px;">
+                        //             <h4 style="color: #ff6b9d; margin-bottom: 10px;">Активации (${promo.used_by.length}):</h4>
+                        //             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        //                 <thead>
+                        //                     <tr style="background: rgba(255, 107, 157, 0.2);">
+                        //                         <th style="padding: 8px; text-align: left; border: 1px solid #ff6b9d;">Дата</th>
+                        //                         <th style="padding: 8px; text-align: left; border: 1px solid #ff6b9d;">Код</th>
+                        //                         <th style="padding: 8px; text-align: left; border: 1px solid #ff6b9d;">Скидка</th>
+                        //                     </tr>
+                        //                 </thead>
+                        //                 <tbody>
+                        //                     ${promo.used_by.map(usage => `
+                        //                         <tr style="background: rgba(255, 107, 157, 0.05);">
+                        //                             <td style="padding: 8px; border: 1px solid #ff6b9d;">${new Date(usage.date || usage.created_at || Date.now()).toLocaleString()}</td>
+                        //                             <td style="padding: 8px; border: 1px solid #ff6b9d;">${promo.code}</td>
+                        //                             <td style="padding: 8px; border: 1px solid #ff6b9d;">${promo.discount}%</td>
+                        //                         </tr>
+                        //                     `).join('')}
+                        //                 </tbody>
+                        //             </table>
+                        //         </div>
+                        //     `;
+                        // }
 
                         const promoDiv = document.createElement('div');
                         promoDiv.className = 'promocode-card';
@@ -2126,7 +2126,6 @@ async def admin_dashboard(request: Request):
                                 </span>
                             </p>
                             <p><strong>Used:</strong> ${promo.used_by ? promo.used_by.length : 0} times</p>
-                            ${activationsTable}
                             <div style="margin-top: 15px;">
                                 <button class="btn btn-warning" onclick="togglePromocode(${promo.id}, ${!promo.is_active})">
                                     ${promo.is_active ? 'Deactivate' : 'Activate'}
