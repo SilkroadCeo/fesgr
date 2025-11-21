@@ -3039,7 +3039,8 @@ async def get_user_orders(status: str = "all"):
                 "profile_photo": profile["photos"][0] if profile.get("photos") else None,
                 "profile_city": profile.get("city", "Unknown"),
                 "amount": order.get("amount", 0),
-                "crypto_type": order.get("crypto_type", "USDT"),
+                "wallet": order.get("crypto_type", "trc20"),  # Используем wallet для frontend
+                "crypto_type": order.get("crypto_type", "USDT"),  # Оставляем для совместимости
                 "created_at": order.get("created_at"),
                 "expires_at": order.get("expires_at"),
                 "status": order.get("status")
@@ -3157,9 +3158,12 @@ async def get_admin_bookings(current_user: str = Depends(get_current_user)):
     data = load_data()
     orders = data.get("orders", [])
 
+    # Фильтруем только pending (unpaid) ордера
+    pending_orders = [o for o in orders if o.get("status") == "unpaid"]
+
     # Добавляем информацию о профиле к каждому заказу
     enriched_orders = []
-    for order in orders:
+    for order in pending_orders:
         profile = next((p for p in data["profiles"] if p["id"] == order.get("profile_id")), None)
         order_copy = order.copy()
         order_copy["profile_name"] = profile["name"] if profile else "Unknown"
