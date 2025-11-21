@@ -4942,9 +4942,20 @@
                     document.getElementById('payment-selection').style.display = 'none';
                     paymentSuccess.style.display = 'block';
 
+                    // Отображаем информацию о платеже
+                    const cryptoTypeDisplay = {
+                        'trc20': 'USDT (TRC20)',
+                        'erc20': 'USDT (ERC20)',
+                        'bnb': 'BNB (BEP20)',
+                        'btc': 'Bitcoin'
+                    };
+                    document.getElementById('selected-crypto-type').textContent = cryptoTypeDisplay[cryptoType] || cryptoType;
+                    document.getElementById('selected-amount').textContent = amount;
+                    document.getElementById('wallet-address').textContent = result.wallet_address || '';
+
                     // Сохраняем незавершенный платеж
                     const startTime = Date.now();
-                    const paymentId = result.payment_id || Date.now();
+                    const paymentId = result.order_id || Date.now();
                     savePendingPayment(currentProfile, amount, cryptoType, startTime, paymentId);
                     currentPendingPayment = pendingPayments.find(p => p.id === paymentId);
 
@@ -5229,7 +5240,7 @@
                                                 savePendingPayment(
                                                     profileData,
                                                     order.amount,
-                                                    order.wallet,
+                                                    order.crypto_type,
                                                     createdTime,
                                                     order.id
                                                 );
@@ -5293,7 +5304,7 @@
                             <img src="${order.profile_photo || '/default-avatar.png'}" alt="${order.profile_name}" class="order-avatar">
                             <div>
                                 <div style="font-weight: 600; color: var(--text);">${order.profile_name}</div>
-                                <div style="font-size: 12px; color: var(--text-secondary);">${cryptoTypeDisplay[order.wallet] || order.wallet || 'Crypto'}</div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">${cryptoTypeDisplay[order.crypto_type] || order.crypto_type || 'Crypto'}</div>
                             </div>
                         </div>
                         <div class="order-info">
