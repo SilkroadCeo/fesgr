@@ -1833,15 +1833,14 @@
         }
 
         .nav-badge {
-            position: absolute;
-            top: 8px;
-            right: 50%;
-            transform: translateX(15px);
+            display: inline-block;
             background: #ff0000;
             width: 8px;
             height: 8px;
             border-radius: 50%;
             font-size: 0;
+            margin-left: 4px;
+            vertical-align: middle;
         }
 
         /* Chats Page */
@@ -2669,16 +2668,13 @@
             <div class="nav-label" id="nav-home-label">Home</div>
         </div>
         <div class="nav-item" onclick="switchPage('chats')">
-            <div class="nav-label" id="nav-chats-label">Chats</div>
-            <div class="nav-badge" id="chats-badge" style="display: none;">0</div>
+            <div class="nav-label" id="nav-chats-label">Chats<span class="nav-badge" id="chats-badge" style="display: none;"></span></div>
         </div>
         <div class="nav-item" onclick="switchPage('paid')">
-            <div class="nav-label" id="nav-paid-label">My Bookings</div>
-            <div class="nav-badge" id="booked-badge" style="display: none;">0</div>
+            <div class="nav-label" id="nav-paid-label">My Bookings<span class="nav-badge" id="booked-badge" style="display: none;"></span></div>
         </div>
         <div class="nav-item" onclick="switchPage('unpaid')">
-            <div class="nav-label" id="nav-unpaid-label">Pending</div>
-            <div class="nav-badge" id="unpaid-badge" style="display: none;">0</div>
+            <div class="nav-label" id="nav-unpaid-label">Pending<span class="nav-badge" id="unpaid-badge" style="display: none;"></span></div>
         </div>
     </div>
 
@@ -5322,7 +5318,7 @@
 
                     orderItem.innerHTML = `
                         <div class="order-header">
-                            <span style="font-weight: 700; color: var(--text);">Order #${order.id}</span>
+                            <span style="font-weight: 700; color: var(--text); font-size: 10px; word-break: break-all;">Order #${order.order_number || order.id}</span>
                             <span class="order-status ${statusClass}">${statusText}</span>
                         </div>
                         ${bannerHtml}
