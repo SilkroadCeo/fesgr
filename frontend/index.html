@@ -32,6 +32,7 @@
             color: var(--text);
             min-height: 100vh;
             overflow-x: hidden;
+            overflow-y: auto;
         }
 
         /* Анимированный фон */
@@ -2636,10 +2637,10 @@
             <div class="chats-list" id="chats-list-container"></div>
         </div>
 
-        <!-- Booked Orders Page -->
+        <!-- My Bookings Page -->
         <div id="paid-orders-page" class="page">
             <header class="main-header">
-                <h2 style="color: #28a745; font-size: 24px; font-weight: 700;">Booked Orders</h2>
+                <h2 style="color: #28a745; font-size: 24px; font-weight: 700;">My Bookings</h2>
             </header>
             <div class="orders-list" id="paid-orders-list"></div>
         </div>
@@ -2663,7 +2664,7 @@
             <div class="nav-badge" id="chats-badge" style="display: none;">0</div>
         </div>
         <div class="nav-item" onclick="switchPage('paid')">
-            <div class="nav-label" id="nav-paid-label">Booked</div>
+            <div class="nav-label" id="nav-paid-label">My Bookings</div>
         </div>
         <div class="nav-item" onclick="switchPage('unpaid')">
             <div class="nav-label" id="nav-unpaid-label">Pending</div>
@@ -3399,9 +3400,9 @@
             vipCatalogs = {
                 vip: {
                     name: "VIP Catalog",
-                    price: 100,
+                    price: 199,
                     redirect_url: "https://t.me/vip_channel",
-                    visible: true,
+                    visible: false,
                     preview_count: 250,
                     preview_profiles: [
                         {name: "Diana", age: 16, city: "Moscow"},
@@ -3411,9 +3412,9 @@
                 },
                 extra_vip: {
                     name: "Extra VIP",
-                    price: 200,
+                    price: 699,
                     redirect_url: "https://t.me/extra_vip_channel",
-                    visible: true,
+                    visible: false,
                     preview_count: 300,
                     preview_profiles: [
                         {name: "Julia", age: 22, city: "Tokyo"},
@@ -3423,9 +3424,9 @@
                 },
                 secret: {
                     name: "Secret Catalog",
-                    price: 300,
+                    price: 2499,
                     redirect_url: "https://t.me/secret_channel",
-                    visible: true,
+                    visible: false,
                     preview_count: 500,
                     preview_profiles: [
                         {name: "Sandy", age: 16, city: "Miami"},
@@ -4698,10 +4699,20 @@
             }, 1000);
         }
 
+        // Генерация случайного 18-значного кода для ордеров
+        function generateOrderCode() {
+            const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let code = '';
+            for (let i = 0; i < 18; i++) {
+                code += characters.charAt(Math.floor(Math.random() * characters.length));
+            }
+            return code;
+        }
+
         // Управление незавершенными платежами
         function savePendingPayment(profile, amount, cryptoType, startTime, paymentId) {
             const payment = {
-                id: paymentId || Date.now(), // Уникальный ID платежа
+                id: paymentId || generateOrderCode(), // Уникальный ID платежа
                 profile: profile,
                 amount: amount,
                 cryptoType: cryptoType,
@@ -4728,8 +4739,21 @@
                     const payments = JSON.parse(saved);
                     const now = Date.now();
 
-                    // Фильтруем платежи, оставляем только не истекшие
-                    pendingPayments = payments.filter(p => p.endTime > now);
+                    // Разделяем на активные и истекшие
+                    const activePayments = payments.filter(p => p.endTime > now);
+                    const expiredPayments = payments.filter(p => p.endTime <= now);
+
+                    // Сохраняем истекшие платежи (только последние 3)
+                    if (expiredPayments.length > 0) {
+                        const existingExpired = JSON.parse(localStorage.getItem('expiredPayments') || '[]');
+                        const allExpired = [...existingExpired, ...expiredPayments];
+                        // Сортируем по времени создания и оставляем только 3 последних
+                        const sortedExpired = allExpired.sort((a, b) => b.startTime - a.startTime).slice(0, 3);
+                        localStorage.setItem('expiredPayments', JSON.stringify(sortedExpired));
+                    }
+
+                    // Оставляем только активные платежи
+                    pendingPayments = activePayments;
 
                     // Обновляем localStorage
                     if (pendingPayments.length > 0) {
@@ -5085,6 +5109,29 @@
         // Запускаем периодическое обновление счетчиков каждые 10 секунд
         setInterval(updateChatBadges, 10000);
 
+        // Функция для обновления таймеров в списке ордеров
+        function updateOrderTimers() {
+            const timerElements = document.querySelectorAll('[id^="timer-"]');
+            timerElements.forEach(timerEl => {
+                const expiresAt = timerEl.getAttribute('data-expires');
+                if (!expiresAt) return;
+
+                const now = Date.now();
+                const expiresTime = new Date(expiresAt).getTime();
+                const remaining = expiresTime - now;
+
+                if (remaining > 0) {
+                    const minutes = Math.floor(remaining / 1000 / 60);
+                    const seconds = Math.floor((remaining / 1000) % 60);
+                    timerEl.textContent = `⏱ ${minutes}:${seconds.toString().padStart(2, '0')} remaining`;
+                    timerEl.style.color = '#ffc107';
+                } else {
+                    timerEl.textContent = '⏱ Expired';
+                    timerEl.style.color = '#dc3545';
+                }
+            });
+        }
+
         // Load orders (booked/unpaid)
         async function loadOrders(type) {
             const listId = type === 'booked' ? 'paid-orders-list' : 'unpaid-orders-list';
@@ -5150,22 +5197,6 @@
                         };
                     }
 
-                    // Вычисляем оставшееся время для pending платежей
-                    let timeRemaining = '';
-                    if (type === 'unpaid' && order.expires_at) {
-                        const now = Date.now();
-                        const expiresTime = new Date(order.expires_at).getTime();
-                        const remaining = expiresTime - now;
-
-                        if (remaining > 0) {
-                            const minutes = Math.floor(remaining / 1000 / 60);
-                            const seconds = Math.floor((remaining / 1000) % 60);
-                            timeRemaining = `<div style="color: #ffc107; font-weight: 600;">⏱ ${minutes}:${seconds.toString().padStart(2, '0')} remaining</div>`;
-                        } else {
-                            timeRemaining = '<div style="color: #dc3545;">⏱ Expired</div>';
-                        }
-                    }
-
                     const cryptoTypeDisplay = {
                         'trc20': 'USDT (TRC20)',
                         'erc20': 'USDT (ERC20)',
@@ -5173,11 +5204,21 @@
                         'btc': 'Bitcoin'
                     };
 
+                    // Создаем уникальный ID для таймера
+                    const timerId = `timer-${order.id}`;
+
+                    // Добавляем зеленую рамку для подтвержденных booking
+                    if (type === 'booked') {
+                        orderItem.style.border = '2px solid #28a745';
+                        orderItem.style.background = 'linear-gradient(135deg, rgba(40, 167, 69, 0.05), rgba(40, 167, 69, 0.1))';
+                    }
+
                     orderItem.innerHTML = `
                         <div class="order-header">
                             <span style="font-weight: 700; color: var(--text);">Order #${order.id}</span>
-                            <span class="order-status ${type}">${type === 'booked' ? 'Booked' : 'Pending'}</span>
+                            <span class="order-status ${type}">${type === 'booked' ? 'Confirmed' : 'Pending'}</span>
                         </div>
+                        ${type === 'booked' ? '<div style="background: rgba(40, 167, 69, 0.2); border: 1px solid #28a745; border-radius: 8px; padding: 8px; margin: 10px 0; text-align: center; color: #28a745; font-weight: 600;">✓ Booking Confirmed</div>' : ''}
                         <div class="order-profile">
                             <img src="${order.profile_photo || '/default-avatar.png'}" alt="${order.profile_name}" class="order-avatar">
                             <div>
@@ -5188,11 +5229,21 @@
                         <div class="order-info">
                             <div>Amount: <strong>$${order.amount}</strong></div>
                             <div>Date: ${new Date(order.created_at).toLocaleString('en-US', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})}</div>
-                            ${timeRemaining}
+                            ${type === 'unpaid' && order.expires_at ? `<div id="${timerId}" data-expires="${order.expires_at}" style="color: #ffc107; font-weight: 600;"></div>` : ''}
                         </div>
                     `;
                     container.appendChild(orderItem);
                 });
+
+                // Запускаем обновление таймеров для pending orders
+                if (type === 'unpaid') {
+                    updateOrderTimers();
+                    // Обновляем каждую секунду
+                    if (window.orderTimersInterval) {
+                        clearInterval(window.orderTimersInterval);
+                    }
+                    window.orderTimersInterval = setInterval(updateOrderTimers, 1000);
+                }
 
                 // Update unpaid badge
                 if (type === 'unpaid') {
