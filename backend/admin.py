@@ -1239,6 +1239,29 @@ async def admin_dashboard(request: Request):
             header {
                 position: relative;
             }
+            /* Notification badge for Chats button */
+            .tab {
+                position: relative;
+            }
+            .notification-badge {
+                position: absolute;
+                top: -5px;
+                right: -5px;
+                background: #ff0000;
+                color: white;
+                border-radius: 50%;
+                width: 18px;
+                height: 18px;
+                font-size: 11px;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 6px rgba(255, 0, 0, 0.5);
+            }
+            .notification-badge.hidden {
+                display: none;
+            }
         </style>
     </head>
     <body>
@@ -1246,7 +1269,7 @@ async def admin_dashboard(request: Request):
             <header>
                 <button class="logout-btn" onclick="logout()">Выход</button>
                 <h1>Admin Panel - Muji</h1>
-                <p>App Configuration | Crypto Wallets | VIP Catalogs</p>
+                <p>App Configuration | Crypto Wallets | Bookings</p>
             </header>
 
             <div class="stats">
@@ -1259,13 +1282,17 @@ async def admin_dashboard(request: Request):
 
             <div class="tabs">
                 <button class="tab active" onclick="showTab('profiles')">Profiles</button>
-                <button class="tab" onclick="showTab('chats')">Chats</button>
+                <button class="tab" id="chats-tab" onclick="showTab('chats')">
+                    Chats
+                    <span id="chats-badge" class="notification-badge hidden">0</span>
+                </button>
                 <button class="tab" onclick="showTab('comments')">Comments</button>
                 <button class="tab" onclick="showTab('add-profile')">Add Profile</button>
                 <button class="tab" onclick="showTab('promocodes')">Promocodes</button>
+                <button class="tab" onclick="showTab('bookings')">Bookings</button>
                 <button class="tab" onclick="showTab('banner-settings')">Banner Settings</button>
                 <button class="tab" onclick="showTab('crypto-settings')">Crypto Settings</button>
-                <button class="tab" onclick="showTab('vip-catalogs')">VIP Catalogs</button>
+                <!-- VIP Catalogs removed -->
             </div>
 
             <div id="profiles" class="content active">
@@ -1384,6 +1411,11 @@ async def admin_dashboard(request: Request):
                 <div id="promocodes-list" class="promocode-grid"></div>
             </div>
 
+            <div id="bookings" class="content">
+                <h3>Manage Bookings (Orders)</h3>
+                <div id="bookings-list"></div>
+            </div>
+
             <div id="banner-settings" class="content">
                 <h3>Banner Settings</h3>
                 <div class="banner-settings">
@@ -1467,10 +1499,11 @@ async def admin_dashboard(request: Request):
                 </div>
             </div>
 
+            <!-- VIP Catalogs section - REMOVED -->
+            <!--
             <div id="vip-catalogs" class="content">
                 <h3>VIP Catalogs Settings</h3>
                 <div class="vip-catalogs-settings">
-                    <!-- VIP Catalog -->
                     <div class="catalog-item">
                         <div class="catalog-header">
                             <span class="catalog-name">VIP Catalog</span>
@@ -1499,7 +1532,6 @@ async def admin_dashboard(request: Request):
                         </div>
                     </div>
 
-                    <!-- Extra VIP Catalog -->
                     <div class="catalog-item">
                         <div class="catalog-header">
                             <span class="catalog-name">Extra VIP Catalog</span>
@@ -1528,7 +1560,6 @@ async def admin_dashboard(request: Request):
                         </div>
                     </div>
 
-                    <!-- Secret Catalog -->
                     <div class="catalog-item">
                         <div class="catalog-header">
                             <span class="catalog-name">Secret Catalog</span>
@@ -1560,6 +1591,7 @@ async def admin_dashboard(request: Request):
                     <button class="btn btn-primary" onclick="saveVipCatalogs()">Save VIP Catalogs</button>
                 </div>
             </div>
+            -->
 
         </div>
 
@@ -1586,9 +1618,10 @@ async def admin_dashboard(request: Request):
                 if (tabName === 'chats') loadChats();
                 if (tabName === 'comments') loadCommentsAdmin();
                 if (tabName === 'promocodes') loadPromocodes();
+                if (tabName === 'bookings') loadBookings();
                 if (tabName === 'banner-settings') loadBannerSettings();
                 if (tabName === 'crypto-settings') loadCryptoWallets();
-                if (tabName === 'vip-catalogs') loadVipCatalogs();
+                // if (tabName === 'vip-catalogs') loadVipCatalogs(); // Removed
             }
 
             // Загрузка статистики
@@ -1601,6 +1634,16 @@ async def admin_dashboard(request: Request):
                     document.getElementById('messages-count').textContent = stats.messages_count;
                     document.getElementById('comments-count').textContent = stats.comments_count;
                     document.getElementById('promocodes-count').textContent = stats.promocodes_count;
+
+                    // Обновление badge непрочитанных сообщений
+                    const badge = document.getElementById('chats-badge');
+                    const unreadCount = stats.unread_messages_count || 0;
+                    if (unreadCount > 0) {
+                        badge.textContent = unreadCount;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
                 } catch (error) {
                     console.error('Error loading stats:', error);
                 }
@@ -2041,6 +2084,34 @@ async def admin_dashboard(request: Request):
                     list.innerHTML = '';
 
                     data.promocodes.forEach(promo => {
+                        // Генерация таблицы активаций
+                        let activationsTable = '';
+                        if (promo.used_by && promo.used_by.length > 0) {
+                            activationsTable = `
+                                <div style="margin-top: 15px;">
+                                    <h4 style="color: #ff6b9d; margin-bottom: 10px;">Активации (${promo.used_by.length}):</h4>
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                        <thead>
+                                            <tr style="background: rgba(255, 107, 157, 0.2);">
+                                                <th style="padding: 8px; text-align: left; border: 1px solid #ff6b9d;">Дата</th>
+                                                <th style="padding: 8px; text-align: left; border: 1px solid #ff6b9d;">Код</th>
+                                                <th style="padding: 8px; text-align: left; border: 1px solid #ff6b9d;">Скидка</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${promo.used_by.map(usage => `
+                                                <tr style="background: rgba(255, 107, 157, 0.05);">
+                                                    <td style="padding: 8px; border: 1px solid #ff6b9d;">${new Date(usage.date || usage.created_at || Date.now()).toLocaleString()}</td>
+                                                    <td style="padding: 8px; border: 1px solid #ff6b9d;">${promo.code}</td>
+                                                    <td style="padding: 8px; border: 1px solid #ff6b9d;">${promo.discount}%</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `;
+                        }
+
                         const promoDiv = document.createElement('div');
                         promoDiv.className = 'promocode-card';
                         promoDiv.innerHTML = `
@@ -2049,12 +2120,13 @@ async def admin_dashboard(request: Request):
                                 <span class="promocode-discount">${promo.discount}% OFF</span>
                             </div>
                             <p><strong>Created:</strong> ${new Date(promo.created_at).toLocaleString()}</p>
-                            <p><strong>Status:</strong> 
+                            <p><strong>Status:</strong>
                                 <span class="promocode-status ${promo.is_active ? 'status-active' : 'status-inactive'}">
                                     ${promo.is_active ? 'ACTIVE' : 'INACTIVE'}
                                 </span>
                             </p>
                             <p><strong>Used:</strong> ${promo.used_by ? promo.used_by.length : 0} times</p>
+                            ${activationsTable}
                             <div style="margin-top: 15px;">
                                 <button class="btn btn-warning" onclick="togglePromocode(${promo.id}, ${!promo.is_active})">
                                     ${promo.is_active ? 'Deactivate' : 'Activate'}
@@ -2139,6 +2211,72 @@ async def admin_dashboard(request: Request):
                 }
             }
 
+            // Bookings (Orders)
+            async function loadBookings() {
+                try {
+                    const response = await authFetch('/api/admin/bookings');
+                    const data = await response.json();
+                    const list = document.getElementById('bookings-list');
+                    list.innerHTML = '';
+
+                    if (data.orders.length === 0) {
+                        list.innerHTML = '<p>No orders yet</p>';
+                        return;
+                    }
+
+                    data.orders.forEach(order => {
+                        const orderDiv = document.createElement('div');
+                        orderDiv.className = 'profile-card';
+                        const statusBadge = order.status === 'unpaid'
+                            ? '<span style="background: #ff6b9d; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;">PENDING</span>'
+                            : '<span style="background: #4CAF50; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;">CONFIRMED</span>';
+
+                        orderDiv.innerHTML = `
+                            <div class="profile-header">
+                                <span class="profile-id">Order #${order.id}</span>
+                                <span class="profile-name">${order.profile_name || 'Unknown'}</span>
+                                ${statusBadge}
+                            </div>
+                            <p><strong>Crypto:</strong> ${order.crypto_type || 'N/A'}</p>
+                            <p><strong>Amount:</strong> ${order.crypto_amount || 'N/A'} ${order.crypto_type || ''}</p>
+                            <p><strong>Created:</strong> ${new Date(order.created_at).toLocaleString()}</p>
+                            ${order.status === 'booked' && order.booked_at ? `<p><strong>Confirmed:</strong> ${new Date(order.booked_at).toLocaleString()}</p>` : ''}
+                            ${order.status === 'unpaid' ? `
+                                <div style="margin-top: 15px;">
+                                    <button class="btn btn-success" onclick="confirmPayment(${order.id})">
+                                        Confirm Payment
+                                    </button>
+                                </div>
+                            ` : ''}
+                        `;
+                        list.appendChild(orderDiv);
+                    });
+
+                } catch (error) {
+                    console.error('Error loading bookings:', error);
+                }
+            }
+
+            async function confirmPayment(orderId) {
+                if (!confirm('Confirm payment for this order?')) return;
+
+                try {
+                    const response = await authFetch(`/api/admin/bookings/${orderId}/confirm`, {
+                        method: 'POST'
+                    });
+
+                    if (response.ok) {
+                        alert('Payment confirmed! Transaction success message sent to user.');
+                        loadBookings();
+                    } else {
+                        alert('Error confirming payment');
+                    }
+                } catch (error) {
+                    console.error('Error confirming payment:', error);
+                    alert('Error confirming payment');
+                }
+            }
+
             // Баннер
             async function loadBannerSettings() {
                 try {
@@ -2193,7 +2331,8 @@ async def admin_dashboard(request: Request):
                 }
             }
 
-            // VIP каталоги
+            // VIP каталоги - REMOVED
+            /*
             async function loadVipCatalogs() {
                 try {
                     const response = await authFetch('/api/admin/vip-catalogs');
@@ -2257,6 +2396,7 @@ async def admin_dashboard(request: Request):
                     alert('Error saving VIP catalogs settings');
                 }
             }
+            */
 
             // Загрузка фото для профиля
             document.getElementById('photo-upload').addEventListener('change', function(e) {
@@ -2450,13 +2590,19 @@ async def admin_dashboard(request: Request):
 @app.get("/api/stats")
 async def get_stats(current_user: str = Depends(get_current_user)):
     data = load_data()
+
+    # Подсчет непрочитанных сообщений (сообщения от пользователей)
+    unread_count = sum(1 for m in data.get("messages", [])
+                      if m.get("is_from_user", False))
+
     return {
         "profiles_count": len(data["profiles"]),
         "vip_profiles_count": len(data.get("vip_profiles", [])),
         "chats_count": len(data["chats"]),
         "messages_count": len(data["messages"]),
         "comments_count": len(data.get("comments", [])),
-        "promocodes_count": len(data.get("promocodes", []))
+        "promocodes_count": len(data.get("promocodes", [])),
+        "unread_messages_count": unread_count
     }
 
 
@@ -3003,6 +3149,68 @@ async def delete_admin_promocode(promocode_id: int, current_user: str = Depends(
     data["promocodes"] = [p for p in data["promocodes"] if p["id"] != promocode_id]
     save_data(data)
     return {"status": "deleted"}
+
+
+# Bookings (Orders) API
+@app.get("/api/admin/bookings")
+async def get_admin_bookings(current_user: str = Depends(get_current_user)):
+    """Получить все заказы (bookings)"""
+    data = load_data()
+    orders = data.get("orders", [])
+
+    # Добавляем информацию о профиле к каждому заказу
+    enriched_orders = []
+    for order in orders:
+        profile = next((p for p in data["profiles"] if p["id"] == order.get("profile_id")), None)
+        order_copy = order.copy()
+        order_copy["profile_name"] = profile["name"] if profile else "Unknown"
+        enriched_orders.append(order_copy)
+
+    return {"orders": enriched_orders}
+
+
+@app.post("/api/admin/bookings/{order_id}/confirm")
+async def confirm_booking_payment(order_id: int, current_user: str = Depends(get_current_user)):
+    """Подтвердить оплату заказа"""
+    data = load_data()
+
+    # Находим заказ
+    order = next((o for o in data.get("orders", []) if o.get("id") == order_id), None)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Обновляем статус
+    order["status"] = "booked"
+    order["booked_at"] = datetime.now().isoformat()
+
+    # Отправляем системное сообщение пользователю
+    profile_id = order.get("profile_id")
+    if profile_id:
+        profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+        if profile:
+            # Находим или создаем чат
+            chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+            if not chat:
+                chat = {
+                    "id": len(data["chats"]) + 1,
+                    "profile_id": profile_id,
+                    "profile_name": profile["name"],
+                    "created_at": datetime.now().isoformat()
+                }
+                data["chats"].append(chat)
+
+            # Создаем системное сообщение
+            system_message = {
+                "id": len(data["messages"]) + 1,
+                "chat_id": chat["id"],
+                "text": "Transaction successful, your booking has been confirmed",
+                "is_system": True,
+                "created_at": datetime.now().isoformat()
+            }
+            data["messages"].append(system_message)
+
+    save_data(data)
+    return {"status": "confirmed", "order_id": order_id}
 
 
 # Баннер API

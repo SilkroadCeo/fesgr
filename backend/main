@@ -748,6 +748,21 @@ async def get_user_orders(status: str = "all"):
 
     return {"orders": orders}
 
+@app.delete("/api/orders/{order_id}")
+async def delete_order(order_id: str):
+    """Удалить истекший ордер"""
+    data = load_data()
+
+    # Находим и удаляем платеж
+    initial_count = len(data.get("payments", []))
+    data["payments"] = [p for p in data.get("payments", []) if p.get("id") != order_id]
+
+    if len(data["payments"]) < initial_count:
+        save_data(data)
+        return {"status": "deleted", "order_id": order_id}
+    else:
+        raise HTTPException(status_code=404, detail="Order not found")
+
 @app.get("/api/translations/{lang}")
 async def get_translations(lang: str):
     """Получить переводы для указанного языка"""

@@ -1313,7 +1313,7 @@
             bottom: 0;
             left: 0;
             width: 100%;
-            height: 85%;
+            height: 75%;
             background: var(--surface);
             border-top-left-radius: 30px;
             border-top-right-radius: 30px;
@@ -1828,17 +1828,14 @@
 
         .nav-badge {
             position: absolute;
-            top: 5px;
+            top: 8px;
             right: 50%;
-            transform: translateX(10px);
-            background: var(--primary);
-            color: white;
-            border-radius: 10px;
-            padding: 2px 6px;
-            font-size: 10px;
-            font-weight: 700;
-            min-width: 18px;
-            text-align: center;
+            transform: translateX(15px);
+            background: #ff0000;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            font-size: 0;
         }
 
         /* Chats Page */
@@ -1963,7 +1960,8 @@
             font-weight: 700;
         }
 
-        .order-status.paid {
+        .order-status.paid,
+        .order-status.booked {
             background: rgba(40, 167, 69, 0.2);
             color: #28a745;
         }
@@ -1971,6 +1969,11 @@
         .order-status.unpaid {
             background: rgba(255, 193, 7, 0.2);
             color: #ffc107;
+        }
+
+        .order-status.expired {
+            background: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
         }
 
         .order-profile {
@@ -1999,6 +2002,7 @@
 
         /* Плавающая кнопка Telegram бота */
         .telegram-bot-btn {
+            display: none;
             position: fixed;
             bottom: 20px;
             right: 20px;
@@ -2006,7 +2010,6 @@
             height: 60px;
             background: linear-gradient(135deg, #0088cc, #00a0dc);
             border-radius: 50%;
-            display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
@@ -3402,7 +3405,7 @@
                     name: "VIP Catalog",
                     price: 199,
                     redirect_url: "https://t.me/vip_channel",
-                    visible: false,
+                    visible: true,
                     preview_count: 250,
                     preview_profiles: [
                         {name: "Diana", age: 16, city: "Moscow"},
@@ -3414,7 +3417,7 @@
                     name: "Extra VIP",
                     price: 699,
                     redirect_url: "https://t.me/extra_vip_channel",
-                    visible: false,
+                    visible: true,
                     preview_count: 300,
                     preview_profiles: [
                         {name: "Julia", age: 22, city: "Tokyo"},
@@ -3426,7 +3429,7 @@
                     name: "Secret Catalog",
                     price: 2499,
                     redirect_url: "https://t.me/secret_channel",
-                    visible: false,
+                    visible: true,
                     preview_count: 500,
                     preview_profiles: [
                         {name: "Sandy", age: 16, city: "Miami"},
@@ -4681,13 +4684,20 @@
             let timeRemaining = seconds;
             const timerDisplay = document.getElementById('timer-display');
 
-            // Обновляем таймер каждую секунду
-            paymentTimerInterval = setInterval(() => {
-                timeRemaining--;
-
+            // Обновляем дисплей сразу, чтобы показать правильное время
+            const updateDisplay = () => {
                 const minutes = Math.floor(timeRemaining / 60);
                 const secs = timeRemaining % 60;
                 timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            // Показываем начальное значение
+            updateDisplay();
+
+            // Обновляем таймер каждую секунду
+            paymentTimerInterval = setInterval(() => {
+                timeRemaining--;
+                updateDisplay();
 
                 // Когда время истекло
                 if (timeRemaining <= 0) {
@@ -5153,6 +5163,42 @@
                     return;
                 }
 
+                // Обработка expired booked ордеров
+                if (type === 'booked') {
+                    const now = Date.now();
+                    const expiredOrders = [];
+                    const activeOrders = [];
+
+                    data.orders.forEach(order => {
+                        if (order.expires_at && new Date(order.expires_at).getTime() < now) {
+                            order.isExpired = true;
+                            expiredOrders.push(order);
+                        } else {
+                            activeOrders.push(order);
+                        }
+                    });
+
+                    // Оставляем только 3 последних expired ордера
+                    if (expiredOrders.length > 3) {
+                        // Сортируем по дате создания (новые первыми)
+                        expiredOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+                        // Берем первые 3
+                        const ordersToKeep = expiredOrders.slice(0, 3);
+                        const ordersToDelete = expiredOrders.slice(3);
+
+                        // Удаляем старые expired ордера через API
+                        ordersToDelete.forEach(order => {
+                            fetch(`/api/orders/${order.id}`, {
+                                method: 'DELETE'
+                            }).catch(err => console.error('Error deleting expired order:', err));
+                        });
+
+                        // Обновляем список orders
+                        data.orders = [...activeOrders, ...ordersToKeep];
+                    }
+                }
+
                 data.orders.forEach(order => {
                     const orderItem = document.createElement('div');
                     orderItem.className = 'order-item';
@@ -5207,18 +5253,41 @@
                     // Создаем уникальный ID для таймера
                     const timerId = `timer-${order.id}`;
 
-                    // Добавляем зеленую рамку для подтвержденных booking
+                    // Добавляем рамку для booked ордеров
                     if (type === 'booked') {
-                        orderItem.style.border = '2px solid #28a745';
-                        orderItem.style.background = 'linear-gradient(135deg, rgba(40, 167, 69, 0.05), rgba(40, 167, 69, 0.1))';
+                        if (order.isExpired) {
+                            // Красная рамка для expired ордеров
+                            orderItem.style.border = '2px solid #dc3545';
+                            orderItem.style.background = 'linear-gradient(135deg, rgba(220, 53, 69, 0.05), rgba(220, 53, 69, 0.1))';
+                        } else {
+                            // Зеленую рамку для подтвержденных booking
+                            orderItem.style.border = '2px solid #28a745';
+                            orderItem.style.background = 'linear-gradient(135deg, rgba(40, 167, 69, 0.05), rgba(40, 167, 69, 0.1))';
+                        }
+                    }
+
+                    // Определяем статус и баннер
+                    let statusText = 'Pending';
+                    let statusClass = type;
+                    let bannerHtml = '';
+
+                    if (type === 'booked') {
+                        if (order.isExpired) {
+                            statusText = 'Expired';
+                            statusClass = 'expired';
+                            bannerHtml = '<div style="background: rgba(220, 53, 69, 0.2); border: 1px solid #dc3545; border-radius: 8px; padding: 8px; margin: 10px 0; text-align: center; color: #dc3545; font-weight: 600;">✗ Booking Expired</div>';
+                        } else {
+                            statusText = 'Confirmed';
+                            bannerHtml = '<div style="background: rgba(40, 167, 69, 0.2); border: 1px solid #28a745; border-radius: 8px; padding: 8px; margin: 10px 0; text-align: center; color: #28a745; font-weight: 600;">✓ Booking Confirmed</div>';
+                        }
                     }
 
                     orderItem.innerHTML = `
                         <div class="order-header">
                             <span style="font-weight: 700; color: var(--text);">Order #${order.id}</span>
-                            <span class="order-status ${type}">${type === 'booked' ? 'Confirmed' : 'Pending'}</span>
+                            <span class="order-status ${statusClass}">${statusText}</span>
                         </div>
-                        ${type === 'booked' ? '<div style="background: rgba(40, 167, 69, 0.2); border: 1px solid #28a745; border-radius: 8px; padding: 8px; margin: 10px 0; text-align: center; color: #28a745; font-weight: 600;">✓ Booking Confirmed</div>' : ''}
+                        ${bannerHtml}
                         <div class="order-profile">
                             <img src="${order.profile_photo || '/default-avatar.png'}" alt="${order.profile_name}" class="order-avatar">
                             <div>
