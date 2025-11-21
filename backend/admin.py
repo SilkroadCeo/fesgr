@@ -13,10 +13,18 @@ import hashlib
 import hmac
 import secrets
 import uuid
+import random
+import string
 from urllib.parse import parse_qs
 import asyncio
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
+
+# Генерация случайного 18-значного кода для ордеров
+def generate_order_code():
+    """Генерирует случайный 18-значный код из букв и цифр"""
+    characters = string.ascii_letters + string.digits  # a-z, A-Z, 0-9
+    return ''.join(random.choice(characters) for _ in range(18))
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -481,6 +489,33 @@ app.add_middleware(
 )
 
 
+# Фоновая задача для удаления просроченных заказов
+async def cleanup_expired_orders():
+    """Удаляет заказы, которые не оплачены в течение 1 часа"""
+    while True:
+        try:
+            data = load_data()
+            now = datetime.now()
+
+            # Фильтруем только непросроченные или оплаченные заказы
+            initial_count = len(data.get("orders", []))
+            data["orders"] = [
+                o for o in data.get("orders", [])
+                if o.get("status") != "unpaid" or
+                   (o.get("expires_at") and datetime.fromisoformat(o["expires_at"]) > now)
+            ]
+
+            deleted_count = initial_count - len(data["orders"])
+            if deleted_count > 0:
+                save_data(data)
+                logger.info(f"🗑️ Cleaned up {deleted_count} expired unpaid orders")
+
+            # Проверяем каждые 60 секунд
+            await asyncio.sleep(60)
+        except Exception as e:
+            logger.error(f"❌ Error cleaning up expired orders: {e}")
+            await asyncio.sleep(60)
+
 # Запуск обработчика Telegram updates в фоновом режиме
 @app.on_event("startup")
 async def startup_event():
@@ -490,6 +525,10 @@ async def startup_event():
         asyncio.create_task(process_telegram_updates())
     else:
         logger.warning("⚠️ Telegram bot not configured, skipping updates processor")
+
+    # Запуск задачи очистки просроченных заказов
+    logger.info("🧹 Starting expired orders cleanup task...")
+    asyncio.create_task(cleanup_expired_orders())
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -2320,7 +2359,7 @@ async def admin_dashboard(request: Request):
                                 ${photoHtml}
                                 <div style="flex: 1;">
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <span class="profile-id" style="font-size: 16px; font-weight: bold;">Order #${order.id}</span>
+                                        <span class="profile-id" style="font-size: 12px; font-weight: bold; word-break: break-all;">Order #${order.order_number || order.id}</span>
                                         ${statusBadge}
                                     </div>
                                     <div style="font-size: 18px; font-weight: 600; margin-top: 5px;">${order.profile_name || 'Unknown'}</div>
@@ -3274,6 +3313,9 @@ async def get_admin_bookings(current_user: str = Depends(get_current_user)):
     for order in orders:
         profile = next((p for p in data["profiles"] if p["id"] == order.get("profile_id")), None)
         order_copy = order.copy()
+        # Убедимся что order_number есть
+        if "order_number" not in order_copy or not order_copy.get("order_number"):
+            order_copy["order_number"] = str(order_copy.get("id", ""))
         if profile:
             order_copy["profile_name"] = profile["name"]
             order_copy["profile_photo"] = profile["photos"][0] if profile.get("photos") else None
