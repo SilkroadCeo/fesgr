@@ -465,19 +465,25 @@
 
         .notification-badge {
             position: absolute;
-            top: -5px;
-            right: -5px;
+            top: -2px;
+            right: -2px;
             background: var(--error);
-            color: white;
             border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: 700;
+            width: 10px;
+            height: 10px;
             border: 2px solid var(--background);
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 0.8;
+            }
         }
 
         @keyframes pulse {
@@ -2158,7 +2164,7 @@
                         <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
                         <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
-                    <span class="notification-badge">1</span>
+                    <span class="notification-badge"></span>
                 </div>
                 <div class="header-stats">
                     <div class="stat-item">
@@ -4823,18 +4829,10 @@
         function updatePendingPaymentBadges() {
             const count = pendingPayments.length;
 
-            // Обновляем иконку в хедере
+            // Обновляем иконку в хедере (красная точка)
             const icon = document.getElementById('pending-payment-icon');
             if (icon) {
-                if (count > 0) {
-                    icon.style.display = 'flex';
-                    const badge = icon.querySelector('.notification-badge');
-                    if (badge) {
-                        badge.textContent = count;
-                    }
-                } else {
-                    icon.style.display = 'none';
-                }
+                icon.style.display = count > 0 ? 'flex' : 'none';
             }
 
             // Обновляем badge в навигации
@@ -4848,6 +4846,41 @@
                 }
             }
         }
+
+        // Синхронизация localStorage с бэкендом - удаляет подтвержденные заказы
+        async function syncPendingPaymentsWithBackend() {
+            try {
+                // Получаем актуальные unpaid заказы с бэкенда
+                const response = await fetch('/api/user/orders?status=unpaid');
+                const data = await response.json();
+                const backendUnpaidIds = (data.orders || []).map(o => o.id);
+
+                // Фильтруем localStorage - оставляем только те, что еще unpaid на бэкенде
+                const now = Date.now();
+                const filteredPayments = pendingPayments.filter(p => {
+                    // Удаляем истекшие
+                    if (p.endTime <= now) return false;
+                    // Оставляем только если заказ еще unpaid на бэкенде
+                    return backendUnpaidIds.includes(p.id);
+                });
+
+                // Обновляем если есть изменения
+                if (filteredPayments.length !== pendingPayments.length) {
+                    pendingPayments = filteredPayments;
+                    if (pendingPayments.length > 0) {
+                        localStorage.setItem('pendingPayments', JSON.stringify(pendingPayments));
+                    } else {
+                        localStorage.removeItem('pendingPayments');
+                    }
+                    updatePendingPaymentBadges();
+                }
+            } catch (error) {
+                console.error('Error syncing pending payments:', error);
+            }
+        }
+
+        // Запускаем синхронизацию каждые 5 секунд
+        setInterval(syncPendingPaymentsWithBackend, 5000);
 
         function openPendingPayment(paymentId) {
             const payment = paymentId
@@ -4885,7 +4918,7 @@
                 .then(wallets => {
                     const walletAddress = wallets[payment.cryptoType];
                     if (walletAddress) {
-                        document.getElementById('wallet-address').textContent = walletAddress;
+                        document.getElementById('address-text').textContent = walletAddress;
                     }
                 })
                 .catch(error => console.error('Error loading wallet:', error));
@@ -4942,15 +4975,19 @@
                     document.getElementById('payment-selection').style.display = 'none';
                     paymentSuccess.style.display = 'block';
 
+                    // Отображаем адрес кошелька
+                    if (result.wallet_address) {
+                        document.getElementById('address-text').textContent = result.wallet_address;
+                    }
+
                     // Сохраняем незавершенный платеж
                     const startTime = Date.now();
                     const paymentId = result.order_id || Date.now();
                     savePendingPayment(currentProfile, amount, cryptoType, startTime, paymentId);
                     currentPendingPayment = pendingPayments.find(p => p.id === paymentId);
 
-                    // Запускаем таймер динамически на основе endTime
-                    const remainingSeconds = Math.floor((currentPendingPayment.endTime - Date.now()) / 1000);
-                    startPaymentTimer(remainingSeconds);
+                    // Запускаем таймер на 60 минут (3600 секунд)
+                    startPaymentTimer(3600);
                 } else {
                     throw new Error(result.message || 'Payment failed');
                 }
