@@ -3472,6 +3472,267 @@ async def delete_comment(profile_id: int, comment_id: int, current_user: str = D
     return {"status": "deleted", "comment": deleted_comment}
 
 
+# ==================== PAYMENTS API ====================
+# API для работы с payments (платежами) - дополнительно к orders (заказам)
+
+@app.get("/api/admin/payments")
+async def api_admin_payments(current_user: str = Depends(get_current_user)):
+    """Получить список всех платежей (enriched с информацией о профиле)"""
+    data = load_data()
+    payments = data.get("payments", [])
+
+    # Добавляем имя профиля для удобства
+    profiles = {p.get("id"): p for p in data.get("profiles", [])}
+    enriched = []
+    for p in payments:
+        pr = profiles.get(p.get("profile_id"))
+        enriched.append({
+            "id": p.get("id"),
+            "order_number": p.get("order_number"),
+            "profile_id": p.get("profile_id"),
+            "profile_name": pr.get("name") if pr else None,
+            "profile_photo": pr.get("photos", [None])[0] if pr and pr.get("photos") else None,
+            "amount": p.get("amount"),
+            "currency": p.get("currency"),
+            "wallet": p.get("wallet"),
+            "status": p.get("status"),
+            "created_at": p.get("created_at"),
+            "confirmed_at": p.get("confirmed_at", None)
+        })
+
+    # Сортируем: pending первыми, потом по дате (новые первыми)
+    enriched.sort(key=lambda x: (
+        0 if x.get("status") == "pending" else 1,
+        -(datetime.fromisoformat(x.get("created_at", "2000-01-01T00:00:00")).timestamp() if x.get("created_at") else 0)
+    ))
+    return {"payments": enriched}
+
+
+@app.post("/api/admin/payments/{payment_id}/confirm")
+async def api_confirm_payment(payment_id: str, current_user: str = Depends(get_current_user)):
+    """
+    Подтвердить платеж: переводит статус из 'pending' в 'booked'.
+    Также создает соответствующий order в массиве orders.
+    """
+    data = load_data()
+    payments = data.get("payments", [])
+
+    # Найдём платеж по id (строковый/числовой)
+    target = None
+    for p in payments:
+        if str(p.get("id")) == str(payment_id) or str(p.get("order_number")) == str(payment_id):
+            target = p
+            break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    if target.get("status") == "booked":
+        return {"detail": "Already booked", "payment": target}
+
+    # Меняем статус
+    target["status"] = "booked"
+    target["confirmed_at"] = datetime.now().isoformat()
+
+    # Генерируем order_number если его нет
+    if "order_number" not in target or target.get("order_number") in (None, ""):
+        existing_numbers = []
+        for p in payments:
+            on = p.get("order_number")
+            if isinstance(on, int):
+                existing_numbers.append(on)
+            elif isinstance(on, str) and on.isdigit():
+                existing_numbers.append(int(on))
+        next_num = (max(existing_numbers) + 1) if existing_numbers else 1
+        target["order_number"] = next_num
+
+    # Создаём order объект и добавляем в orders если его там нет
+    if "orders" not in data:
+        data["orders"] = []
+
+    order_obj = {
+        "id": target.get("id"),
+        "order_number": target.get("order_number"),
+        "profile_id": target.get("profile_id"),
+        "amount": target.get("amount"),
+        "total_amount": target.get("amount"),  # Для совместимости с frontend
+        "currency": target.get("currency"),
+        "crypto_type": target.get("wallet"),  # wallet -> crypto_type для совместимости
+        "status": "booked",
+        "created_at": target.get("created_at"),
+        "booked_at": target.get("confirmed_at"),
+        "confirmed_at": target.get("confirmed_at")
+    }
+
+    # Избегаем дубликатов
+    existing_order = next(
+        (o for o in data.get("orders", []) if str(o.get("id")) == str(order_obj["id"])),
+        None
+    )
+    if not existing_order:
+        data["orders"].append(order_obj)
+    else:
+        # Обновляем существующий order
+        existing_order["status"] = "booked"
+        existing_order["booked_at"] = target.get("confirmed_at")
+        existing_order["confirmed_at"] = target.get("confirmed_at")
+
+    # Отправляем системное сообщение в чат
+    profile_id = target.get("profile_id")
+    if profile_id:
+        profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
+        if profile:
+            # Находим или создаем чат
+            chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+            if not chat:
+                chat = {
+                    "id": len(data["chats"]) + 1,
+                    "profile_id": profile_id,
+                    "profile_name": profile["name"],
+                    "created_at": datetime.now().isoformat()
+                }
+                data["chats"].append(chat)
+
+            # Создаем системное сообщение
+            system_message = {
+                "id": len(data["messages"]) + 1,
+                "chat_id": chat["id"],
+                "text": "Transaction successful, your booking has been confirmed",
+                "is_system": True,
+                "created_at": datetime.now().isoformat()
+            }
+            data["messages"].append(system_message)
+
+    save_data(data)
+    logger.info(f"Admin {current_user} confirmed payment {payment_id}")
+
+    return {"detail": "confirmed", "payment": target}
+
+
+@app.post("/api/admin/notify_transaction")
+async def api_notify_transaction(request: Request):
+    """
+    Автоматическая обработка подтверждения транзакции.
+    Вызывается когда система получает текст подтверждения.
+    Если текст содержит ключевые слова, находит последний pending payment и подтверждает его.
+    """
+    body = await request.json()
+    text = body.get("text", "")
+    profile_id = body.get("profile_id")
+
+    data = load_data()
+    t = text.lower()
+
+    keywords = [
+        "transaction successful",
+        "booking has been confirmed",
+        "transaction успешный",
+        "оплата подтверждена",
+        "транзакция успешна",
+        "payment confirmed"
+    ]
+
+    if any(k in t for k in keywords):
+        payments = data.get("payments", [])
+        pending = None
+
+        if profile_id is not None:
+            # Ищем последний pending платёж для профиля
+            pending_list = [p for p in payments if p.get("profile_id") == profile_id and p.get("status") == "pending"]
+            pending_list.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+            pending = pending_list[0] if pending_list else None
+        else:
+            pending = next((p for p in payments if p.get("status") == "pending"), None)
+
+        if pending:
+            pending["status"] = "booked"
+            pending["confirmed_at"] = datetime.now().isoformat()
+
+            # Генерируем order_number если нет
+            if "order_number" not in pending or pending.get("order_number") in (None, ""):
+                existing_numbers = []
+                for p in payments:
+                    on = p.get("order_number")
+                    if isinstance(on, int):
+                        existing_numbers.append(on)
+                    elif isinstance(on, str) and on.isdigit():
+                        existing_numbers.append(int(on))
+                next_num = (max(existing_numbers) + 1) if existing_numbers else 1
+                pending["order_number"] = next_num
+
+            # Добавляем в orders
+            if "orders" not in data:
+                data["orders"] = []
+
+            order_obj = {
+                "id": pending.get("id"),
+                "order_number": pending.get("order_number"),
+                "profile_id": pending.get("profile_id"),
+                "amount": pending.get("amount"),
+                "total_amount": pending.get("amount"),
+                "currency": pending.get("currency"),
+                "crypto_type": pending.get("wallet"),
+                "status": "booked",
+                "created_at": pending.get("created_at"),
+                "booked_at": pending.get("confirmed_at"),
+                "confirmed_at": pending.get("confirmed_at")
+            }
+
+            # Избегаем дублей
+            exists = next(
+                (o for o in data["orders"] if str(o.get("id")) == str(order_obj["id"])),
+                None
+            )
+            if not exists:
+                data["orders"].append(order_obj)
+            else:
+                exists["status"] = "booked"
+                exists["booked_at"] = pending.get("confirmed_at")
+
+            save_data(data)
+            logger.info(f"Auto-confirmed pending payment id={pending.get('id')} for profile {pending.get('profile_id')}")
+            return {"detail": "auto confirmed", "payment": pending}
+        else:
+            return {"detail": "no pending payment found"}
+
+    return {"detail": "text did not match confirmation keywords", "text": text}
+
+
+@app.get("/api/admin/orders_list")
+async def api_admin_orders_list(current_user: str = Depends(get_current_user)):
+    """Получить список всех orders (альтернативный endpoint)"""
+    data = load_data()
+    orders = data.get("orders", [])
+
+    # Enrich with profile name
+    profiles = {p.get("id"): p for p in data.get("profiles", [])}
+    enriched = []
+    for o in orders:
+        pr = profiles.get(o.get("profile_id"))
+        enriched.append({
+            "id": o.get("id"),
+            "order_number": o.get("order_number"),
+            "profile_id": o.get("profile_id"),
+            "profile_name": pr.get("name") if pr else None,
+            "profile_photo": pr.get("photos", [None])[0] if pr and pr.get("photos") else None,
+            "amount": o.get("amount"),
+            "total_amount": o.get("total_amount", o.get("amount")),
+            "currency": o.get("currency"),
+            "crypto_type": o.get("crypto_type"),
+            "status": o.get("status"),
+            "created_at": o.get("created_at"),
+            "booked_at": o.get("booked_at"),
+            "confirmed_at": o.get("confirmed_at")
+        })
+
+    # Сортируем: unpaid первыми, потом по дате
+    enriched.sort(key=lambda x: (
+        0 if x.get("status") == "unpaid" else 1,
+        -(datetime.fromisoformat(x.get("created_at", "2000-01-01T00:00:00")).timestamp() if x.get("created_at") else 0)
+    ))
+    return {"orders": enriched}
+
+
 if __name__ == "__main__":
     print("🚀 Admin panel Muji запущена: http://localhost:8002")
     print("🔑 Логин: admin | Пароль: admin123")
