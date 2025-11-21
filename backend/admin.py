@@ -2231,7 +2231,7 @@ async def admin_dashboard(request: Request):
                     const list = document.getElementById('bookings-list');
                     list.innerHTML = '';
 
-                    if (data.orders.length === 0) {
+                    if (!data || !data.orders || data.orders.length === 0) {
                         list.innerHTML = '<p>No orders yet</p>';
                         return;
                     }
@@ -2301,9 +2301,23 @@ async def admin_dashboard(request: Request):
                             }
                         }
 
+                        // Создаем фото если есть
+                        const borderColor = order.status === 'unpaid' ? '#ff6b9d' : '#4CAF50';
+                        const photoHtml = order.profile_photo
+                            ? '<img src="' + order.profile_photo + '" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid ' + borderColor + ';">'
+                            : '';
+
+                        const confirmedDateHtml = (order.status === 'booked' && order.booked_at)
+                            ? '<p style="font-size: 13px; color: #4CAF50;"><strong>✅ Confirmed:</strong> ' + new Date(order.booked_at).toLocaleString() + '</p>'
+                            : '';
+
+                        const confirmButtonHtml = order.status === 'unpaid'
+                            ? '<div style="margin-top: 15px;"><button class="btn btn-success" onclick="confirmPayment(' + order.id + ')" style="width: 100%; padding: 12px; font-size: 16px; font-weight: bold;">✓ Confirm Payment</button></div>'
+                            : '';
+
                         orderDiv.innerHTML = `
                             <div class="profile-header" style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                                ${order.profile_photo ? `<img src="${order.profile_photo}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid ${order.status === 'unpaid' ? '#ff6b9d' : '#4CAF50'};">` : ''}
+                                ${photoHtml}
                                 <div style="flex: 1;">
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
                                         <span class="profile-id" style="font-size: 16px; font-weight: bold;">Order #${order.id}</span>
@@ -2321,20 +2335,16 @@ async def admin_dashboard(request: Request):
                                 <p><strong>💵 Total:</strong> $${order.total_amount || 0}</p>
                             </div>
                             <p style="font-size: 13px; color: #666;"><strong>📅 Created:</strong> ${new Date(order.created_at).toLocaleString()}</p>
-                            ${order.status === 'booked' && order.booked_at ? `<p style="font-size: 13px; color: #4CAF50;"><strong>✅ Confirmed:</strong> ${new Date(order.booked_at).toLocaleString()}</p>` : ''}
-                            ${order.status === 'unpaid' ? `
-                                <div style="margin-top: 15px;">
-                                    <button class="btn btn-success" onclick="confirmPayment(${order.id})" style="width: 100%; padding: 12px; font-size: 16px; font-weight: bold;">
-                                        ✓ Confirm Payment
-                                    </button>
-                                </div>
-                            ` : ''}
+                            ${confirmedDateHtml}
+                            ${confirmButtonHtml}
                         `;
                         list.appendChild(orderDiv);
                     });
 
                 } catch (error) {
                     console.error('Error loading bookings:', error);
+                    const list = document.getElementById('bookings-list');
+                    list.innerHTML = '<div style="color: red; padding: 20px;">Error loading bookings. Check console for details.</div>';
                 }
             }
 
@@ -2358,7 +2368,7 @@ async def admin_dashboard(request: Request):
                         // Показываем уведомление об успехе
                         const notification = document.createElement('div');
                         notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4CAF50; color: white; padding: 20px 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10000; font-size: 16px; font-weight: bold;';
-                        notification.innerHTML = '✅ Payment confirmed! Order moved to user\'s bookings';
+                        notification.innerHTML = '✅ Payment confirmed! Order moved to user bookings';
                         document.body.appendChild(notification);
 
                         // Удаляем уведомление через 3 секунды
