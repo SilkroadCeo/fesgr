@@ -670,30 +670,67 @@ async def validate_promocode(validation: dict):
 # Система оплаты
 @app.post("/api/payment/crypto")
 async def process_crypto_payment(payment_data: dict):
-    """Обработка крипто-платежа"""
+    """Обработка крипто-платежа - создает заказ в orders"""
     data = load_data()
 
-    # Логируем платеж
-    payment_log = {
-        "id": generate_order_code(),  # Генерируем 18-значный код
-        "order_number": len(data.get("payments", [])) + 1,  # Порядковый номер для отображения
-        "profile_id": payment_data["profile_id"],
-        "amount": payment_data["amount"],
-        "currency": payment_data["currency"],
-        "wallet": payment_data["wallet"],
-        "status": "pending",  # Изменено на pending для ожидания подтверждения
-        "created_at": datetime.now().isoformat()
-    }
+    profile_id = payment_data["profile_id"]
+    amount = float(payment_data["amount"])
+    currency = payment_data.get("currency", "USD")
+    wallet_type = payment_data.get("wallet")
 
-    if "payments" not in data:
-        data["payments"] = []
-    data["payments"].append(payment_log)
+    if not profile_id or amount <= 0:
+        raise HTTPException(status_code=400, detail="Invalid payment data")
+
+    # Применяем бонус 5%
+    bonus_percentage = data.get("settings", {}).get("bonus_percentage", 5)
+    bonus_amount = amount * (bonus_percentage / 100)
+    total_amount = amount + bonus_amount
+
+    if "orders" not in data:
+        data["orders"] = []
+
+    # Ищем существующий unpaid order для этого профиля
+    existing_order = next((o for o in data["orders"]
+                          if o.get("profile_id") == profile_id and o.get("status") == "unpaid"), None)
+
+    if existing_order:
+        # Обновляем существующий order
+        existing_order["amount"] = amount
+        existing_order["bonus_amount"] = bonus_amount
+        existing_order["total_amount"] = total_amount
+        existing_order["crypto_type"] = wallet_type
+        existing_order["currency"] = currency
+        existing_order["expires_at"] = (datetime.now() + timedelta(hours=1)).isoformat()
+        order = existing_order
+        print(f"💰 Updated existing order #{order['id']}: ${amount} + {bonus_percentage}% bonus = ${total_amount}")
+    else:
+        # Создаем новый order с числовым ID
+        max_id = max([o.get("id", 0) for o in data["orders"]], default=0)
+        order = {
+            "id": max_id + 1,
+            "profile_id": profile_id,
+            "amount": amount,
+            "bonus_amount": bonus_amount,
+            "total_amount": total_amount,
+            "crypto_type": wallet_type,
+            "currency": currency,
+            "status": "unpaid",
+            "created_at": datetime.now().isoformat(),
+            "expires_at": (datetime.now() + timedelta(hours=1)).isoformat()
+        }
+        data["orders"].append(order)
+        print(f"💰 New payment order created #{order['id']}: ${amount} + {bonus_percentage}% bonus = ${total_amount}")
+
     save_data(data)
 
     return {
-        "status": "pending",
-        "message": "Payment is being processed",
-        "payment_id": payment_log["id"]
+        "status": "success",
+        "order_id": order["id"],
+        "amount": amount,
+        "bonus_amount": bonus_amount,
+        "total_amount": total_amount,
+        "wallet_address": data.get("settings", {}).get("crypto_wallets", {}).get(wallet_type, ""),
+        "expires_in": 3600
     }
 
 @app.get("/api/user/orders")
@@ -724,7 +761,7 @@ async def get_user_orders(status: str = "all"):
             "profile_photo": profile.get("photos", [None])[0] if profile.get("photos") else None,
             "amount": order.get("total_amount", order.get("amount", 0)),
             "currency": order.get("currency", "USD"),
-            "wallet": order.get("crypto_type"),
+            "crypto_type": order.get("crypto_type"),
             "status": order.get("status"),
             "created_at": order.get("created_at"),
             "booked_at": order.get("booked_at"),
