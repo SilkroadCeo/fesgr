@@ -2341,19 +2341,39 @@ async def admin_dashboard(request: Request):
             async function confirmPayment(orderId) {
                 if (!confirm('Confirm payment for this order?')) return;
 
+                // Показываем индикатор загрузки
+                const list = document.getElementById('bookings-list');
+                const originalContent = list.innerHTML;
+                list.innerHTML = '<div style="text-align: center; padding: 40px; font-size: 18px; color: #667eea;"><div style="display: inline-block; animation: pulse 1s infinite;">⏳ Confirming payment...</div></div>';
+
                 try {
                     const response = await authFetch(`/api/admin/bookings/${orderId}/confirm`, {
                         method: 'POST'
                     });
 
                     if (response.ok) {
-                        alert('Payment confirmed! Transaction success message sent to user.');
-                        loadBookings();
+                        // Мгновенно обновляем список
+                        await loadBookings();
+
+                        // Показываем уведомление об успехе
+                        const notification = document.createElement('div');
+                        notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4CAF50; color: white; padding: 20px 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10000; font-size: 16px; font-weight: bold;';
+                        notification.innerHTML = '✅ Payment confirmed! Order moved to user\'s bookings';
+                        document.body.appendChild(notification);
+
+                        // Удаляем уведомление через 3 секунды
+                        setTimeout(() => {
+                            notification.style.transition = 'opacity 0.5s';
+                            notification.style.opacity = '0';
+                            setTimeout(() => notification.remove(), 500);
+                        }, 3000);
                     } else {
+                        list.innerHTML = originalContent;
                         alert('Error confirming payment');
                     }
                 } catch (error) {
                     console.error('Error confirming payment:', error);
+                    list.innerHTML = originalContent;
                     alert('Error confirming payment');
                 }
             }
