@@ -700,46 +700,36 @@ async def process_crypto_payment(payment_data: dict):
 async def get_user_orders(status: str = "all"):
     """Получить список заказов пользователя (booked/unpaid/all)"""
     data = load_data()
-    payments = data.get("payments", [])
+    all_orders = data.get("orders", [])
 
-    # Фильтруем платежи по статусу
+    # Фильтруем ордера по статусу
     if status == "booked":
-        filtered_payments = [p for p in payments if p.get("status") in ["completed", "booked"]]
+        filtered_orders = [o for o in all_orders if o.get("status") == "booked"]
     elif status == "unpaid":
-        filtered_payments = [p for p in payments if p.get("status") == "pending"]
+        filtered_orders = [o for o in all_orders if o.get("status") == "unpaid"]
     else:
-        filtered_payments = payments
+        filtered_orders = all_orders
 
     orders = []
-    for payment in filtered_payments:
+    for order in filtered_orders:
         # Получаем профиль
-        profile = next((p for p in data["profiles"] if p["id"] == payment["profile_id"]), None)
+        profile = next((p for p in data["profiles"] if p["id"] == order["profile_id"]), None)
         if not profile:
             continue
 
         order_item = {
-            "id": payment["id"],
-            "profile_id": payment["profile_id"],
+            "id": order["id"],
+            "profile_id": order["profile_id"],
             "profile_name": profile.get("name", "Unknown"),
             "profile_photo": profile.get("photos", [None])[0] if profile.get("photos") else None,
-            "amount": payment.get("amount"),
-            "currency": payment.get("currency", "USD"),
-            "wallet": payment.get("wallet"),
-            "status": payment.get("status"),
-            "created_at": payment.get("created_at"),
-            # Добавляем время истечения (60 минут от создания) для pending платежей
-            "expires_at": None
+            "amount": order.get("total_amount", order.get("amount", 0)),
+            "currency": order.get("currency", "USD"),
+            "wallet": order.get("crypto_type"),
+            "status": order.get("status"),
+            "created_at": order.get("created_at"),
+            "booked_at": order.get("booked_at"),
+            "expires_at": order.get("expires_at")
         }
-
-        # Если платеж pending, добавляем время истечения
-        if payment.get("status") == "pending" and payment.get("created_at"):
-            from datetime import datetime, timedelta
-            try:
-                created_time = datetime.fromisoformat(payment["created_at"])
-                expires_time = created_time + timedelta(hours=1)
-                order_item["expires_at"] = expires_time.isoformat()
-            except:
-                pass
 
         orders.append(order_item)
 
@@ -749,15 +739,15 @@ async def get_user_orders(status: str = "all"):
     return {"orders": orders}
 
 @app.delete("/api/orders/{order_id}")
-async def delete_order(order_id: str):
+async def delete_order(order_id: int):
     """Удалить истекший ордер"""
     data = load_data()
 
-    # Находим и удаляем платеж
-    initial_count = len(data.get("payments", []))
-    data["payments"] = [p for p in data.get("payments", []) if p.get("id") != order_id]
+    # Находим и удаляем ордер
+    initial_count = len(data.get("orders", []))
+    data["orders"] = [o for o in data.get("orders", []) if o.get("id") != order_id]
 
-    if len(data["payments"]) < initial_count:
+    if len(data["orders"]) < initial_count:
         save_data(data)
         return {"status": "deleted", "order_id": order_id}
     else:

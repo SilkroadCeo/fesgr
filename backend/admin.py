@@ -2236,10 +2236,13 @@ async def admin_dashboard(request: Request):
                                 <span class="profile-name">${order.profile_name || 'Unknown'}</span>
                                 ${statusBadge}
                             </div>
-                            <p><strong>Crypto:</strong> ${order.crypto_type || 'N/A'}</p>
-                            <p><strong>Amount:</strong> ${order.crypto_amount || 'N/A'} ${order.crypto_type || ''}</p>
+                            <p><strong>Crypto Type:</strong> ${order.crypto_type || 'N/A'}</p>
+                            <p><strong>Amount:</strong> $${order.amount || 0}</p>
+                            <p><strong>Bonus:</strong> $${order.bonus_amount || 0}</p>
+                            <p><strong>Total Amount:</strong> $${order.total_amount || 0}</p>
                             <p><strong>Created:</strong> ${new Date(order.created_at).toLocaleString()}</p>
                             ${order.status === 'booked' && order.booked_at ? `<p><strong>Confirmed:</strong> ${new Date(order.booked_at).toLocaleString()}</p>` : ''}
+                            ${order.status === 'unpaid' && order.expires_at ? `<p><strong>Expires:</strong> ${new Date(order.expires_at).toLocaleString()}</p>` : ''}
                             ${order.status === 'unpaid' ? `
                                 <div style="margin-top: 15px;">
                                     <button class="btn btn-success" onclick="confirmPayment(${order.id})">
