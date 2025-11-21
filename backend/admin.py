@@ -2936,6 +2936,15 @@ async def send_system_message(profile_id: int, message_data: dict, current_user:
     }
 
     data["messages"].append(system_message)
+
+    # Если это сообщение об успешной транзакции, меняем статус платежа на "booked"
+    if "transaction successful" in message_data["text"].lower() or "booking has been confirmed" in message_data["text"].lower():
+        # Находим pending платеж для этого профиля
+        pending_payment = next((p for p in data.get("payments", []) if p["profile_id"] == profile_id and p.get("status") == "pending"), None)
+        if pending_payment:
+            pending_payment["status"] = "booked"
+            pending_payment["confirmed_at"] = datetime.now().isoformat()
+
     save_data(data)
 
     return {"status": "sent", "message_id": system_message["id"]}
