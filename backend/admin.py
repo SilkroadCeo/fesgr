@@ -1608,17 +1608,30 @@ async def admin_dashboard(request: Request):
             };
 
             // Функции для переключения вкладок
+            // Хранение интервала для автообновления bookings
+            let bookingsRefreshInterval = null;
+
             function showTab(tabName) {
                 document.querySelectorAll('.content').forEach(tab => tab.classList.remove('active'));
                 document.querySelectorAll('.tab').forEach(btn => btn.classList.remove('active'));
                 document.getElementById(tabName).classList.add('active');
                 event.target.classList.add('active');
 
+                // Останавливаем автообновление bookings при переключении
+                if (bookingsRefreshInterval) {
+                    clearInterval(bookingsRefreshInterval);
+                    bookingsRefreshInterval = null;
+                }
+
                 if (tabName === 'profiles') loadProfiles();
                 if (tabName === 'chats') loadChats();
                 if (tabName === 'comments') loadCommentsAdmin();
                 if (tabName === 'promocodes') loadPromocodes();
-                if (tabName === 'bookings') loadBookings();
+                if (tabName === 'bookings') {
+                    loadBookings();
+                    // Автообновление каждые 5 секунд
+                    bookingsRefreshInterval = setInterval(loadBookings, 5000);
+                }
                 if (tabName === 'banner-settings') loadBannerSettings();
                 if (tabName === 'crypto-settings') loadCryptoWallets();
                 // if (tabName === 'vip-catalogs') loadVipCatalogs(); // Removed
@@ -2223,30 +2236,96 @@ async def admin_dashboard(request: Request):
                         return;
                     }
 
+                    // Подсчитываем pending ордера
+                    const pendingCount = data.orders.filter(o => o.status === 'unpaid').length;
+                    const confirmedCount = data.orders.filter(o => o.status === 'booked').length;
+
+                    // Добавляем заголовок со статистикой
+                    const headerDiv = document.createElement('div');
+                    headerDiv.style.cssText = 'margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; color: white;';
+                    headerDiv.innerHTML = `
+                        <div style="display: flex; justify-content: space-around; text-align: center;">
+                            <div>
+                                <div style="font-size: 32px; font-weight: bold;">${pendingCount}</div>
+                                <div style="font-size: 14px; opacity: 0.9;">Pending Orders</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 32px; font-weight: bold;">${confirmedCount}</div>
+                                <div style="font-size: 14px; opacity: 0.9;">Confirmed Orders</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 32px; font-weight: bold;">${data.orders.length}</div>
+                                <div style="font-size: 14px; opacity: 0.9;">Total Orders</div>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(headerDiv);
+
                     data.orders.forEach(order => {
                         const orderDiv = document.createElement('div');
                         orderDiv.className = 'profile-card';
+
+                        // Добавляем специальное оформление для pending
+                        if (order.status === 'unpaid') {
+                            orderDiv.style.border = '2px solid #ff6b9d';
+                            orderDiv.style.background = 'linear-gradient(135deg, rgba(255, 107, 157, 0.05), rgba(255, 107, 157, 0.1))';
+                        } else {
+                            orderDiv.style.border = '2px solid #4CAF50';
+                            orderDiv.style.background = 'linear-gradient(135deg, rgba(76, 175, 80, 0.05), rgba(76, 175, 80, 0.1))';
+                        }
+
                         const statusBadge = order.status === 'unpaid'
-                            ? '<span style="background: #ff6b9d; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;">PENDING</span>'
-                            : '<span style="background: #4CAF50; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;">CONFIRMED</span>';
+                            ? '<span style="background: #ff6b9d; color: white; padding: 6px 14px; border-radius: 12px; font-size: 12px; font-weight: bold; animation: pulse 2s infinite;">⏳ PENDING</span>'
+                            : '<span style="background: #4CAF50; color: white; padding: 6px 14px; border-radius: 12px; font-size: 12px; font-weight: bold;">✓ CONFIRMED</span>';
+
+                        const cryptoTypeDisplay = {
+                            'trc20': 'USDT (TRC20)',
+                            'erc20': 'USDT (ERC20)',
+                            'bnb': 'BNB (BEP20)',
+                            'btc': 'Bitcoin'
+                        };
+
+                        // Вычисляем оставшееся время для pending
+                        let timerHtml = '';
+                        if (order.status === 'unpaid' && order.expires_at) {
+                            const expiresTime = new Date(order.expires_at).getTime();
+                            const now = Date.now();
+                            const remainingMs = expiresTime - now;
+
+                            if (remainingMs > 0) {
+                                const minutes = Math.floor(remainingMs / 60000);
+                                const seconds = Math.floor((remainingMs % 60000) / 1000);
+                                timerHtml = `<p style="color: #ff6b9d; font-weight: bold; font-size: 16px;"><strong>⏰ Expires in:</strong> ${minutes}m ${seconds}s</p>`;
+                            } else {
+                                timerHtml = `<p style="color: #dc3545; font-weight: bold;"><strong>❌ Expired</strong></p>`;
+                            }
+                        }
 
                         orderDiv.innerHTML = `
-                            <div class="profile-header">
-                                <span class="profile-id">Order #${order.id}</span>
-                                <span class="profile-name">${order.profile_name || 'Unknown'}</span>
-                                ${statusBadge}
+                            <div class="profile-header" style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                                ${order.profile_photo ? `<img src="${order.profile_photo}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid ${order.status === 'unpaid' ? '#ff6b9d' : '#4CAF50'};">` : ''}
+                                <div style="flex: 1;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span class="profile-id" style="font-size: 16px; font-weight: bold;">Order #${order.id}</span>
+                                        ${statusBadge}
+                                    </div>
+                                    <div style="font-size: 18px; font-weight: 600; margin-top: 5px;">${order.profile_name || 'Unknown'}</div>
+                                    <div style="font-size: 13px; color: #666; margin-top: 2px;">📍 ${order.profile_city || 'Unknown'}</div>
+                                </div>
                             </div>
-                            <p><strong>Crypto Type:</strong> ${order.crypto_type || 'N/A'}</p>
-                            <p><strong>Amount:</strong> $${order.amount || 0}</p>
-                            <p><strong>Bonus:</strong> $${order.bonus_amount || 0}</p>
-                            <p><strong>Total Amount:</strong> $${order.total_amount || 0}</p>
-                            <p><strong>Created:</strong> ${new Date(order.created_at).toLocaleString()}</p>
-                            ${order.status === 'booked' && order.booked_at ? `<p><strong>Confirmed:</strong> ${new Date(order.booked_at).toLocaleString()}</p>` : ''}
-                            ${order.status === 'unpaid' && order.expires_at ? `<p><strong>Expires:</strong> ${new Date(order.expires_at).toLocaleString()}</p>` : ''}
+                            ${timerHtml}
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0;">
+                                <p><strong>💎 Crypto:</strong> ${cryptoTypeDisplay[order.crypto_type] || order.crypto_type || 'N/A'}</p>
+                                <p><strong>💰 Amount:</strong> $${order.amount || 0}</p>
+                                <p><strong>🎁 Bonus:</strong> $${order.bonus_amount || 0}</p>
+                                <p><strong>💵 Total:</strong> $${order.total_amount || 0}</p>
+                            </div>
+                            <p style="font-size: 13px; color: #666;"><strong>📅 Created:</strong> ${new Date(order.created_at).toLocaleString()}</p>
+                            ${order.status === 'booked' && order.booked_at ? `<p style="font-size: 13px; color: #4CAF50;"><strong>✅ Confirmed:</strong> ${new Date(order.booked_at).toLocaleString()}</p>` : ''}
                             ${order.status === 'unpaid' ? `
                                 <div style="margin-top: 15px;">
-                                    <button class="btn btn-success" onclick="confirmPayment(${order.id})">
-                                        Confirm Payment
+                                    <button class="btn btn-success" onclick="confirmPayment(${order.id})" style="width: 100%; padding: 12px; font-size: 16px; font-weight: bold;">
+                                        ✓ Confirm Payment
                                     </button>
                                 </div>
                             ` : ''}
@@ -3165,8 +3244,21 @@ async def get_admin_bookings(current_user: str = Depends(get_current_user)):
     for order in orders:
         profile = next((p for p in data["profiles"] if p["id"] == order.get("profile_id")), None)
         order_copy = order.copy()
-        order_copy["profile_name"] = profile["name"] if profile else "Unknown"
+        if profile:
+            order_copy["profile_name"] = profile["name"]
+            order_copy["profile_photo"] = profile["photos"][0] if profile.get("photos") else None
+            order_copy["profile_city"] = profile.get("city", "Unknown")
+        else:
+            order_copy["profile_name"] = "Unknown"
+            order_copy["profile_photo"] = None
+            order_copy["profile_city"] = "Unknown"
         enriched_orders.append(order_copy)
+
+    # Сортируем: pending первыми, потом по дате создания (новые первыми)
+    enriched_orders.sort(key=lambda x: (
+        0 if x.get("status") == "unpaid" else 1,
+        -1 * int(datetime.fromisoformat(x.get("created_at", "2000-01-01T00:00:00")).timestamp())
+    ))
 
     return {"orders": enriched_orders}
 
