@@ -2701,6 +2701,19 @@
             console.log('Telegram Web App initialized', telegramUser);
         }
 
+        // Helper function to get telegram_user_id for API calls
+        function getTelegramUserId() {
+            return telegramUser?.id ? String(telegramUser.id) : null;
+        }
+
+        // Helper function to add telegram_user_id to URL
+        function addTelegramUserParam(url) {
+            const userId = getTelegramUserId();
+            if (!userId) return url;
+            const separator = url.includes('?') ? '&' : '?';
+            return `${url}${separator}telegram_user_id=${userId}`;
+        }
+
         // ==================== PWA INSTALLATION ====================
         let deferredPrompt;
         let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -4187,7 +4200,7 @@
             if (!currentProfile) return;
 
             try {
-                const response = await fetch(`/api/chats/${currentProfile.id}/messages`);
+                const response = await fetch(addTelegramUserParam(`/api/chats/${currentProfile.id}/messages`));
                 const data = await response.json();
 
                 // Пользователь может комментировать, если есть системное сообщение о завершенной транзакции
@@ -4705,7 +4718,7 @@
         // Загрузка истории чата
         async function loadChatHistory() {
             try {
-                const response = await fetch(`/api/chats/${currentProfile.id}/messages`);
+                const response = await fetch(addTelegramUserParam(`/api/chats/${currentProfile.id}/messages`));
                 const data = await response.json();
 
                 chatBody.innerHTML = '';
@@ -4802,7 +4815,7 @@
             if (!currentProfile) return;
 
             try {
-                const response = await fetch(`/api/chats/${currentProfile.id}/updates?last_message_id=${lastMessageId}`);
+                const response = await fetch(addTelegramUserParam(`/api/chats/${currentProfile.id}/updates?last_message_id=${lastMessageId}`));
                 const data = await response.json();
 
                 if (data.messages.length > 0) {
@@ -4863,7 +4876,7 @@
                 if (messageText) formData.append('text', messageText);
                 if (file) formData.append('file', file);
 
-                const response = await fetch(`/api/chats/${currentProfile.id}/messages`, {
+                const response = await fetch(addTelegramUserParam(`/api/chats/${currentProfile.id}/messages`), {
                     method: 'POST',
                     body: formData
                 });
@@ -5147,7 +5160,7 @@
         async function syncPendingPaymentsWithBackend() {
             try {
                 // Получаем актуальные unpaid заказы с бэкенда
-                const response = await fetch('/api/user/orders?status=unpaid');
+                const response = await fetch(addTelegramUserParam('/api/user/orders?status=unpaid'));
                 const data = await response.json();
                 const backendUnpaidIds = (data.orders || []).map(o => o.id);
 
@@ -5260,7 +5273,8 @@
                         profile_id: currentProfile.id,
                         amount: amount,
                         currency: 'USD',
-                        wallet: cryptoType
+                        wallet: cryptoType,
+                        telegram_user_id: getTelegramUserId()
                     })
                 });
 
@@ -5344,7 +5358,7 @@
             container.innerHTML = `<div class="loading">${translations.loading_chats || 'Loading chats...'}</div>`;
 
             try {
-                const response = await fetch('/api/user/chats');
+                const response = await fetch(addTelegramUserParam('/api/user/chats'));
                 const data = await response.json();
 
                 container.innerHTML = '';
@@ -5427,7 +5441,7 @@
 
         async function markChatAsRead(profileId) {
             try {
-                await fetch(`/api/chats/${profileId}/mark_read`, {
+                await fetch(addTelegramUserParam(`/api/chats/${profileId}/mark_read`), {
                     method: 'POST'
                 });
                 // Обновляем счетчики чатов после пометки как прочитанного
@@ -5440,7 +5454,7 @@
         // Периодическое обновление счетчиков чатов
         async function updateChatBadges() {
             try {
-                const response = await fetch('/api/user/chats');
+                const response = await fetch(addTelegramUserParam('/api/user/chats'));
                 const data = await response.json();
 
                 if (data.chats) {
@@ -5485,7 +5499,7 @@
             container.innerHTML = `<div class="loading">${translations.loading_orders || 'Loading orders...'}</div>`;
 
             try {
-                const response = await fetch(`/api/user/orders?status=${type}`);
+                const response = await fetch(addTelegramUserParam(`/api/user/orders?status=${type}`));
                 const data = await response.json();
 
                 container.innerHTML = '';
