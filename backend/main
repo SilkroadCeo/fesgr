@@ -85,6 +85,10 @@ async def startup_event():
 # Раздаем статические файлы
 if os.path.exists(frontend_dir):
     app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+    # Mount icons directory for PWA icons
+    icons_dir = os.path.join(frontend_dir, "icons")
+    if os.path.exists(icons_dir):
+        app.mount("/icons", StaticFiles(directory=icons_dir), name="icons")
 
 # Раздаем загруженные файлы
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
@@ -320,6 +324,11 @@ def get_file_type(filename: str) -> str:
 @app.get("/")
 async def main():
     return FileResponse(os.path.join(frontend_dir, "index.html"))
+
+@app.get("/manifest.json")
+async def get_manifest():
+    """Serve PWA manifest file"""
+    return FileResponse(os.path.join(frontend_dir, "manifest.json"))
 
 @app.get("/api/profiles")
 async def get_profiles(
