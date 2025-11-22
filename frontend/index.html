@@ -2952,7 +2952,6 @@
                 anonymous_user: "Anonymous User",
                 no_profiles: "No profiles found",
                 promocode_invalid: "Invalid promo code",
-                welcome_message: "Hello! How can I help you?",
                 download: "Download",
                 copied: "Copied to clipboard",
                 unlock_access: "Unlock Access",
@@ -3064,7 +3063,6 @@
                 ios_got_it: "Entendido",
                 no_profiles: "No se encontraron perfiles",
                 promocode_invalid: "Código promocional inválido",
-                welcome_message: "¡Hola! ¿Cómo puedo ayudarte?",
                 download: "Descargar",
                 copied: "Copiado al portapapeles",
                 unlock_access: "Desbloquear acceso",
@@ -3176,7 +3174,6 @@
                 ios_got_it: "فهمت",
                 no_profiles: "لم يتم العثور على ملفات",
                 promocode_invalid: "رمز ترويجي غير صالح",
-                welcome_message: "مرحبا! كيف يمكنني مساعدتك؟",
                 download: "تحميل",
                 copied: "تم النسخ",
                 unlock_access: "فتح الوصول",
@@ -3288,7 +3285,6 @@
                 ios_got_it: "Verstanden",
                 no_profiles: "Keine Profile gefunden",
                 promocode_invalid: "Ungültiger Promo-Code",
-                welcome_message: "Hallo! Wie kann ich Ihnen helfen?",
                 download: "Herunterladen",
                 copied: "In die Zwischenablage kopiert",
                 unlock_access: "Zugang freischalten",
@@ -3400,7 +3396,6 @@
                 ios_got_it: "了解",
                 no_profiles: "プロフィールが見つかりません",
                 promocode_invalid: "無効なプロモコード",
-                welcome_message: "こんにちは！お手伝いできますか？",
                 download: "ダウンロード",
                 copied: "クリップボードにコピーしました",
                 unlock_access: "アクセスのロック解除",
@@ -3512,7 +3507,6 @@
                 ios_got_it: "알겠습니다",
                 no_profiles: "프로필을 찾을 수 없습니다",
                 promocode_invalid: "유효하지 않은 프로모 코드",
-                welcome_message: "안녕하세요! 무엇을 도와드릴까요?",
                 download: "다운로드",
                 copied: "클립보드에 복사됨",
                 unlock_access: "액세스 잠금 해제",
@@ -3624,7 +3618,6 @@
                 ios_got_it: "明白了",
                 no_profiles: "未找到资料",
                 promocode_invalid: "无效的促销代码",
-                welcome_message: "你好！有什么可以帮助您的？",
                 download: "下载",
                 copied: "已复制到剪贴板",
                 unlock_access: "解锁访问",
@@ -4828,24 +4821,12 @@
 
                 chatBody.innerHTML = '';
 
-                if (data.messages.length === 0) {
-                    const welcomeMsg = document.createElement('div');
-                    welcomeMsg.className = 'message other';
-                    welcomeMsg.innerHTML = `
-                        <div class="message-bubble">
-                            ${translations.welcome_message}
-                            <div class="message-time">${new Date().toLocaleTimeString()}</div>
-                        </div>
-                    `;
-                    chatBody.appendChild(welcomeMsg);
-                } else {
-                    data.messages.forEach(msg => {
-                        renderMessage(msg);
-                        if (msg.id > lastMessageId) {
-                            lastMessageId = msg.id;
-                        }
-                    });
-                }
+                data.messages.forEach(msg => {
+                    renderMessage(msg);
+                    if (msg.id > lastMessageId) {
+                        lastMessageId = msg.id;
+                    }
+                });
 
                 chatBody.scrollTop = chatBody.scrollHeight;
                 startChatUpdates();
