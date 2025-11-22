@@ -1643,6 +1643,7 @@ async def admin_dashboard(request: Request):
         <script>
             let uploadedPhotoFiles = [];
             let uploadedVipPhotoFiles = [];
+            let currentChatId = null;  // Track current chat for replies
 
             // Вспомогательная функция для fetch с credentials
             const authFetch = (url, options = {}) => {
@@ -1815,14 +1816,18 @@ async def admin_dashboard(request: Request):
                         const unreadBadge = chat.unread_count > 0
                             ? `<span class="unread-badge">${chat.unread_count} new</span>`
                             : '';
+                        const userIdLabel = chat.telegram_user_id
+                            ? `<p><strong>User:</strong> ${chat.telegram_user_id}</p>`
+                            : '';
                         chatDiv.innerHTML = `
                             <div class="profile-header">
-                                <span class="profile-id">ID: ${chat.profile_id}</span>
+                                <span class="profile-id">Chat #${chat.id}</span>
                                 <span class="profile-name">${chat.profile_name}</span>
                                 ${unreadBadge}
                             </div>
+                            ${userIdLabel}
                             <p><strong>Created:</strong> ${new Date(chat.created_at).toLocaleString()}</p>
-                            <button class="btn btn-primary" onclick="openChat(${chat.profile_id})">
+                            <button class="btn btn-primary" onclick="openChat(${chat.id}, ${chat.profile_id})">
                                 Open Chat
                             </button>
                         `;
@@ -1834,9 +1839,10 @@ async def admin_dashboard(request: Request):
             }
 
             // Открытие чата
-            async function openChat(profileId) {
+            async function openChat(chatId, profileId) {
+                currentChatId = chatId;  // Store for replies
                 try {
-                    const response = await authFetch(`/api/admin/chats/${profileId}/messages`);
+                    const response = await authFetch(`/api/admin/chats/${profileId}/messages?chat_id=${chatId}`);
                     const messages = await response.json();
 
                     const list = document.getElementById('chats-list');
@@ -1925,9 +1931,9 @@ async def admin_dashboard(request: Request):
                     list.innerHTML = `
                         <button class="back-btn" onclick="loadChats()">Back to chats</button>
                         <div class="profile-card">
-                            <h3>Chat</h3>
+                            <h3>Chat #${chatId}</h3>
                             <div style="margin: 15px 0;">
-                                <button class="btn btn-system" onclick="sendSystemMessage(${profileId})">
+                                <button class="btn btn-system" onclick="sendSystemMessage(${chatId}, ${profileId})">
                                     Send Transaction Success Message
                                 </button>
                             </div>
@@ -1944,7 +1950,7 @@ async def admin_dashboard(request: Request):
                                     <div class="chat-file-list" id="chat-file-list"></div>
                                 </div>
                                 <textarea id="reply-text" rows="3" style="width: 100%; margin: 15px 0; padding: 12px; background: rgba(255, 107, 157, 0.1); color: white; border: 1px solid #ff6b9d; border-radius: 8px;" placeholder="Type your message..."></textarea>
-                                <button class="btn btn-primary" onclick="sendAdminReply(${profileId})">
+                                <button class="btn btn-primary" onclick="sendAdminReply(${chatId}, ${profileId})">
                                     Send Reply
                                 </button>
                             </div>
@@ -2008,7 +2014,7 @@ async def admin_dashboard(request: Request):
             }
 
             // Отправка ответа с файлами
-            async function sendAdminReply(profileId) {
+            async function sendAdminReply(chatId, profileId) {
                 const text = document.getElementById('reply-text').value.trim();
                 const files = window.getSelectedChatFiles();
 
@@ -2028,7 +2034,7 @@ async def admin_dashboard(request: Request):
                         formData.append('files', file);
                     });
 
-                    const response = await authFetch(`/api/admin/chats/${profileId}/reply`, {
+                    const response = await authFetch(`/api/admin/chats/${profileId}/reply?chat_id=${chatId}`, {
                         method: 'POST',
                         body: formData
                     });
@@ -2036,7 +2042,7 @@ async def admin_dashboard(request: Request):
                     if (response.ok) {
                         document.getElementById('reply-text').value = '';
                         window.clearChatFiles();
-                        openChat(profileId); // Перезагружаем чат
+                        openChat(chatId, profileId); // Перезагружаем чат
                     } else {
                         const errorData = await response.json();
                         alert('Error sending message: ' + (errorData.detail || 'Unknown error'));
@@ -2049,11 +2055,11 @@ async def admin_dashboard(request: Request):
             }
 
             // Отправка системного сообщения
-            async function sendSystemMessage(profileId) {
+            async function sendSystemMessage(chatId, profileId) {
                 if (!confirm('Send transaction success message?')) return;
 
                 try {
-                    const response = await authFetch(`/api/admin/chats/${profileId}/system-message`, {
+                    const response = await authFetch(`/api/admin/chats/${profileId}/system-message?chat_id=${chatId}`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
@@ -2062,7 +2068,7 @@ async def admin_dashboard(request: Request):
                     });
 
                     if (response.ok) {
-                        openChat(profileId); // Перезагружаем чат
+                        openChat(chatId, profileId); // Перезагружаем чат
                     } else {
                         alert('Error sending system message');
                     }
@@ -3254,7 +3260,8 @@ async def get_user_orders(status: str = "all", telegram_user_id: Optional[str] =
 
 
 @app.post("/api/admin/chats/{profile_id}/system-message")
-async def send_system_message(profile_id: int, message_data: dict, current_user: str = Depends(get_current_user)):
+async def send_system_message(profile_id: int, message_data: dict, current_user: str = Depends(get_current_user),
+                              chat_id: Optional[int] = None):
     """Отправка системного сообщения"""
     data = load_data()
 
@@ -3263,7 +3270,12 @@ async def send_system_message(profile_id: int, message_data: dict, current_user:
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    # Ищем чат по chat_id или profile_id
+    if chat_id:
+        chat = next((c for c in data["chats"] if c["id"] == chat_id), None)
+    else:
+        chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+
     if not chat:
         chat = {
             "id": len(data["chats"]) + 1,
