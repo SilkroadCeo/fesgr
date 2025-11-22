@@ -107,6 +107,67 @@
             font-size: 0.75rem;
         }
 
+        .vip-profiles-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .vip-profile-featured {
+            flex: 0 0 45%;
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 3/4;
+            background: var(--card);
+        }
+
+        .vip-profile-featured .vip-profile-image {
+            filter: blur(6px);
+        }
+
+        .vip-profile-featured .vip-profile-name {
+            font-size: 0.8rem;
+        }
+
+        .vip-profile-featured .vip-profile-age {
+            font-size: 0.7rem;
+        }
+
+        .vip-profile-featured .vip-profile-city {
+            font-size: 0.6rem;
+        }
+
+        .vip-profiles-scroll {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 150px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .vip-profiles-scroll::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .vip-profiles-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .vip-profiles-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .vip-profiles-scroll .vip-profile-preview {
+            flex-shrink: 0;
+            height: 70px;
+            aspect-ratio: auto;
+        }
+
         .vip-profiles-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -1724,8 +1785,16 @@
                 grid-template-columns: 1fr;
             }
 
-            .vip-profiles-grid {
-                grid-template-columns: repeat(2, 1fr);
+            .vip-profiles-container {
+                gap: 10px;
+            }
+
+            .vip-profile-featured {
+                flex: 0 0 40%;
+            }
+
+            .vip-profiles-scroll {
+                max-height: 140px;
             }
 
             .cards-grid {
@@ -1765,8 +1834,34 @@
         }
 
         @media (max-width: 480px) {
-            .vip-profiles-grid {
-                grid-template-columns: 1fr;
+            .vip-profiles-container {
+                flex-direction: column;
+            }
+
+            .vip-profile-featured {
+                flex: none;
+                width: 100%;
+                aspect-ratio: 16/9;
+            }
+
+            .vip-profiles-scroll {
+                flex-direction: row;
+                max-height: none;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding-bottom: 4px;
+                padding-right: 0;
+            }
+
+            .vip-profiles-scroll::-webkit-scrollbar {
+                height: 3px;
+                width: auto;
+            }
+
+            .vip-profiles-scroll .vip-profile-preview {
+                width: 80px;
+                height: 100px;
+                flex-shrink: 0;
             }
 
             .card-actions {
@@ -3873,8 +3968,9 @@
                         <span class="vip-catalog-name">${catalog.name}</span>
                         <span class="vip-catalog-price">$${catalog.price}</span>
                     </div>
-                    <div class="vip-profiles-grid" id="vip-profiles-${catalogKey}">
-                        <!-- VIP анкеты будут добавлены через JS -->
+                    <div class="vip-profiles-container" id="vip-profiles-${catalogKey}">
+                        <div class="vip-profile-featured" id="vip-featured-${catalogKey}"></div>
+                        <div class="vip-profiles-scroll" id="vip-scroll-${catalogKey}"></div>
                     </div>
                     <div class="vip-catalog-stats">
                         <span>${catalog.preview_count} ${translations.premium_profiles_count || 'premium profiles'}</span>
@@ -3905,10 +4001,12 @@
 
         // Отрисовка VIP анкет для каталога
         function renderVipProfilesForCatalog(catalogKey, previewProfiles) {
-            const container = document.getElementById(`vip-profiles-${catalogKey}`);
-            if (!container) return;
+            const featuredContainer = document.getElementById(`vip-featured-${catalogKey}`);
+            const scrollContainer = document.getElementById(`vip-scroll-${catalogKey}`);
+            if (!featuredContainer || !scrollContainer) return;
 
-            container.innerHTML = '';
+            featuredContainer.innerHTML = '';
+            scrollContainer.innerHTML = '';
 
             // Капитализация имени
             function capitalize(str) {
@@ -3931,18 +4029,11 @@
                 return gradients[Math.floor(Math.random() * gradients.length)];
             }
 
-            previewProfiles.forEach(profile => {
-                if (!profile.name) return;
-
-                const profileDiv = document.createElement('div');
-                profileDiv.className = 'vip-profile-preview';
-
-                // Генерируем случайный заблюренный градиент вместо реального фото
+            // Функция для создания профиля
+            function createProfileHtml(profile) {
                 const randomGradient = getRandomGradient();
-                const imageHtml = `<div class="vip-profile-image" style="background: ${randomGradient}; background-size: cover; background-position: center; filter: blur(10px);"></div>`;
-
-                profileDiv.innerHTML = `
-                    ${imageHtml}
+                return `
+                    <div class="vip-profile-image" style="background: ${randomGradient}; background-size: cover; background-position: center;"></div>
                     <div class="vip-profile-overlay">
                         <div class="vip-profile-info">
                             <div class="vip-profile-name">${capitalize(profile.name)}</div>
@@ -3951,7 +4042,21 @@
                         </div>
                     </div>
                 `;
-                container.appendChild(profileDiv);
+            }
+
+            previewProfiles.forEach((profile, index) => {
+                if (!profile.name) return;
+
+                if (index === 0) {
+                    // Первый профиль - featured (большой)
+                    featuredContainer.innerHTML = createProfileHtml(profile);
+                } else {
+                    // Остальные профили - в scrollable контейнер
+                    const profileDiv = document.createElement('div');
+                    profileDiv.className = 'vip-profile-preview';
+                    profileDiv.innerHTML = createProfileHtml(profile);
+                    scrollContainer.appendChild(profileDiv);
+                }
             });
         }
 
