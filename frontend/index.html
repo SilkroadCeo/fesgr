@@ -2742,7 +2742,7 @@
         function showInstallPrompt(force = false) {
             if (isStandalone) {
                 // Если уже установлено, показываем сообщение
-                alert('Приложение уже установлено на вашем устройстве!');
+                alert(translations.app_already_installed || 'App is already installed on your device!');
                 return;
             }
 
@@ -2761,7 +2761,7 @@
             }
 
             if (!deferredPrompt) {
-                alert('Установка недоступна. Попробуйте открыть сайт через браузер.');
+                alert(translations.install_unavailable || 'Installation unavailable. Try opening the site in a browser.');
                 return;
             }
 
@@ -2955,7 +2955,15 @@
                 download: "Download",
                 copied: "Copied to clipboard",
                 unlock_access: "Unlock Access",
-                profiles_count: "profiles"
+                profiles_count: "profiles",
+                // Payment modal labels
+                payment_name: "Name:",
+                payment_age: "Age:",
+                payment_gender: "Gender:",
+                payment_city: "City:",
+                unknown: "Unknown",
+                app_already_installed: "App is already installed on your device!",
+                install_unavailable: "Installation unavailable. Try opening the site in a browser."
             },
             es: {
                 subtitle: "100% Citas Anónimas",
@@ -3066,7 +3074,14 @@
                 download: "Descargar",
                 copied: "Copiado al portapapeles",
                 unlock_access: "Desbloquear acceso",
-                profiles_count: "perfiles"
+                profiles_count: "perfiles",
+                payment_name: "Nombre:",
+                payment_age: "Edad:",
+                payment_gender: "Género:",
+                payment_city: "Ciudad:",
+                unknown: "Desconocido",
+                app_already_installed: "¡La app ya está instalada en tu dispositivo!",
+                install_unavailable: "Instalación no disponible. Intenta abrir el sitio en un navegador."
             },
             ar: {
                 subtitle: "مواعدة مجهولة 100%",
@@ -3177,7 +3192,14 @@
                 download: "تحميل",
                 copied: "تم النسخ",
                 unlock_access: "فتح الوصول",
-                profiles_count: "ملفات"
+                profiles_count: "ملفات",
+                payment_name: ":الاسم",
+                payment_age: ":العمر",
+                payment_gender: ":الجنس",
+                payment_city: ":المدينة",
+                unknown: "غير معروف",
+                app_already_installed: "!التطبيق مثبت بالفعل على جهازك",
+                install_unavailable: "التثبيت غير متاح. حاول فتح الموقع في متصفح."
             },
             de: {
                 subtitle: "100% Anonymes Dating",
@@ -3288,7 +3310,14 @@
                 download: "Herunterladen",
                 copied: "In die Zwischenablage kopiert",
                 unlock_access: "Zugang freischalten",
-                profiles_count: "Profile"
+                profiles_count: "Profile",
+                payment_name: "Name:",
+                payment_age: "Alter:",
+                payment_gender: "Geschlecht:",
+                payment_city: "Stadt:",
+                unknown: "Unbekannt",
+                app_already_installed: "App ist bereits auf Ihrem Gerät installiert!",
+                install_unavailable: "Installation nicht verfügbar. Versuchen Sie, die Website im Browser zu öffnen."
             },
             ja: {
                 subtitle: "100% 匿名デート",
@@ -3399,7 +3428,14 @@
                 download: "ダウンロード",
                 copied: "クリップボードにコピーしました",
                 unlock_access: "アクセスのロック解除",
-                profiles_count: "プロフィール"
+                profiles_count: "プロフィール",
+                payment_name: "名前:",
+                payment_age: "年齢:",
+                payment_gender: "性別:",
+                payment_city: "都市:",
+                unknown: "不明",
+                app_already_installed: "アプリはすでにデバイスにインストールされています！",
+                install_unavailable: "インストールできません。ブラウザでサイトを開いてみてください。"
             },
             ko: {
                 subtitle: "100% 익명 데이트",
@@ -3510,7 +3546,14 @@
                 download: "다운로드",
                 copied: "클립보드에 복사됨",
                 unlock_access: "액세스 잠금 해제",
-                profiles_count: "프로필"
+                profiles_count: "프로필",
+                payment_name: "이름:",
+                payment_age: "나이:",
+                payment_gender: "성별:",
+                payment_city: "도시:",
+                unknown: "알 수 없음",
+                app_already_installed: "앱이 이미 기기에 설치되어 있습니다!",
+                install_unavailable: "설치할 수 없습니다. 브라우저에서 사이트를 열어보세요."
             },
             zh: {
                 subtitle: "100% 匿名约会",
@@ -3621,7 +3664,14 @@
                 download: "下载",
                 copied: "已复制到剪贴板",
                 unlock_access: "解锁访问",
-                profiles_count: "资料"
+                profiles_count: "资料",
+                payment_name: "姓名:",
+                payment_age: "年龄:",
+                payment_gender: "性别:",
+                payment_city: "城市:",
+                unknown: "未知",
+                app_already_installed: "应用已安装在您的设备上！",
+                install_unavailable: "无法安装。请尝试在浏览器中打开网站。"
             }
         };
 
@@ -4329,7 +4379,7 @@
             const text = commentInput.value.trim();
 
             if (!text) {
-                alert('Please enter comment text');
+                alert(translations.alert_enter_comment || 'Please enter comment text');
                 return;
             }
 
@@ -4348,11 +4398,11 @@
                     loadComments();
                 } else {
                     const errorData = await response.json();
-                    alert(errorData.detail || 'Error adding comment');
+                    alert(errorData.detail || translations.error_adding_comment || 'Error adding comment');
                 }
             } catch (error) {
                 console.error('Error adding comment:', error);
-                alert('Error adding comment');
+                alert(translations.error_adding_comment || 'Error adding comment');
             }
         }
 
@@ -4725,7 +4775,7 @@
                 document.body.style.overflow = 'hidden';
             } catch (error) {
                 console.error('Error loading profile:', error);
-                alert('Error loading profile');
+                alert(translations.error_loading_profile || 'Error loading profile');
             }
         }
 
@@ -5022,15 +5072,15 @@
                 document.getElementById('payment-selection').style.display = 'block';
 
                 // Заполняем информацию о профиле
-                paymentProfileName.textContent = `Name: ${currentProfile.name}`;
-                paymentProfileAge.textContent = `Age: ${currentProfile.age}`;
-                paymentProfileGender.textContent = `Gender: ${currentProfile.gender || 'Unknown'}`;
-                paymentProfileCity.textContent = `City: ${currentProfile.city}`;
+                paymentProfileName.textContent = `${translations.payment_name || 'Name:'} ${currentProfile.name}`;
+                paymentProfileAge.textContent = `${translations.payment_age || 'Age:'} ${currentProfile.age}`;
+                paymentProfileGender.textContent = `${translations.payment_gender || 'Gender:'} ${currentProfile.gender || translations.unknown || 'Unknown'}`;
+                paymentProfileCity.textContent = `${translations.payment_city || 'City:'} ${currentProfile.city}`;
 
                 paymentModal.style.display = 'block';
             } catch (error) {
                 console.error('Error opening payment modal:', error);
-                alert('Error opening payment system');
+                alert(translations.error_payment || 'Error opening payment system');
             }
         }
 
@@ -5328,7 +5378,7 @@
                 clearPendingPayment(payment.id);
                 paymentModal.style.display = 'none';
                 document.body.style.overflow = 'auto';
-                alert('Payment time has expired');
+                alert(translations.alert_payment_expired || 'Payment time has expired');
             }
         }
 
@@ -5336,13 +5386,13 @@
         async function processPayment() {
             const selectedCrypto = document.querySelector('.crypto-option.selected');
             if (!selectedCrypto) {
-                alert('Please select cryptocurrency');
+                alert(translations.alert_select_crypto || 'Please select cryptocurrency');
                 return;
             }
 
             const amount = paymentAmount.value;
             if (!amount || amount < 10) {
-                alert('Please enter valid amount (min $10)');
+                alert(translations.alert_min_amount || 'Please enter valid amount (min $10)');
                 return;
             }
 
@@ -5390,7 +5440,7 @@
 
             } catch (error) {
                 console.error('Error processing payment:', error);
-                alert('Payment error: ' + error.message);
+                alert((translations.error_payment || 'Payment error') + ': ' + error.message);
             } finally {
                 confirmPaymentBtn.textContent = translations.pay_now;
                 confirmPaymentBtn.disabled = false;
@@ -5511,7 +5561,7 @@
                 openChat();
                 switchPage('home'); // Return to home to show chat modal
             } else {
-                alert('Profile not found');
+                alert(translations.alert_profile_not_found || 'Profile not found');
             }
         }
 
@@ -5674,7 +5724,7 @@
                                             })
                                             .catch(err => console.error('Error loading profile:', err));
                                     } else {
-                                        alert('Payment time has expired');
+                                        alert(translations.alert_payment_expired || 'Payment time has expired');
                                     }
                                 }
                             }
