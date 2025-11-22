@@ -1044,9 +1044,12 @@ async def crypto_payment(request: Request):
         amount = float(body.get("amount", 0))
         currency = body.get("currency", "USD")
         wallet_type = body.get("wallet")
+        telegram_user_id = body.get("telegram_user_id")
 
         if not profile_id or amount <= 0:
             raise HTTPException(status_code=400, detail="Invalid payment data")
+
+        logger.info(f"💰 Processing payment for profile {profile_id}, telegram_user_id: {telegram_user_id}")
 
         # Применяем бонус 5%
         bonus_percentage = data["settings"].get("bonus_percentage", 5)
@@ -1056,9 +1059,11 @@ async def crypto_payment(request: Request):
         if "orders" not in data:
             data["orders"] = []
 
-        # Ищем существующий unpaid order для этого профиля
+        # Ищем существующий unpaid order для этого пользователя и профиля
         existing_order = next((o for o in data["orders"]
-                              if o.get("profile_id") == profile_id and o.get("status") == "unpaid"), None)
+                              if o.get("profile_id") == profile_id
+                              and o.get("telegram_user_id") == telegram_user_id
+                              and o.get("status") == "unpaid"), None)
 
         if existing_order:
             # Обновляем существующий order
@@ -1075,6 +1080,7 @@ async def crypto_payment(request: Request):
             order = {
                 "id": len(data["orders"]) + 1,
                 "profile_id": profile_id,
+                "telegram_user_id": telegram_user_id,
                 "amount": amount,
                 "bonus_amount": bonus_amount,
                 "total_amount": total_amount,
@@ -2874,36 +2880,66 @@ async def get_admin_chats(current_user: str = Depends(get_current_user)):
 
 
 @app.get("/api/admin/chats/{profile_id}/messages")
-async def get_chat_messages_admin(profile_id: int, current_user: str = Depends(get_current_user)):
+async def get_chat_messages_admin(profile_id: int, current_user: str = Depends(get_current_user),
+                                   chat_id: Optional[int] = None, telegram_user_id: Optional[str] = None):
     data = load_data()
-    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+
+    # Если указан chat_id, ищем по нему
+    if chat_id:
+        chat = next((c for c in data["chats"] if c["id"] == chat_id), None)
+    # Если указан telegram_user_id, ищем чат для конкретного пользователя
+    elif telegram_user_id:
+        chat = next((c for c in data["chats"]
+                     if c["profile_id"] == profile_id and c.get("telegram_user_id") == telegram_user_id), None)
+    else:
+        # Для обратной совместимости: если параметры не указаны, ищем любой чат для profile_id
+        chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+
     if not chat:
-        return {"messages": []}
+        return {"messages": [], "chat_id": None, "telegram_user_id": None}
+
     messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
-    return {"messages": messages}
+    return {
+        "messages": messages,
+        "chat_id": chat["id"],
+        "telegram_user_id": chat.get("telegram_user_id")
+    }
 
 
 @app.post("/api/admin/chats/{profile_id}/reply")
 async def send_admin_reply(
         profile_id: int,
         request: Request,
-        current_user: str = Depends(get_current_user)
+        current_user: str = Depends(get_current_user),
+        chat_id: Optional[int] = None,
+        telegram_user_id: Optional[str] = None
 ):
     data = load_data()
 
-    logger.info(f"📨 Sending reply to profile {profile_id}")
+    logger.info(f"📨 Sending reply to profile {profile_id}, chat_id: {chat_id}, telegram_user_id: {telegram_user_id}")
 
     # Находим профиль для имени
     profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    # Ищем чат по chat_id, telegram_user_id или profile_id
+    if chat_id:
+        chat = next((c for c in data["chats"] if c["id"] == chat_id), None)
+    elif telegram_user_id:
+        chat = next((c for c in data["chats"]
+                     if c["profile_id"] == profile_id and c.get("telegram_user_id") == telegram_user_id), None)
+    else:
+        # Для обратной совместимости: ищем любой чат для profile_id
+        chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+
     if not chat:
+        # Создаем чат только если указан telegram_user_id
         chat = {
             "id": len(data["chats"]) + 1,
             "profile_id": profile_id,
             "profile_name": profile["name"],
+            "telegram_user_id": telegram_user_id,
             "created_at": datetime.now().isoformat()
         }
         data["chats"].append(chat)
@@ -2980,11 +3016,13 @@ async def send_admin_reply(
 
 
 @app.get("/api/chats/{profile_id}/messages")
-async def get_chat_messages(profile_id: int):
+async def get_chat_messages(profile_id: int, telegram_user_id: Optional[str] = None):
     """Получить все сообщения чата для пользователя"""
     data = load_data()
 
-    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    # Ищем чат для конкретного пользователя и профиля
+    chat = next((c for c in data["chats"]
+                 if c["profile_id"] == profile_id and c.get("telegram_user_id") == telegram_user_id), None)
     if not chat:
         return {"messages": [], "last_message_id": 0}
 
@@ -2998,11 +3036,13 @@ async def get_chat_messages(profile_id: int):
 
 
 @app.get("/api/chats/{profile_id}/updates")
-async def get_chat_updates(profile_id: int, last_message_id: int = 0):
+async def get_chat_updates(profile_id: int, last_message_id: int = 0, telegram_user_id: Optional[str] = None):
     """Получить только новые сообщения после указанного ID"""
     data = load_data()
 
-    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    # Ищем чат для конкретного пользователя и профиля
+    chat = next((c for c in data["chats"]
+                 if c["profile_id"] == profile_id and c.get("telegram_user_id") == telegram_user_id), None)
     if not chat:
         return {"messages": [], "last_message_id": 0}
 
@@ -3018,39 +3058,44 @@ async def get_chat_updates(profile_id: int, last_message_id: int = 0):
 
 
 @app.post("/api/chats/{profile_id}/messages")
-async def send_user_message(profile_id: int, request: Request):
+async def send_user_message(profile_id: int, request: Request, telegram_user_id: Optional[str] = None):
     """Отправка сообщения от пользователя"""
     data = load_data()
 
-    logger.info(f"📨 User sending message to profile {profile_id}")
+    logger.info(f"📨 User sending message to profile {profile_id}, telegram_user_id: {telegram_user_id}")
 
     # Находим профиль
     profile = next((p for p in data["profiles"] if p["id"] == profile_id), None)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    # Находим или создаем чат
-    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+    # Находим или создаем чат для конкретного пользователя и профиля
+    # Чат уникален для комбинации (profile_id, telegram_user_id)
+    chat = next((c for c in data["chats"]
+                 if c["profile_id"] == profile_id and c.get("telegram_user_id") == telegram_user_id), None)
     if not chat:
         chat = {
             "id": len(data["chats"]) + 1,
             "profile_id": profile_id,
             "profile_name": profile["name"],
+            "telegram_user_id": telegram_user_id,
             "created_at": datetime.now().isoformat()
         }
         data["chats"].append(chat)
 
-    # Создаем unpaid order, если это первое взаимодействие с профилем
+    # Создаем unpaid order, если это первое взаимодействие пользователя с профилем
     if "orders" not in data:
         data["orders"] = []
 
-    # Проверяем, есть ли уже ордера для этого профиля
-    profile_orders = [o for o in data["orders"] if o.get("profile_id") == profile_id]
+    # Проверяем, есть ли уже ордера для этого пользователя и профиля
+    profile_orders = [o for o in data["orders"]
+                      if o.get("profile_id") == profile_id and o.get("telegram_user_id") == telegram_user_id]
     if not profile_orders:
         # Создаем unpaid order
         order = {
             "id": len(data["orders"]) + 1,
             "profile_id": profile_id,
+            "telegram_user_id": telegram_user_id,
             "amount": 0,
             "bonus_amount": 0,
             "total_amount": 0,
@@ -3061,7 +3106,7 @@ async def send_user_message(profile_id: int, request: Request):
             "expires_at": (datetime.now() + timedelta(hours=1)).isoformat()
         }
         data["orders"].append(order)
-        logger.info(f"📝 Created unpaid order #{order['id']} for profile {profile_id}")
+        logger.info(f"📝 Created unpaid order #{order['id']} for profile {profile_id}, telegram_user_id: {telegram_user_id}")
 
     try:
         # Получаем форму с файлами и текстом
@@ -3130,12 +3175,15 @@ async def send_user_message(profile_id: int, request: Request):
 
 
 @app.get("/api/user/chats")
-async def get_user_chats():
+async def get_user_chats(telegram_user_id: Optional[str] = None):
     """Получить все чаты пользователя с последним сообщением и количеством непрочитанных"""
     data = load_data()
 
     chats_list = []
-    for chat in data["chats"]:
+    # Фильтруем чаты по telegram_user_id
+    user_chats = [c for c in data["chats"] if c.get("telegram_user_id") == telegram_user_id]
+
+    for chat in user_chats:
         # Find profile
         profile = next((p for p in data["profiles"] if p["id"] == chat["profile_id"]), None)
         if not profile:
@@ -3166,17 +3214,20 @@ async def get_user_chats():
 
 
 @app.get("/api/user/orders")
-async def get_user_orders(status: str = "all"):
+async def get_user_orders(status: str = "all", telegram_user_id: Optional[str] = None):
     """Получить заказы пользователя (booked/unpaid)"""
     data = load_data()
 
+    # Фильтруем заказы по telegram_user_id
+    user_orders = [o for o in data.get("orders", []) if o.get("telegram_user_id") == telegram_user_id]
+
     # Filter orders by status
     if status == "booked":
-        orders = [o for o in data["orders"] if o.get("status") == "booked"]
+        orders = [o for o in user_orders if o.get("status") == "booked"]
     elif status == "unpaid":
-        orders = [o for o in data["orders"] if o.get("status") == "unpaid"]
+        orders = [o for o in user_orders if o.get("status") == "unpaid"]
     else:
-        orders = data["orders"]
+        orders = user_orders
 
     # Enrich orders with profile data
     enriched_orders = []
