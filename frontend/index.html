@@ -57,43 +57,43 @@
 
         /* VIP каталоги */
         .vip-catalogs {
-            margin: 30px 0;
-            padding: 0 20px;
+            margin: 15px 0;
+            padding: 0 10px;
         }
 
         .vip-catalogs-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
         }
 
         .vip-catalog-card {
             background: linear-gradient(135deg, var(--secondary), var(--accent));
-            border-radius: 20px;
-            padding: 25px;
+            border-radius: 12px;
+            padding: 12px;
             position: relative;
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
             transition: all 0.3s ease;
             cursor: pointer;
         }
 
         .vip-catalog-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.5);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
         }
 
         .vip-catalog-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
 
         .vip-catalog-name {
-            font-size: 1.5rem;
+            font-size: 0.9rem;
             font-weight: 700;
             color: white;
         }
@@ -101,22 +101,22 @@
         .vip-catalog-price {
             background: rgba(255, 255, 255, 0.2);
             color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
+            padding: 4px 8px;
+            border-radius: 12px;
             font-weight: 600;
-            font-size: 1.1rem;
+            font-size: 0.75rem;
         }
 
         .vip-profiles-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 6px;
+            margin-bottom: 10px;
         }
 
         .vip-profile-preview {
             position: relative;
-            border-radius: 12px;
+            border-radius: 8px;
             overflow: hidden;
             aspect-ratio: 3/4;
             background: var(--card);
@@ -140,7 +140,7 @@
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            padding: 15px;
+            padding: 6px;
             color: white;
         }
 
@@ -150,19 +150,19 @@
 
         .vip-profile-name {
             font-weight: 600;
-            margin-bottom: 5px;
-            font-size: 0.9rem;
+            margin-bottom: 2px;
+            font-size: 0.65rem;
         }
 
         .vip-profile-age {
-            font-size: 0.8rem;
+            font-size: 0.55rem;
             opacity: 0.8;
         }
 
         .vip-profile-city {
-            font-size: 0.7rem;
+            font-size: 0.5rem;
             opacity: 0.6;
-            margin-top: 2px;
+            margin-top: 1px;
         }
 
         .unlock-btn {
@@ -171,9 +171,10 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.3);
             color: white;
-            padding: 12px;
-            border-radius: 12px;
+            padding: 8px;
+            border-radius: 8px;
             font-weight: 600;
+            font-size: 0.7rem;
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
@@ -191,17 +192,17 @@
         .vip-catalog-stats {
             display: flex;
             justify-content: space-between;
-            margin-top: 15px;
-            font-size: 0.8rem;
+            margin-top: 8px;
+            font-size: 0.6rem;
             opacity: 0.8;
         }
 
-        /* Баннер под статистикой */
+        /* Баннер под статистикой - reduced 10% */
         .stats-banner {
             background: linear-gradient(135deg, var(--secondary), var(--accent));
-            padding: 15px 20px;
-            border-radius: 15px;
-            margin: 20px 0;
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin: 15px 0;
             text-align: center;
             color: white;
             display: none;
@@ -212,22 +213,22 @@
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 10px;
         }
 
         .stats-banner-text {
             flex: 1;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 12px;
         }
 
         .stats-banner-link {
             background: rgba(255, 255, 255, 0.2);
             color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
+            padding: 6px 12px;
+            border-radius: 16px;
             text-decoration: none;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             transition: all 0.3s ease;
             border: 1px solid rgba(255, 255, 255, 0.3);
@@ -242,9 +243,9 @@
             background: none;
             border: none;
             color: white;
-            font-size: 18px;
+            font-size: 16px;
             cursor: pointer;
-            padding: 5px;
+            padding: 4px;
             border-radius: 50%;
             transition: all 0.3s ease;
         }
@@ -403,11 +404,11 @@
             display: none;
         }
 
-        /* Хедер */
+        /* Хедер - compact for mini app */
         .main-header {
             text-align: center;
-            margin-bottom: 30px;
-            padding: 30px 20px;
+            margin-bottom: 15px;
+            padding: 15px 15px;
             position: relative;
         }
 
@@ -417,21 +418,21 @@
         }
 
         .logo {
-            font-size: 3rem;
+            font-size: 2rem;
             font-weight: 600;
             background: linear-gradient(45deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 15px;
+            margin-bottom: 8px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            letter-spacing: 8px;
+            letter-spacing: 6px;
             text-transform: capitalize;
         }
 
         .subtitle {
             color: var(--text-secondary);
-            font-size: 1.2rem;
-            margin-bottom: 30px;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
             font-weight: 400;
         }
 
@@ -519,25 +520,23 @@
             color: var(--text-secondary);
         }
 
-        /* Кнопка фильтров */
+        /* Кнопка фильтров - inline below header */
         .filters-toggle {
-            position: fixed;
-            top: 20px;
-            left: 20px;
+            position: relative;
+            display: inline-flex;
             background: var(--primary);
             border: none;
-            width: 60px;
-            height: 60px;
+            width: 45px;
+            height: 45px;
             border-radius: 50%;
             cursor: pointer;
-            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            gap: 5px;
-            z-index: 1001;
+            gap: 4px;
             transition: all 0.3s ease;
             box-shadow: 0 5px 20px rgba(255, 107, 157, 0.4);
+            margin-right: 10px;
         }
 
         .filters-toggle:hover {
@@ -547,11 +546,21 @@
         }
 
         .filter-bar {
-            width: 25px;
-            height: 3px;
+            width: 20px;
+            height: 2px;
             background: white;
             border-radius: 2px;
             transition: all 0.3s ease;
+        }
+
+        /* Filters container below header */
+        .filters-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 10px 15px;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         /* Боковые фильтры */
@@ -701,28 +710,29 @@
             flex: 1;
         }
 
-        /* Активные фильтры */
+        /* Активные фильтры - inline with filters toggle */
         .active-filters {
             display: flex;
-            gap: 10px;
-            margin: 0 0 20px 0;
+            gap: 6px;
             flex-wrap: wrap;
-            padding: 20px;
-            background: var(--surface);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 107, 157, 0.2);
+            flex: 1;
+            align-items: center;
+        }
+
+        .active-filters:empty {
+            display: none;
         }
 
         .filter-tag {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 14px;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 11px;
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 5px;
             transition: all 0.3s ease;
         }
 
@@ -1312,17 +1322,17 @@
             border: 1px solid var(--error);
         }
 
-        /* Чат */
+        /* Чат - moved up for mini app */
         .chat-modal {
             display: none;
             position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 85%;
+            bottom: 70px;
+            left: 5px;
+            right: 5px;
+            width: auto;
+            height: 80%;
             background: var(--surface);
-            border-top-left-radius: 30px;
-            border-top-right-radius: 30px;
+            border-radius: 25px;
             z-index: 2001;
             border: 1px solid rgba(255, 107, 157, 0.2);
             box-shadow: 0 -10px 50px rgba(0, 0, 0, 0.5);
@@ -1330,23 +1340,23 @@
         }
 
         .chat-header {
-            padding: 25px;
+            padding: 15px 20px;
             border-bottom: 1px solid rgba(255, 107, 157, 0.1);
             display: flex;
             justify-content: space-between;
             align-items: center;
             background: linear-gradient(135deg, rgba(255, 107, 157, 0.1), rgba(102, 126, 234, 0.1));
-            border-top-left-radius: 30px;
-            border-top-right-radius: 30px;
+            border-top-left-radius: 25px;
+            border-top-right-radius: 25px;
         }
 
         .chat-title {
-            font-size: 1.4rem;
+            font-size: 1.2rem;
             font-weight: 600;
             color: var(--text);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .chat-avatar {
@@ -1786,17 +1796,18 @@
             animation: fadeInUp 0.6s ease;
         }
 
-        /* Bottom Navigation */
+        /* Bottom Navigation - moved up for mini app */
         .bottom-nav {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
             background: var(--surface);
             border-top: 1px solid rgba(255, 107, 157, 0.2);
+            border-radius: 20px;
             display: flex;
             justify-content: space-around;
-            padding: 10px 0;
+            padding: 8px 0;
             z-index: 1000;
             box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.3);
         }
@@ -1806,9 +1817,9 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 5px;
+            gap: 3px;
             cursor: pointer;
-            padding: 8px;
+            padding: 6px;
             transition: all 0.3s ease;
             position: relative;
             text-decoration: none;
@@ -2138,18 +2149,11 @@
                 <div class="language-option" data-lang="es">Español</div>
                 <div style="border-top: 1px solid rgba(255, 107, 157, 0.3); margin-top: 8px; padding-top: 8px;">
                     <div class="language-option" id="install-app-btn" onclick="showInstallPrompt(true)" style="color: #ff6b9d; font-weight: 600;">
-                        📱 Добавить на экран
+                        <span id="add-to-screen-text">📱 Add to Screen</span>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Кнопка фильтров -->
-        <button class="filters-toggle" id="filters-toggle">
-            <div class="filter-bar"></div>
-            <div class="filter-bar"></div>
-            <div class="filter-bar"></div>
-        </button>
 
         <!-- Главный хедер -->
         <header class="main-header fade-in">
@@ -2191,15 +2195,22 @@
             </div>
         </header>
 
+        <!-- Фильтры под хедером -->
+        <div class="filters-row">
+            <button class="filters-toggle" id="filters-toggle">
+                <div class="filter-bar"></div>
+                <div class="filter-bar"></div>
+                <div class="filter-bar"></div>
+            </button>
+            <div class="active-filters" id="active-filters"></div>
+        </div>
+
         <!-- VIP каталоги -->
         <section class="vip-catalogs" id="vip-catalogs">
             <div class="vip-catalogs-grid" id="vip-catalogs-grid">
                 <!-- VIP каталоги будут загружены через JS -->
             </div>
         </section>
-
-        <!-- Активные фильтры -->
-        <div class="active-filters" id="active-filters"></div>
 
         <!-- Сетка карточек -->
         <div class="cards-grid" id="cards-container">
@@ -2770,13 +2781,13 @@
             modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10001; padding: 20px;';
             modal.innerHTML = `
                 <div style="background: #1a1a1a; border-radius: 20px; padding: 30px; max-width: 400px; text-align: center; border: 1px solid #ff6b9d;">
-                    <h3 style="color: #ff6b9d; margin-bottom: 20px; font-size: 20px;">Добавить на экран "Домой"</h3>
+                    <h3 style="color: #ff6b9d; margin-bottom: 20px; font-size: 20px;">${translations.ios_add_title || 'Add to Home Screen'}</h3>
                     <ol style="text-align: left; color: white; line-height: 2; padding-left: 20px;">
-                        <li>Нажмите кнопку "Поделиться" <span style="font-size: 24px;">⎋</span></li>
-                        <li>Выберите "На экран Домой" <span style="font-size: 24px;">➕</span></li>
-                        <li>Нажмите "Добавить"</li>
+                        <li>${translations.ios_step1 || 'Tap the Share button'} <span style="font-size: 24px;">⎋</span></li>
+                        <li>${translations.ios_step2 || 'Select "Add to Home Screen"'} <span style="font-size: 24px;">➕</span></li>
+                        <li>${translations.ios_step3 || 'Tap "Add"'}</li>
                     </ol>
-                    <button onclick="this.parentElement.parentElement.remove()" style="background: linear-gradient(135deg, #ff6b9d, #667eea); color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 20px; cursor: pointer; font-weight: 600;">Понятно</button>
+                    <button onclick="this.parentElement.parentElement.remove()" style="background: linear-gradient(135deg, #ff6b9d, #667eea); color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 20px; cursor: pointer; font-weight: 600;">${translations.ios_got_it || 'Got it'}</button>
                 </div>
             `;
             document.body.appendChild(modal);
@@ -2931,8 +2942,21 @@
                 order_crypto: "Crypto",
                 // PWA
                 add_to_homescreen: "Add to Home Screen",
+                add_to_screen: "📱 Add to Screen",
+                ios_add_title: "Add to Home Screen",
+                ios_step1: "Tap the Share button",
+                ios_step2: "Select \"Add to Home Screen\"",
+                ios_step3: "Tap \"Add\"",
+                ios_got_it: "Got it",
                 // Misc
-                anonymous_user: "Anonymous User"
+                anonymous_user: "Anonymous User",
+                no_profiles: "No profiles found",
+                promocode_invalid: "Invalid promo code",
+                welcome_message: "Hello! How can I help you?",
+                download: "Download",
+                copied: "Copied to clipboard",
+                unlock_access: "Unlock Access",
+                profiles_count: "profiles"
             },
             es: {
                 subtitle: "100% Citas Anónimas",
@@ -3031,7 +3055,20 @@
                 order_date: "Fecha",
                 order_crypto: "Cripto",
                 add_to_homescreen: "Agregar a Inicio",
-                anonymous_user: "Usuario Anónimo"
+                anonymous_user: "Usuario Anónimo",
+                add_to_screen: "📱 Añadir a pantalla",
+                ios_add_title: "Añadir a pantalla de inicio",
+                ios_step1: "Toca el botón Compartir",
+                ios_step2: "Selecciona \"Añadir a pantalla de inicio\"",
+                ios_step3: "Toca \"Añadir\"",
+                ios_got_it: "Entendido",
+                no_profiles: "No se encontraron perfiles",
+                promocode_invalid: "Código promocional inválido",
+                welcome_message: "¡Hola! ¿Cómo puedo ayudarte?",
+                download: "Descargar",
+                copied: "Copiado al portapapeles",
+                unlock_access: "Desbloquear acceso",
+                profiles_count: "perfiles"
             },
             ar: {
                 subtitle: "مواعدة مجهولة 100%",
@@ -3130,7 +3167,20 @@
                 order_date: "التاريخ",
                 order_crypto: "العملة",
                 add_to_homescreen: "إضافة للشاشة الرئيسية",
-                anonymous_user: "مستخدم مجهول"
+                anonymous_user: "مستخدم مجهول",
+                add_to_screen: "📱 إضافة إلى الشاشة",
+                ios_add_title: "إضافة إلى الشاشة الرئيسية",
+                ios_step1: "اضغط على زر المشاركة",
+                ios_step2: "اختر \"إضافة إلى الشاشة الرئيسية\"",
+                ios_step3: "اضغط \"إضافة\"",
+                ios_got_it: "فهمت",
+                no_profiles: "لم يتم العثور على ملفات",
+                promocode_invalid: "رمز ترويجي غير صالح",
+                welcome_message: "مرحبا! كيف يمكنني مساعدتك؟",
+                download: "تحميل",
+                copied: "تم النسخ",
+                unlock_access: "فتح الوصول",
+                profiles_count: "ملفات"
             },
             de: {
                 subtitle: "100% Anonymes Dating",
@@ -3229,7 +3279,20 @@
                 order_date: "Datum",
                 order_crypto: "Krypto",
                 add_to_homescreen: "Zum Startbildschirm",
-                anonymous_user: "Anonymer Benutzer"
+                anonymous_user: "Anonymer Benutzer",
+                add_to_screen: "📱 Zum Bildschirm hinzufügen",
+                ios_add_title: "Zum Startbildschirm hinzufügen",
+                ios_step1: "Tippen Sie auf die Teilen-Schaltfläche",
+                ios_step2: "Wählen Sie \"Zum Startbildschirm\"",
+                ios_step3: "Tippen Sie auf \"Hinzufügen\"",
+                ios_got_it: "Verstanden",
+                no_profiles: "Keine Profile gefunden",
+                promocode_invalid: "Ungültiger Promo-Code",
+                welcome_message: "Hallo! Wie kann ich Ihnen helfen?",
+                download: "Herunterladen",
+                copied: "In die Zwischenablage kopiert",
+                unlock_access: "Zugang freischalten",
+                profiles_count: "Profile"
             },
             ja: {
                 subtitle: "100% 匿名デート",
@@ -3328,7 +3391,20 @@
                 order_date: "日付",
                 order_crypto: "暗号通貨",
                 add_to_homescreen: "ホーム画面に追加",
-                anonymous_user: "匿名ユーザー"
+                anonymous_user: "匿名ユーザー",
+                add_to_screen: "📱 画面に追加",
+                ios_add_title: "ホーム画面に追加",
+                ios_step1: "共有ボタンをタップ",
+                ios_step2: "「ホーム画面に追加」を選択",
+                ios_step3: "「追加」をタップ",
+                ios_got_it: "了解",
+                no_profiles: "プロフィールが見つかりません",
+                promocode_invalid: "無効なプロモコード",
+                welcome_message: "こんにちは！お手伝いできますか？",
+                download: "ダウンロード",
+                copied: "クリップボードにコピーしました",
+                unlock_access: "アクセスのロック解除",
+                profiles_count: "プロフィール"
             },
             ko: {
                 subtitle: "100% 익명 데이트",
@@ -3427,7 +3503,20 @@
                 order_date: "날짜",
                 order_crypto: "암호화폐",
                 add_to_homescreen: "홈 화면에 추가",
-                anonymous_user: "익명 사용자"
+                anonymous_user: "익명 사용자",
+                add_to_screen: "📱 화면에 추가",
+                ios_add_title: "홈 화면에 추가",
+                ios_step1: "공유 버튼을 탭하세요",
+                ios_step2: "\"홈 화면에 추가\" 선택",
+                ios_step3: "\"추가\" 탭",
+                ios_got_it: "알겠습니다",
+                no_profiles: "프로필을 찾을 수 없습니다",
+                promocode_invalid: "유효하지 않은 프로모 코드",
+                welcome_message: "안녕하세요! 무엇을 도와드릴까요?",
+                download: "다운로드",
+                copied: "클립보드에 복사됨",
+                unlock_access: "액세스 잠금 해제",
+                profiles_count: "프로필"
             },
             zh: {
                 subtitle: "100% 匿名约会",
@@ -3526,7 +3615,20 @@
                 order_date: "日期",
                 order_crypto: "加密货币",
                 add_to_homescreen: "添加到主屏幕",
-                anonymous_user: "匿名用户"
+                anonymous_user: "匿名用户",
+                add_to_screen: "📱 添加到屏幕",
+                ios_add_title: "添加到主屏幕",
+                ios_step1: "点击分享按钮",
+                ios_step2: "选择\"添加到主屏幕\"",
+                ios_step3: "点击\"添加\"",
+                ios_got_it: "明白了",
+                no_profiles: "未找到资料",
+                promocode_invalid: "无效的促销代码",
+                welcome_message: "你好！有什么可以帮助您的？",
+                download: "下载",
+                copied: "已复制到剪贴板",
+                unlock_access: "解锁访问",
+                profiles_count: "资料"
             }
         };
 
@@ -3992,6 +4094,9 @@
             if (loadingScreenText && translations.loading_premium) {
                 loadingScreenText.textContent = translations.loading_premium;
             }
+
+            // Обновляем текст кнопки установки приложения
+            safeSetText('add-to-screen-text', translations.add_to_screen);
 
             updateActiveFilters();
         }
