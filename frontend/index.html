@@ -1786,15 +1786,21 @@
             }
 
             .vip-profiles-container {
-                gap: 10px;
+                gap: 8px;
             }
 
             .vip-profile-featured {
-                flex: 0 0 40%;
+                flex: 0 0 42%;
+                min-width: 42%;
             }
 
             .vip-profiles-scroll {
-                max-height: 140px;
+                max-height: 160px;
+                overflow-y: auto;
+            }
+
+            .vip-profiles-scroll .vip-profile-preview {
+                height: 75px;
             }
 
             .cards-grid {
@@ -1836,12 +1842,16 @@
         @media (max-width: 480px) {
             .vip-profiles-container {
                 flex-direction: column;
+                gap: 8px;
             }
 
             .vip-profile-featured {
                 flex: none;
                 width: 100%;
-                aspect-ratio: 16/9;
+                max-width: 100%;
+                height: auto;
+                min-height: 200px;
+                aspect-ratio: 3/4;
             }
 
             .vip-profiles-scroll {
@@ -1849,19 +1859,26 @@
                 max-height: none;
                 overflow-x: auto;
                 overflow-y: hidden;
-                padding-bottom: 4px;
+                padding-bottom: 6px;
                 padding-right: 0;
+                gap: 8px;
             }
 
             .vip-profiles-scroll::-webkit-scrollbar {
-                height: 3px;
+                height: 4px;
                 width: auto;
             }
 
             .vip-profiles-scroll .vip-profile-preview {
-                width: 80px;
-                height: 100px;
+                width: 100px;
+                min-width: 100px;
+                height: 130px;
                 flex-shrink: 0;
+                aspect-ratio: 3/4;
+            }
+
+            .vip-catalog-card {
+                padding: 15px;
             }
 
             .card-actions {
