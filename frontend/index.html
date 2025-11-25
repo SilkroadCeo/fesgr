@@ -2812,6 +2812,39 @@
             return telegramUser?.id ? String(telegramUser.id) : null;
         }
 
+        // ==================== SECURITY: XSS PROTECTION ====================
+        /**
+         * Escapes HTML to prevent XSS attacks
+         * Use this function for ALL user-generated content before inserting into DOM
+         */
+        function escapeHtml(unsafe) {
+            if (unsafe === null || unsafe === undefined) {
+                return '';
+            }
+            return String(unsafe)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        /**
+         * Safely set text content (preferred method)
+         * Use textContent instead of innerHTML when no HTML formatting is needed
+         */
+        function safeSetText(element, text) {
+            element.textContent = text || '';
+        }
+
+        /**
+         * Safely set HTML with escaped content
+         * Use this when you need to build HTML templates with user data
+         */
+        function safeSetHtml(element, htmlTemplate) {
+            element.innerHTML = htmlTemplate;
+        }
+
         // Helper function to add telegram_user_id to URL
         function addTelegramUserParam(url) {
             const userId = getTelegramUserId();
@@ -4032,13 +4065,14 @@
             // Функция для создания профиля
             function createProfileHtml(profile) {
                 const randomGradient = getRandomGradient();
+                // SECURITY FIX: Escape user-generated content to prevent XSS
                 return `
                     <div class="vip-profile-image" style="background: ${randomGradient}; background-size: cover; background-position: center;"></div>
                     <div class="vip-profile-overlay">
                         <div class="vip-profile-info">
-                            <div class="vip-profile-name">${capitalize(profile.name)}</div>
-                            <div class="vip-profile-age">${profile.age} ${translations.years_short || 'y.o'}</div>
-                            <div class="vip-profile-city">${capitalize(profile.city)}</div>
+                            <div class="vip-profile-name">${escapeHtml(capitalize(profile.name))}</div>
+                            <div class="vip-profile-age">${escapeHtml(profile.age)} ${escapeHtml(translations.years_short || 'y.o')}</div>
+                            <div class="vip-profile-city">${escapeHtml(capitalize(profile.city))}</div>
                         </div>
                     </div>
                 `;
@@ -4430,12 +4464,13 @@
                     data.comments.forEach(comment => {
                         const commentDiv = document.createElement('div');
                         commentDiv.className = 'comment';
+                        // SECURITY FIX: Escape user-generated content to prevent XSS
                         commentDiv.innerHTML = `
                             <div class="comment-header">
-                                <span class="comment-author">${comment.user_name}</span>
+                                <span class="comment-author">${escapeHtml(comment.user_name)}</span>
                                 <span class="comment-date">${new Date(comment.created_at).toLocaleDateString()}</span>
                             </div>
-                            <div class="comment-text">${comment.text}</div>
+                            <div class="comment-text">${escapeHtml(comment.text)}</div>
                         `;
                         commentsList.appendChild(commentDiv);
                     });
@@ -4811,20 +4846,21 @@
             profiles.forEach(profile => {
                 const card = document.createElement('div');
                 card.className = 'card fade-in';
+                // SECURITY FIX: Escape all user-generated content to prevent XSS
                 card.innerHTML = `
-                    <img src="${profile.photos[0]}" alt="${profile.name}" class="card-image">
+                    <img src="${escapeHtml(profile.photos[0])}" alt="${escapeHtml(profile.name)}" class="card-image">
                     <div class="card-content">
-                        <h3 class="card-title">${profile.name} <span class="card-age">${profile.age}</span></h3>
-                        <p class="card-info">${profile.city} • ${profile.nationality || 'Unknown'} • ${profile.gender || 'Unknown'}</p>
+                        <h3 class="card-title">${escapeHtml(profile.name)} <span class="card-age">${escapeHtml(profile.age)}</span></h3>
+                        <p class="card-info">${escapeHtml(profile.city)} • ${escapeHtml(profile.nationality || 'Unknown')} • ${escapeHtml(profile.gender || 'Unknown')}</p>
                         <div class="card-stats">
-                            <span class="stat-badge">${profile.height} ${translations.cm}</span>
-                            <span class="stat-badge">${profile.weight} ${translations.kg}</span>
-                            <span class="stat-badge">${profile.chest} chest</span>
+                            <span class="stat-badge">${escapeHtml(profile.height)} ${escapeHtml(translations.cm)}</span>
+                            <span class="stat-badge">${escapeHtml(profile.weight)} ${escapeHtml(translations.kg)}</span>
+                            <span class="stat-badge">${escapeHtml(profile.chest)} chest</span>
                         </div>
-                        <p class="card-description">${profile.description}</p>
+                        <p class="card-description">${escapeHtml(profile.description)}</p>
                         <div class="card-actions">
                             <button class="btn btn-secondary view-profile" data-id="${profile.id}">
-                                <span>${translations.view_profile}</span>
+                                <span>${escapeHtml(translations.view_profile)}</span>
                             </button>
                         </div>
                     </div>
@@ -4994,10 +5030,10 @@
         // Отрисовка сообщения
         function renderMessage(msg) {
             if (msg.is_system) {
-                // Системное сообщение
+                // Системное сообщение - SECURITY FIX: Escape system messages
                 const systemDiv = document.createElement('div');
                 systemDiv.className = 'system-message';
-                systemDiv.innerHTML = `<div class="system-bubble">${msg.text}</div>`;
+                systemDiv.innerHTML = `<div class="system-bubble">${escapeHtml(msg.text)}</div>`;
                 chatBody.appendChild(systemDiv);
                 return;
             }
@@ -5008,40 +5044,40 @@
             let messageContent = '';
 
             if (msg.file_url) {
-                // Сообщение с файлом
+                // Сообщение с файлом - SECURITY FIX: Escape file data
                 let fileContent = '';
                 const fileType = msg.file_type || 'file';
 
                 if (fileType === 'image') {
                     fileContent = `
-                        <img src="${msg.file_url}" alt="Image" class="file-preview">
+                        <img src="${escapeHtml(msg.file_url)}" alt="Image" class="file-preview">
                     `;
                 } else if (fileType === 'video') {
                     fileContent = `
                         <video controls class="file-preview">
-                            <source src="${msg.file_url}" type="video/mp4">
+                            <source src="${escapeHtml(msg.file_url)}" type="video/mp4">
                             Your browser does not support video.
                         </video>
                     `;
                 } else {
                     fileContent = `
-                        <div class="file-info">${msg.file_name}</div>
-                        <a href="${msg.file_url}" target="_blank" class="file-link">${translations.download}</a>
+                        <div class="file-info">${escapeHtml(msg.file_name)}</div>
+                        <a href="${escapeHtml(msg.file_url)}" target="_blank" class="file-link">${escapeHtml(translations.download)}</a>
                     `;
                 }
 
                 messageContent = `
                     <div class="message-bubble file-message">
                         ${fileContent}
-                        ${msg.text ? `<div style="margin-top: 8px;">${msg.text}</div>` : ''}
+                        ${msg.text ? `<div style="margin-top: 8px;">${escapeHtml(msg.text)}</div>` : ''}
                         <div class="message-time">${new Date(msg.created_at).toLocaleTimeString()}</div>
                     </div>
                 `;
             } else {
-                // Текстовое сообщение
+                // Текстовое сообщение - SECURITY FIX: Escape message text
                 messageContent = `
                     <div class="message-bubble">
-                        ${msg.text}
+                        ${escapeHtml(msg.text)}
                         <div class="message-time">${new Date(msg.created_at).toLocaleTimeString()}</div>
                     </div>
                 `;
