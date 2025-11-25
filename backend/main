@@ -464,8 +464,8 @@ async def get_profile(profile_id: int):
 @app.post("/api/chats/{profile_id}/messages")
 async def send_message(
     profile_id: int,
-    text: str = Form(None),
-    file: UploadFile = File(None)
+    text: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None)
 ):
     """Отправка сообщения с возможностью прикрепления файла"""
     data = load_data()
