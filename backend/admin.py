@@ -30,6 +30,9 @@ from slowapi.errors import RateLimitExceeded
 # Load environment variables
 load_dotenv()
 
+# Import database module for user authentication and file management
+import database as db
+
 # Генерация случайного 18-значного кода для ордеров
 def generate_order_code():
     """Генерирует случайный 18-значный код из букв и цифр"""
@@ -64,7 +67,8 @@ ADMIN_CREDENTIALS = {
 }
 
 # Session storage
-active_sessions = {}
+active_sessions = {}  # Admin sessions
+telegram_sessions = {}  # Telegram user sessions: {session_id: {user_data, created_at}}
 # Rate limiting storage for login attempts
 login_attempts = {}
 
@@ -148,9 +152,42 @@ def get_session_user(session_id: str) -> Optional[str]:
     return None
 
 
-# Упрощенная зависимость для проверки авторизации
+# ============= TELEGRAM SESSION MANAGEMENT =============
+
+def create_telegram_session(user_data: dict) -> str:
+    """Create new Telegram user session"""
+    session_id = str(uuid.uuid4())
+    telegram_sessions[session_id] = {
+        "user_data": user_data,
+        "created_at": datetime.now()
+    }
+    return session_id
+
+
+def verify_telegram_session(session_id: str) -> bool:
+    """Verify Telegram session validity"""
+    if not session_id:
+        return False
+    return session_id in telegram_sessions
+
+
+def get_telegram_session_user(session_id: str) -> Optional[dict]:
+    """Get Telegram user data from session"""
+    if session_id in telegram_sessions:
+        return telegram_sessions[session_id]["user_data"]
+    return None
+
+
+def destroy_telegram_session(session_id: str):
+    """Destroy Telegram session"""
+    if session_id in telegram_sessions:
+        del telegram_sessions[session_id]
+
+
+# ============= AUTHENTICATION DEPENDENCIES =============
+
 async def get_current_user(request: Request):
-    """Получить текущего пользователя"""
+    """Get current admin user (for admin panel)"""
     session_id = request.cookies.get("admin_session")
 
     if not session_id or not verify_session(session_id):
@@ -161,6 +198,34 @@ async def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="Invalid session")
 
     return user
+
+
+async def get_telegram_user(request: Request):
+    """
+    Get current Telegram user from session
+    This dependency is used for Telegram Mini App endpoints
+    """
+    session_id = request.cookies.get("telegram_session")
+
+    if not session_id or not verify_telegram_session(session_id):
+        raise HTTPException(status_code=401, detail="Telegram authentication required")
+
+    user_data = get_telegram_session_user(session_id)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Invalid Telegram session")
+
+    return user_data
+
+
+async def get_telegram_user_optional(request: Request) -> Optional[dict]:
+    """
+    Get Telegram user if authenticated, None otherwise
+    For endpoints that work with or without authentication
+    """
+    session_id = request.cookies.get("telegram_session")
+    if session_id and verify_telegram_session(session_id):
+        return get_telegram_session_user(session_id)
+    return None
 
 
 # ============= INPUT VALIDATION MODELS =============
@@ -928,10 +993,16 @@ def validate_file_security(file: UploadFile) -> tuple[bool, str]:
     return True, ""
 
 
-def save_uploaded_file(file: UploadFile) -> str:
+def save_uploaded_file(file: UploadFile, telegram_user_id: int = None) -> tuple[str, str, int, str]:
     """
-    Securely save uploaded file with validation
-    Returns: file URL path or empty string on error
+    Securely save uploaded file with validation and user isolation
+
+    Args:
+        file: UploadFile to save
+        telegram_user_id: Telegram user ID for user-specific directory
+
+    Returns:
+        tuple: (file_url, full_file_path, file_size, mime_type)
     """
     try:
         # Validate file security
@@ -947,17 +1018,35 @@ def save_uploaded_file(file: UploadFile) -> str:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filename = f"{timestamp}_{safe_filename}"
 
-        # Ensure uploads directory exists
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        # Create user-specific directory if telegram_user_id provided
+        if telegram_user_id:
+            user_upload_dir = os.path.join(UPLOAD_DIR, f"user_{telegram_user_id}")
+            os.makedirs(user_upload_dir, exist_ok=True)
+            file_path = os.path.join(user_upload_dir, filename)
+            file_url = f"/uploads/user_{telegram_user_id}/{filename}"
+        else:
+            # Fallback to general uploads directory
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            file_path = os.path.join(UPLOAD_DIR, filename)
+            file_url = f"/uploads/{filename}"
 
-        file_path = os.path.join(UPLOAD_DIR, filename)
+        # Get file size
+        file.file.seek(0, 2)
+        file_size = file.file.tell()
+        file.file.seek(0)
+
+        # Get MIME type
+        file_content = file.file.read(2048)
+        file.file.seek(0)
+        mime_type = magic.from_buffer(file_content, mime=True)
 
         # Save file
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        logger.info(f"✅ File saved securely: {filename}")
-        return f"/uploads/{filename}"
+        logger.info(f"✅ File saved securely: {filename} (user: {telegram_user_id or 'general'})")
+        return file_url, file_path, file_size, mime_type
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1215,8 +1304,11 @@ async def login(request: Request, response: Response):
 
 
 @app.post("/api/telegram/auth")
-async def telegram_auth(request: Request):
-    """Авторизация через Telegram Web App"""
+async def telegram_auth(request: Request, response: Response):
+    """
+    Telegram Web App Authentication with HMAC verification
+    Creates or updates user in database and establishes session
+    """
     try:
         body = await request.json()
         init_data = body.get("initData")
@@ -1224,41 +1316,80 @@ async def telegram_auth(request: Request):
         if not init_data:
             raise HTTPException(status_code=400, detail="Missing initData")
 
-        # Проверяем подлинность данных (опционально, можно отключить для теста)
-        # if not verify_telegram_auth(init_data):
-        #     raise HTTPException(status_code=401, detail="Invalid Telegram auth")
+        # SECURITY: Verify Telegram data authenticity
+        if not verify_telegram_auth(init_data):
+            logger.warning("⚠️ Invalid Telegram authentication attempt")
+            raise HTTPException(status_code=401, detail="Invalid Telegram authentication")
 
-        # Парсим данные пользователя
+        # Parse user data from Telegram
         parsed_data = parse_qs(init_data)
         user_json = parsed_data.get('user', ['{}'])[0]
         user_data = json.loads(user_json) if user_json != '{}' else {}
 
         telegram_id = user_data.get('id')
+        if not telegram_id:
+            raise HTTPException(status_code=400, detail="Missing Telegram user ID")
+
         first_name = user_data.get('first_name', '')
         last_name = user_data.get('last_name', '')
         username = user_data.get('username', '')
         language_code = user_data.get('language_code', 'en')
+        is_premium = user_data.get('is_premium', False)
 
-        logger.info(f"Telegram user authenticated: {telegram_id} - {first_name} {last_name} (@{username})")
+        # Create or update user in database
+        db_user = db.get_or_create_user(
+            telegram_id=telegram_id,
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            language_code=language_code,
+            is_premium=is_premium
+        )
 
-        # Сохраняем/обновляем пользователя Telegram
-        # Здесь можно добавить логику сохранения в базу данных
+        # Create session with complete user data
+        session_user_data = {
+            "id": db_user["id"],  # Database user ID
+            "telegram_id": telegram_id,
+            "first_name": first_name,
+            "last_name": last_name,
+            "username": username,
+            "language_code": language_code,
+            "is_premium": is_premium
+        }
+
+        session_id = create_telegram_session(session_user_data)
+
+        # Set secure session cookie
+        response.set_cookie(
+            key="telegram_session",
+            value=session_id,
+            httponly=True,
+            max_age=86400 * 30,  # 30 days
+            samesite="lax",
+            secure=True  # HTTPS only in production
+        )
+
+        logger.info(f"✅ Telegram user authenticated: {telegram_id} ({first_name} {last_name}) - User ID: {db_user['id']}")
 
         return {
             "status": "success",
             "user": {
+                "id": db_user["id"],
                 "telegram_id": telegram_id,
                 "first_name": first_name,
                 "last_name": last_name,
                 "username": username,
-                "language_code": language_code
+                "language_code": language_code,
+                "is_premium": is_premium
             }
         }
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON data")
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Telegram auth error: {e}")
-        raise HTTPException(status_code=500, detail=f"Authentication error: {str(e)}")
+        logger.error(f"❌ Telegram auth error: {e}")
+        raise HTTPException(status_code=500, detail="Authentication error")
 
 
 @app.post("/api/payment/crypto")
@@ -4064,6 +4195,203 @@ async def api_admin_orders_list(current_user: str = Depends(get_current_user)):
         -(datetime.fromisoformat(x.get("created_at", "2000-01-01T00:00:00")).timestamp() if x.get("created_at") else 0)
     ))
     return {"orders": enriched}
+
+
+# ============= FILE MANAGEMENT API (TELEGRAM USERS) =============
+
+@app.post("/api/user/files/upload")
+async def upload_user_file(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_telegram_user)
+):
+    """
+    Upload file for authenticated Telegram user
+    Files are stored in user-specific directories with ownership tracking
+    """
+    try:
+        telegram_user_id = user["telegram_id"]
+        user_id = user["id"]
+
+        # Save file to user-specific directory
+        file_url, file_path, file_size, mime_type = save_uploaded_file(
+            file,
+            telegram_user_id=telegram_user_id
+        )
+
+        # Add file to database
+        file_id = db.add_file(
+            user_id=user_id,
+            telegram_user_id=telegram_user_id,
+            filename=os.path.basename(file_path),
+            original_filename=file.filename,
+            file_path=file_path,
+            file_size=file_size,
+            mime_type=mime_type
+        )
+
+        logger.info(f"✅ File uploaded: {file.filename} by user {telegram_user_id}")
+
+        return {
+            "status": "success",
+            "file": {
+                "id": file_id,
+                "filename": os.path.basename(file_path),
+                "original_filename": file.filename,
+                "file_url": file_url,
+                "file_size": file_size,
+                "mime_type": mime_type
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ File upload error: {e}")
+        raise HTTPException(status_code=500, detail="File upload failed")
+
+
+@app.get("/api/user/files")
+async def get_user_files(user: dict = Depends(get_telegram_user)):
+    """
+    Get all files for authenticated Telegram user
+    Only returns files owned by the current user
+    """
+    try:
+        telegram_user_id = user["telegram_id"]
+
+        files = db.get_user_files(telegram_user_id)
+
+        return {
+            "status": "success",
+            "files": files,
+            "count": len(files)
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error fetching user files: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch files")
+
+
+@app.delete("/api/user/files/{file_id}")
+async def delete_user_file(file_id: int, user: dict = Depends(get_telegram_user)):
+    """
+    Delete file with ownership verification
+    Only allows deletion of files owned by current user
+    """
+    try:
+        telegram_user_id = user["telegram_id"]
+
+        # Attempt to delete file (includes ownership check)
+        success = db.delete_file(file_id, telegram_user_id)
+
+        if not success:
+            raise HTTPException(
+                status_code=404,
+                detail="File not found or you don't have permission to delete it"
+            )
+
+        logger.info(f"✅ File {file_id} deleted by user {telegram_user_id}")
+
+        return {
+            "status": "success",
+            "message": "File deleted successfully"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ File deletion error: {e}")
+        raise HTTPException(status_code=500, detail="File deletion failed")
+
+
+@app.get("/api/user/files/{file_id}/download")
+async def download_user_file(file_id: int, user: dict = Depends(get_telegram_user)):
+    """
+    Download file with ownership verification
+    Returns file only if it belongs to current user
+    """
+    try:
+        telegram_user_id = user["telegram_id"]
+
+        # Get file with ownership check
+        file_data = db.get_file_by_id(file_id, telegram_user_id)
+
+        if not file_data:
+            raise HTTPException(
+                status_code=404,
+                detail="File not found or you don't have permission to access it"
+            )
+
+        file_path = file_data["file_path"]
+
+        if not os.path.exists(file_path):
+            logger.error(f"❌ File not found on disk: {file_path}")
+            raise HTTPException(status_code=404, detail="File not found on server")
+
+        from fastapi.responses import FileResponse
+        return FileResponse(
+            path=file_path,
+            filename=file_data["original_filename"],
+            media_type=file_data["mime_type"]
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ File download error: {e}")
+        raise HTTPException(status_code=500, detail="File download failed")
+
+
+@app.get("/api/user/storage/stats")
+async def get_user_storage_stats(user: dict = Depends(get_telegram_user)):
+    """Get storage statistics for current user"""
+    try:
+        telegram_user_id = user["telegram_id"]
+        stats = db.get_user_storage_stats(telegram_user_id)
+
+        return {
+            "status": "success",
+            "stats": stats
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error fetching storage stats: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch storage stats")
+
+
+@app.get("/api/user/profile")
+async def get_user_profile(user: dict = Depends(get_telegram_user)):
+    """Get current user profile information"""
+    return {
+        "status": "success",
+        "user": {
+            "id": user["id"],
+            "telegram_id": user["telegram_id"],
+            "first_name": user["first_name"],
+            "last_name": user["last_name"],
+            "username": user.get("username"),
+            "language_code": user.get("language_code", "en"),
+            "is_premium": user.get("is_premium", False)
+        }
+    }
+
+
+@app.post("/api/telegram/logout")
+async def telegram_logout(request: Request, response: Response):
+    """Logout Telegram user and destroy session"""
+    try:
+        session_id = request.cookies.get("telegram_session")
+
+        if session_id:
+            destroy_telegram_session(session_id)
+            response.delete_cookie("telegram_session")
+            logger.info(f"✅ Telegram user logged out")
+
+        return {"status": "success", "message": "Logged out successfully"}
+
+    except Exception as e:
+        logger.error(f"❌ Logout error: {e}")
+        raise HTTPException(status_code=500, detail="Logout failed")
 
 
 if __name__ == "__main__":
