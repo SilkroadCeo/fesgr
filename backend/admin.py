@@ -7,7 +7,7 @@ import os
 import json
 import shutil
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, List
 import logging
 import hashlib
 import hmac
@@ -19,6 +19,16 @@ from urllib.parse import parse_qs
 import asyncio
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
+from dotenv import load_dotenv
+import magic
+import bleach
+from pydantic import BaseModel, Field, validator
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+# Load environment variables
+load_dotenv()
 
 # Генерация случайного 18-значного кода для ордеров
 def generate_order_code():
@@ -30,19 +40,42 @@ def generate_order_code():
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Упрощенная система аутентификации
-ADMIN_CREDENTIALS = {
-    "username": "admin",
-    "password": "admin123"
+# ============= SECURITY CONFIGURATION =============
+# Load configuration from environment variables
+
+# File Upload Security
+MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "10"))
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+ALLOWED_IMAGE_EXTENSIONS = set(os.getenv("ALLOWED_IMAGE_EXTENSIONS", "jpg,jpeg,png,webp,gif").split(","))
+ALLOWED_VIDEO_EXTENSIONS = set(os.getenv("ALLOWED_VIDEO_EXTENSIONS", "mp4,webm").split(","))
+ALLOWED_MIME_TYPES = {
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+    'video/mp4', 'video/webm'
 }
 
-# Простое хранилище сессий
-active_sessions = {}
+# Rate Limiting Configuration
+MAX_LOGIN_ATTEMPTS = int(os.getenv("MAX_LOGIN_ATTEMPTS", "5"))
+LOGIN_RATE_LIMIT_WINDOW = int(os.getenv("LOGIN_RATE_LIMIT_WINDOW_MINUTES", "15"))
 
-# Telegram Bot Token и настройки уведомлений
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8589549087:AAHsjfI75L4w5jgHFN-6RYqhT8dO-ffrkd8")
-# ID администратора для получения уведомлений (можно указать несколько через запятую)
-ADMIN_TELEGRAM_IDS = [int(id.strip()) for id in os.getenv("ADMIN_TELEGRAM_IDS", "5517770555").split(",") if id.strip()]
+# Admin Authentication
+ADMIN_CREDENTIALS = {
+    "username": os.getenv("ADMIN_USERNAME", "admin"),
+    "password": os.getenv("ADMIN_PASSWORD", "admin123")  # Change this in production!
+}
+
+# Session storage
+active_sessions = {}
+# Rate limiting storage for login attempts
+login_attempts = {}
+
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+ADMIN_TELEGRAM_IDS_STR = os.getenv("ADMIN_TELEGRAM_IDS", "")
+ADMIN_TELEGRAM_IDS = [int(id.strip()) for id in ADMIN_TELEGRAM_IDS_STR.split(",") if id.strip()]
+
+# CORS Configuration
+ALLOWED_ORIGINS_STR = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8002")
+ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS_STR.split(",") if origin.strip()]
 
 # Хранилище для сопоставления Telegram сообщений с чатами
 # Ключ: message_id в Telegram, Значение: profile_id
@@ -128,6 +161,64 @@ async def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="Invalid session")
 
     return user
+
+
+# ============= INPUT VALIDATION MODELS =============
+# Pydantic models for input validation
+
+class ProfileCreateModel(BaseModel):
+    """Validation model for profile creation"""
+    name: str = Field(..., min_length=1, max_length=100)
+    age: int = Field(..., ge=18, le=100)
+    gender: str = Field(..., pattern="^(male|female|other)$")
+    nationality: str = Field(..., min_length=1, max_length=100)
+    city: str = Field(..., min_length=1, max_length=100)
+    travel_cities: str = Field(..., max_length=500)
+    description: str = Field(..., min_length=1, max_length=2000)
+    height: int = Field(..., ge=100, le=250)
+    weight: int = Field(..., ge=30, le=200)
+    chest: int = Field(..., ge=1, le=10)
+
+    @validator('name', 'nationality', 'city', 'description')
+    def sanitize_html(cls, v):
+        """Remove any HTML tags from text fields"""
+        if v:
+            return bleach.clean(v, tags=[], strip=True)
+        return v
+
+
+class CommentModel(BaseModel):
+    """Validation model for comments"""
+    text: str = Field(..., min_length=1, max_length=1000)
+    rating: int = Field(..., ge=1, le=5)
+
+    @validator('text')
+    def sanitize_text(cls, v):
+        """Remove any HTML tags from comment text"""
+        return bleach.clean(v, tags=[], strip=True)
+
+
+class PromoCodeModel(BaseModel):
+    """Validation model for promo codes"""
+    code: str = Field(..., min_length=3, max_length=50, pattern="^[A-Z0-9_-]+$")
+    discount: int = Field(..., ge=1, le=100)
+    expires_at: Optional[str] = None
+
+    @validator('code')
+    def sanitize_code(cls, v):
+        """Ensure code is uppercase alphanumeric"""
+        return v.upper()
+
+
+class ChatMessageModel(BaseModel):
+    """Validation model for chat messages"""
+    text: str = Field(..., min_length=1, max_length=5000)
+
+    @validator('text')
+    def sanitize_message(cls, v):
+        """Remove dangerous HTML but allow basic formatting"""
+        allowed_tags = ['b', 'i', 'u', 'br', 'p']
+        return bleach.clean(v, tags=allowed_tags, strip=True)
 
 
 async def send_telegram_notification(message: str, profile_id: int = None, profile_name: str = None, message_text: str = None, file_url: str = None):
@@ -479,13 +570,18 @@ async def send_admin_reply_from_telegram(profile_id: int, text: str):
 
 app = FastAPI(title="Admin Panel - Muji")
 
-# CORS настройки
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS настройки - SECURE: Only allow specific origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS if ALLOWED_ORIGINS else ["http://localhost:3000"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -539,6 +635,23 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
+def get_crypto_wallets_from_env():
+    """Load crypto wallet addresses from environment variables"""
+    return {
+        "trc20": os.getenv("CRYPTO_WALLET_TRC20", ""),
+        "erc20": os.getenv("CRYPTO_WALLET_ERC20", ""),
+        "bnb": os.getenv("CRYPTO_WALLET_BNB", ""),
+        "btc": os.getenv("CRYPTO_WALLET_BTC", ""),
+        "zetcash": os.getenv("CRYPTO_WALLET_ZETCASH", ""),
+        "doge": os.getenv("CRYPTO_WALLET_DOGE", ""),
+        "dash": os.getenv("CRYPTO_WALLET_DASH", ""),
+        "ltc": os.getenv("CRYPTO_WALLET_LTC", ""),
+        "usdt_bep20": os.getenv("CRYPTO_WALLET_USDT_BEP20", ""),
+        "eth": os.getenv("CRYPTO_WALLET_ETH", ""),
+        "usdc_erc20": os.getenv("CRYPTO_WALLET_USDC_ERC20", "")
+    }
+
+
 def load_data():
     """Загрузка данных из JSON файла"""
     if not os.path.exists(DATA_FILE):
@@ -551,19 +664,7 @@ def load_data():
             "promocodes": [],
             "orders": [],
             "settings": {
-                "crypto_wallets": {
-                    "trc20": "TY76gU8J9o8j7U6tY5r4E3W2Q1",
-                    "erc20": "0x8a9C6e5D8b0E2a1F3c4B6E7D8C9A0B1C2D3E4F5",
-                    "bnb": "bnb1q3e5r7t9y1u3i5o7p9l1k3j5h7g9f2d4s6q8w0",
-                    "btc": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
-                    "zetcash": "ZET1234567890abcdefghijklmnopqrstuvwxyz",
-                    "doge": "DH5yaieqoZN36fDVciNyRueRGvGLR3mr7L",
-                    "dash": "XnPBzXq3bRhQKjVqZvXmG5jKqVmPdWZgFj",
-                    "ltc": "LhK3pXq2BvRsQmNp7TyUjGkLmPqRsXwZyF",
-                    "usdt_bep20": "0x8b9C7e5D9b1E3a2F4c5B7E8D9C0A1B2C3D4E5F6",
-                    "eth": "0x7a8B6d4C8e0D2b1F3a4C5E6D7F8A9B0C1D2E3F4",
-                    "usdc_erc20": "0x6a7B5c3D7e9C1a0F2b3D4F5E6A7B8C9D0E1F2A3"
-                },
+                "crypto_wallets": get_crypto_wallets_from_env(),
                 "bonus_percentage": 5,
                 "banner": {
                     "text": "Special Offer: 15% discount with promo code WELCOME15",
@@ -773,20 +874,95 @@ def save_data(data):
         return False
 
 
-def save_uploaded_file(file: UploadFile) -> str:
-    """Сохраняет загруженный файл и возвращает путь"""
+def sanitize_filename(filename: str) -> str:
+    """Sanitize filename to prevent path traversal attacks"""
+    # Remove any directory path components
+    filename = os.path.basename(filename)
+    # Remove any non-alphanumeric characters except dots, underscores, and hyphens
+    filename = "".join(c for c in filename if c.isalnum() or c in "._-")
+    # Limit filename length
+    if len(filename) > 100:
+        name, ext = os.path.splitext(filename)
+        filename = name[:95] + ext
+    return filename
+
+
+def validate_file_security(file: UploadFile) -> tuple[bool, str]:
+    """
+    Validate file security: size, extension, and MIME type
+    Returns: (is_valid, error_message)
+    """
+    # Check file size
+    file.file.seek(0, 2)  # Seek to end
+    file_size = file.file.tell()
+    file.file.seek(0)  # Reset to beginning
+
+    if file_size > MAX_FILE_SIZE_BYTES:
+        return False, f"File size exceeds maximum allowed size of {MAX_FILE_SIZE_MB}MB"
+
+    if file_size == 0:
+        return False, "File is empty"
+
+    # Get file extension
+    file_extension = file.filename.lower().split('.')[-1] if '.' in file.filename else ''
+
+    # Check extension whitelist
+    allowed_extensions = ALLOWED_IMAGE_EXTENSIONS.union(ALLOWED_VIDEO_EXTENSIONS)
+    if file_extension not in allowed_extensions:
+        return False, f"File type .{file_extension} not allowed. Allowed: {', '.join(allowed_extensions)}"
+
+    # Validate MIME type using python-magic
     try:
+        # Read first 2048 bytes for MIME detection
+        file_content = file.file.read(2048)
+        file.file.seek(0)  # Reset to beginning
+
+        mime = magic.from_buffer(file_content, mime=True)
+
+        if mime not in ALLOWED_MIME_TYPES:
+            return False, f"Invalid file type detected: {mime}"
+    except Exception as e:
+        logger.error(f"Error detecting MIME type: {e}")
+        return False, "Could not validate file type"
+
+    return True, ""
+
+
+def save_uploaded_file(file: UploadFile) -> str:
+    """
+    Securely save uploaded file with validation
+    Returns: file URL path or empty string on error
+    """
+    try:
+        # Validate file security
+        is_valid, error_msg = validate_file_security(file)
+        if not is_valid:
+            logger.error(f"File validation failed: {error_msg}")
+            raise HTTPException(status_code=400, detail=error_msg)
+
+        # Sanitize filename
+        safe_filename = sanitize_filename(file.filename)
+
+        # Add timestamp to prevent collisions
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        filename = f"{timestamp}_{file.filename}"
+        filename = f"{timestamp}_{safe_filename}"
+
+        # Ensure uploads directory exists
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+
         file_path = os.path.join(UPLOAD_DIR, filename)
 
+        # Save file
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
+        logger.info(f"✅ File saved securely: {filename}")
         return f"/uploads/{filename}"
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error saving file: {e}")
-        return ""
+        logger.error(f"❌ Error saving file: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save file")
 
 
 def get_file_type(filename: str) -> str:
@@ -954,10 +1130,50 @@ async def login_page():
     return HTMLResponse(content=html_content)
 
 
+def check_login_rate_limit(ip_address: str) -> bool:
+    """
+    Check if login attempts from IP exceed rate limit
+    Returns: True if allowed, False if rate limited
+    """
+    now = datetime.now()
+
+    # Clean up old attempts
+    if ip_address in login_attempts:
+        login_attempts[ip_address] = [
+            attempt_time for attempt_time in login_attempts[ip_address]
+            if now - attempt_time < timedelta(minutes=LOGIN_RATE_LIMIT_WINDOW)
+        ]
+
+    # Check if rate limit exceeded
+    if ip_address in login_attempts and len(login_attempts[ip_address]) >= MAX_LOGIN_ATTEMPTS:
+        return False
+
+    return True
+
+
+def record_login_attempt(ip_address: str):
+    """Record a failed login attempt"""
+    if ip_address not in login_attempts:
+        login_attempts[ip_address] = []
+    login_attempts[ip_address].append(datetime.now())
+
+
 @app.post("/api/login")
+@limiter.limit("10/minute")
 async def login(request: Request, response: Response):
-    """API эндпоинт для логина"""
+    """API эндпоинт для логина с защитой от brute-force"""
     try:
+        # Get client IP
+        client_ip = request.client.host if request.client else "unknown"
+
+        # Check rate limit
+        if not check_login_rate_limit(client_ip):
+            logger.warning(f"⚠️ Rate limit exceeded for IP: {client_ip}")
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many login attempts. Please try again in {LOGIN_RATE_LIMIT_WINDOW} minutes."
+            )
+
         body = await request.json()
         username = body.get("username")
         password = body.get("password")
@@ -967,23 +1183,35 @@ async def login(request: Request, response: Response):
 
         # Проверяем учетные данные
         if username == ADMIN_CREDENTIALS["username"] and password == ADMIN_CREDENTIALS["password"]:
+            # Clear failed attempts on successful login
+            if client_ip in login_attempts:
+                login_attempts[client_ip] = []
+
             # Создаем сессию
             session_id = create_session(username)
 
-            # Устанавливаем cookie
+            # Устанавливаем cookie с secure настройками
             response.set_cookie(
                 key="admin_session",
                 value=session_id,
                 httponly=True,
                 max_age=86400 * 7,  # 7 дней
-                samesite="lax"
+                samesite="lax",
+                secure=True  # HTTPS only in production
             )
 
+            logger.info(f"✅ Successful login for user: {username} from IP: {client_ip}")
             return {"status": "success", "message": "Успешный вход"}
         else:
+            # Record failed attempt
+            record_login_attempt(client_ip)
+            logger.warning(f"⚠️ Failed login attempt for user: {username} from IP: {client_ip}")
             raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Неверный формат данных")
+        logger.error(f"❌ Login error: {e}")
+        raise HTTPException(status_code=400, detail="Ошибка входа")
 
 
 @app.post("/api/telegram/auth")
