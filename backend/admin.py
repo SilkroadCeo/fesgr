@@ -100,11 +100,24 @@ if TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
         telegram_bot = None
 
 
-def verify_telegram_auth(init_data: str) -> bool:
-    """Проверка подлинности данных от Telegram Web App"""
+def verify_telegram_auth(init_data: str, max_age_seconds: int = 86400) -> bool:
+    """
+    Проверка подлинности данных от Telegram Web App
+
+    Args:
+        init_data: Строка initData от Telegram WebApp
+        max_age_seconds: Максимальный возраст данных в секундах (по умолчанию 24 часа)
+
+    Returns:
+        True если данные валидны и не устарели, иначе False
+    """
     try:
         parsed_data = parse_qs(init_data)
         received_hash = parsed_data.get('hash', [''])[0]
+
+        if not received_hash:
+            logger.warning("⚠️ Missing hash in Telegram auth data")
+            return False
 
         # Формируем строку для проверки
         data_check_arr = []
@@ -122,7 +135,25 @@ def verify_telegram_auth(init_data: str) -> bool:
             hashlib.sha256
         ).hexdigest()
 
-        return calculated_hash == received_hash
+        # Проверка подлинности хеша (защита от атак по времени)
+        if not hmac.compare_digest(calculated_hash, received_hash):
+            logger.warning("⚠️ Invalid hash in Telegram auth data")
+            return False
+
+        # Проверка свежести данных (защита от повторных атак)
+        auth_date = parsed_data.get('auth_date', ['0'])[0]
+        try:
+            auth_timestamp = int(auth_date)
+            current_timestamp = int(datetime.now().timestamp())
+
+            if current_timestamp - auth_timestamp > max_age_seconds:
+                logger.warning(f"⚠️ Telegram auth data too old: {current_timestamp - auth_timestamp} seconds")
+                return False
+        except (ValueError, TypeError):
+            logger.warning("⚠️ Invalid auth_date in Telegram auth data")
+            return False
+
+        return True
     except Exception as e:
         logger.error(f"Telegram auth verification error: {e}")
         return False
@@ -1429,6 +1460,44 @@ async def telegram_auth(request: Request, response: Response):
     except Exception as e:
         logger.error(f"❌ Telegram auth error: {e}")
         raise HTTPException(status_code=500, detail="Authentication error")
+
+
+@app.get("/api/telegram/me")
+async def get_current_telegram_user_endpoint(user: dict = Depends(get_telegram_user)):
+    """
+    Get current authenticated Telegram user information
+    This endpoint can be used to check if user is authenticated and get their data
+    """
+    return {
+        "status": "success",
+        "user": {
+            "id": user["id"],
+            "telegram_id": user["telegram_id"],
+            "first_name": user["first_name"],
+            "last_name": user["last_name"],
+            "username": user.get("username", ""),
+            "language_code": user.get("language_code", "en"),
+            "is_premium": user.get("is_premium", False)
+        }
+    }
+
+
+@app.post("/api/telegram/logout")
+async def telegram_logout(request: Request, response: Response):
+    """
+    Logout Telegram user by destroying session
+    """
+    try:
+        session_id = request.cookies.get("telegram_session")
+        if session_id:
+            destroy_telegram_session(session_id)
+            response.delete_cookie(key="telegram_session")
+            logger.info(f"✅ Telegram user logged out: session {session_id}")
+
+        return {"status": "success", "message": "Logged out successfully"}
+    except Exception as e:
+        logger.error(f"❌ Logout error: {e}")
+        raise HTTPException(status_code=500, detail="Logout error")
 
 
 @app.post("/api/payment/crypto")
