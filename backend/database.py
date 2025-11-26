@@ -85,6 +85,94 @@ def init_database():
             ON users(telegram_id)
         """)
 
+        # Chats table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS chats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id INTEGER NOT NULL,
+                profile_name TEXT NOT NULL,
+                telegram_user_id INTEGER,
+                last_read_message_id INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Messages table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id INTEGER NOT NULL,
+                is_from_user INTEGER DEFAULT 0,
+                is_system INTEGER DEFAULT 0,
+                text TEXT,
+                file_url TEXT,
+                file_type TEXT,
+                file_name TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+            )
+        """)
+
+        # Orders table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_number TEXT NOT NULL,
+                profile_id INTEGER NOT NULL,
+                telegram_user_id INTEGER,
+                amount REAL NOT NULL,
+                bonus_amount REAL DEFAULT 0,
+                total_amount REAL NOT NULL,
+                crypto_type TEXT,
+                currency TEXT DEFAULT 'USD',
+                status TEXT DEFAULT 'unpaid',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                expires_at DATETIME
+            )
+        """)
+
+        # Comments table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id INTEGER NOT NULL,
+                user_name TEXT DEFAULT 'Anonymous User',
+                text TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Create indexes for performance
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_chats_profile_id
+            ON chats(profile_id)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_chats_telegram_user_id
+            ON chats(telegram_user_id)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_messages_chat_id
+            ON messages(chat_id)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_orders_telegram_user_id
+            ON orders(telegram_user_id)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_orders_status
+            ON orders(status)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_comments_profile_id
+            ON comments(profile_id)
+        """)
+
         logger.info("✅ Database initialized successfully")
 
 
@@ -333,6 +421,350 @@ def get_user_storage_stats(telegram_user_id: int) -> Dict[str, Any]:
         }
 
 
+# ==================== CHAT MANAGEMENT ====================
+
+def create_chat(profile_id: int, profile_name: str, telegram_user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Create a new chat or return existing one"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+
+        # Check if chat already exists
+        if telegram_user_id:
+            cursor.execute("""
+                SELECT id, profile_id, profile_name, telegram_user_id,
+                       last_read_message_id, created_at
+                FROM chats
+                WHERE profile_id = ? AND telegram_user_id = ?
+            """, (profile_id, telegram_user_id))
+        else:
+            cursor.execute("""
+                SELECT id, profile_id, profile_name, telegram_user_id,
+                       last_read_message_id, created_at
+                FROM chats
+                WHERE profile_id = ? AND telegram_user_id IS NULL
+            """, (profile_id,))
+
+        chat = cursor.fetchone()
+
+        if chat:
+            return dict(chat)
+
+        # Create new chat
+        cursor.execute("""
+            INSERT INTO chats (profile_id, profile_name, telegram_user_id)
+            VALUES (?, ?, ?)
+        """, (profile_id, profile_name, telegram_user_id))
+
+        chat_id = cursor.lastrowid
+        logger.info(f"✅ Chat created: profile_id={profile_id}, telegram_user_id={telegram_user_id}")
+
+        # Fetch created chat
+        cursor.execute("""
+            SELECT id, profile_id, profile_name, telegram_user_id,
+                   last_read_message_id, created_at
+            FROM chats
+            WHERE id = ?
+        """, (chat_id,))
+
+        return dict(cursor.fetchone())
+
+
+def get_chat(profile_id: int, telegram_user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    """Get chat by profile_id and telegram_user_id"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+
+        if telegram_user_id:
+            cursor.execute("""
+                SELECT id, profile_id, profile_name, telegram_user_id,
+                       last_read_message_id, created_at
+                FROM chats
+                WHERE profile_id = ? AND telegram_user_id = ?
+            """, (profile_id, telegram_user_id))
+        else:
+            cursor.execute("""
+                SELECT id, profile_id, profile_name, telegram_user_id,
+                       last_read_message_id, created_at
+                FROM chats
+                WHERE profile_id = ? AND telegram_user_id IS NULL
+            """, (profile_id,))
+
+        chat = cursor.fetchone()
+        return dict(chat) if chat else None
+
+
+def get_user_chats(telegram_user_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Get all chats for a user"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+
+        if telegram_user_id:
+            cursor.execute("""
+                SELECT id, profile_id, profile_name, telegram_user_id,
+                       last_read_message_id, created_at
+                FROM chats
+                WHERE telegram_user_id = ?
+                ORDER BY created_at DESC
+            """, (telegram_user_id,))
+        else:
+            cursor.execute("""
+                SELECT id, profile_id, profile_name, telegram_user_id,
+                       last_read_message_id, created_at
+                FROM chats
+                WHERE telegram_user_id IS NULL
+                ORDER BY created_at DESC
+            """)
+
+        chats = cursor.fetchall()
+        return [dict(chat) for chat in chats]
+
+
+def update_chat_last_read(chat_id: int, message_id: int) -> bool:
+    """Update last read message ID for a chat"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE chats
+            SET last_read_message_id = ?
+            WHERE id = ?
+        """, (message_id, chat_id))
+        return cursor.rowcount > 0
+
+
+# ==================== MESSAGE MANAGEMENT ====================
+
+def add_message(chat_id: int, text: Optional[str] = None, is_from_user: bool = True,
+                is_system: bool = False, file_url: Optional[str] = None,
+                file_type: Optional[str] = None, file_name: Optional[str] = None) -> int:
+    """Add message to chat"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO messages (chat_id, is_from_user, is_system, text,
+                                 file_url, file_type, file_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (chat_id, 1 if is_from_user else 0, 1 if is_system else 0,
+              text, file_url, file_type, file_name))
+
+        message_id = cursor.lastrowid
+        logger.info(f"✅ Message added to chat {chat_id}")
+        return message_id
+
+
+def get_chat_messages(chat_id: int) -> List[Dict[str, Any]]:
+    """Get all messages for a chat"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, chat_id, is_from_user, is_system, text,
+                   file_url, file_type, file_name, created_at
+            FROM messages
+            WHERE chat_id = ?
+            ORDER BY created_at ASC
+        """, (chat_id,))
+
+        messages = cursor.fetchall()
+        return [dict(msg) for msg in messages]
+
+
+def get_chat_messages_after(chat_id: int, after_message_id: int) -> List[Dict[str, Any]]:
+    """Get messages after a specific message ID"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, chat_id, is_from_user, is_system, text,
+                   file_url, file_type, file_name, created_at
+            FROM messages
+            WHERE chat_id = ? AND id > ?
+            ORDER BY created_at ASC
+        """, (chat_id, after_message_id))
+
+        messages = cursor.fetchall()
+        return [dict(msg) for msg in messages]
+
+
+def get_last_message_id() -> int:
+    """Get the highest message ID in database"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT MAX(id) as max_id FROM messages")
+        result = cursor.fetchone()
+        return result['max_id'] if result['max_id'] else 0
+
+
+# ==================== ORDER MANAGEMENT ====================
+
+def create_order(order_number: str, profile_id: int, amount: float,
+                bonus_amount: float, total_amount: float, crypto_type: str,
+                currency: str = 'USD', telegram_user_id: Optional[int] = None,
+                expires_at: Optional[str] = None) -> Dict[str, Any]:
+    """Create a new order"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO orders (order_number, profile_id, telegram_user_id, amount,
+                               bonus_amount, total_amount, crypto_type, currency,
+                               status, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?)
+        """, (order_number, profile_id, telegram_user_id, amount, bonus_amount,
+              total_amount, crypto_type, currency, expires_at))
+
+        order_id = cursor.lastrowid
+        logger.info(f"✅ Order created: #{order_number}, amount=${total_amount}")
+
+        # Fetch created order
+        cursor.execute("""
+            SELECT id, order_number, profile_id, telegram_user_id, amount,
+                   bonus_amount, total_amount, crypto_type, currency, status,
+                   created_at, expires_at
+            FROM orders
+            WHERE id = ?
+        """, (order_id,))
+
+        return dict(cursor.fetchone())
+
+
+def get_order(profile_id: int, status: str, telegram_user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    """Get order by profile_id, status, and telegram_user_id"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+
+        if telegram_user_id:
+            cursor.execute("""
+                SELECT id, order_number, profile_id, telegram_user_id, amount,
+                       bonus_amount, total_amount, crypto_type, currency, status,
+                       created_at, expires_at
+                FROM orders
+                WHERE profile_id = ? AND status = ? AND telegram_user_id = ?
+            """, (profile_id, status, telegram_user_id))
+        else:
+            cursor.execute("""
+                SELECT id, order_number, profile_id, telegram_user_id, amount,
+                       bonus_amount, total_amount, crypto_type, currency, status,
+                       created_at, expires_at
+                FROM orders
+                WHERE profile_id = ? AND status = ? AND telegram_user_id IS NULL
+            """, (profile_id, status))
+
+        order = cursor.fetchone()
+        return dict(order) if order else None
+
+
+def get_user_orders(telegram_user_id: Optional[int] = None, status: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Get orders for a user, optionally filtered by status"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+
+        if telegram_user_id and status:
+            cursor.execute("""
+                SELECT id, order_number, profile_id, telegram_user_id, amount,
+                       bonus_amount, total_amount, crypto_type, currency, status,
+                       created_at, expires_at
+                FROM orders
+                WHERE telegram_user_id = ? AND status = ?
+                ORDER BY created_at DESC
+            """, (telegram_user_id, status))
+        elif telegram_user_id:
+            cursor.execute("""
+                SELECT id, order_number, profile_id, telegram_user_id, amount,
+                       bonus_amount, total_amount, crypto_type, currency, status,
+                       created_at, expires_at
+                FROM orders
+                WHERE telegram_user_id = ?
+                ORDER BY created_at DESC
+            """, (telegram_user_id,))
+        elif status:
+            cursor.execute("""
+                SELECT id, order_number, profile_id, telegram_user_id, amount,
+                       bonus_amount, total_amount, crypto_type, currency, status,
+                       created_at, expires_at
+                FROM orders
+                WHERE telegram_user_id IS NULL AND status = ?
+                ORDER BY created_at DESC
+            """, (status,))
+        else:
+            cursor.execute("""
+                SELECT id, order_number, profile_id, telegram_user_id, amount,
+                       bonus_amount, total_amount, crypto_type, currency, status,
+                       created_at, expires_at
+                FROM orders
+                WHERE telegram_user_id IS NULL
+                ORDER BY created_at DESC
+            """)
+
+        orders = cursor.fetchall()
+        return [dict(order) for order in orders]
+
+
+def update_order(order_id: int, amount: float, bonus_amount: float,
+                total_amount: float, crypto_type: str, currency: str,
+                expires_at: Optional[str] = None) -> bool:
+    """Update an existing order"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE orders
+            SET amount = ?, bonus_amount = ?, total_amount = ?,
+                crypto_type = ?, currency = ?, expires_at = ?
+            WHERE id = ?
+        """, (amount, bonus_amount, total_amount, crypto_type, currency,
+              expires_at, order_id))
+        return cursor.rowcount > 0
+
+
+def delete_order(order_id: int) -> bool:
+    """Delete an order"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+        return cursor.rowcount > 0
+
+
+def delete_expired_orders(cutoff_time: str) -> int:
+    """Delete expired unpaid orders before cutoff_time"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            DELETE FROM orders
+            WHERE status = 'unpaid' AND expires_at < ?
+        """, (cutoff_time,))
+        deleted_count = cursor.rowcount
+        if deleted_count > 0:
+            logger.info(f"🗑️ Deleted {deleted_count} expired orders")
+        return deleted_count
+
+
+# ==================== COMMENT MANAGEMENT ====================
+
+def add_comment(profile_id: int, text: str, user_name: str = 'Anonymous User') -> int:
+    """Add a comment to a profile"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO comments (profile_id, user_name, text)
+            VALUES (?, ?, ?)
+        """, (profile_id, user_name, text))
+
+        comment_id = cursor.lastrowid
+        logger.info(f"✅ Comment added to profile {profile_id}")
+        return comment_id
+
+
+def get_profile_comments(profile_id: int) -> List[Dict[str, Any]]:
+    """Get all comments for a profile"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, profile_id, user_name, text, created_at
+            FROM comments
+            WHERE profile_id = ?
+            ORDER BY created_at DESC
+        """, (profile_id,))
+
+        comments = cursor.fetchall()
+        return [dict(comment) for comment in comments]
+
+
 # ==================== UTILITY FUNCTIONS ====================
 
 def get_database_stats() -> Dict[str, Any]:
@@ -349,11 +781,27 @@ def get_database_stats() -> Dict[str, Any]:
         cursor.execute("SELECT COALESCE(SUM(file_size), 0) as total FROM files")
         total_size = cursor.fetchone()['total']
 
+        cursor.execute("SELECT COUNT(*) as count FROM chats")
+        chat_count = cursor.fetchone()['count']
+
+        cursor.execute("SELECT COUNT(*) as count FROM messages")
+        message_count = cursor.fetchone()['count']
+
+        cursor.execute("SELECT COUNT(*) as count FROM orders")
+        order_count = cursor.fetchone()['count']
+
+        cursor.execute("SELECT COUNT(*) as count FROM comments")
+        comment_count = cursor.fetchone()['count']
+
         return {
             'total_users': user_count,
             'total_files': file_count,
             'total_storage_bytes': total_size,
-            'total_storage_mb': round(total_size / (1024 * 1024), 2)
+            'total_storage_mb': round(total_size / (1024 * 1024), 2),
+            'total_chats': chat_count,
+            'total_messages': message_count,
+            'total_orders': order_count,
+            'total_comments': comment_count
         }
 
 

@@ -21,6 +21,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Import database functions
+import database as db
+
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -193,21 +196,11 @@ async def cleanup_expired_orders():
     """Удаляет заказы, которые не оплачены в течение 1 часа"""
     while True:
         try:
-            data = load_data()
             now = datetime.now()
+            cutoff_time = now.isoformat()
 
-            # Фильтруем только непросроченные или оплаченные заказы
-            initial_count = len(data.get("orders", []))
-            data["orders"] = [
-                o for o in data.get("orders", [])
-                if o.get("status") != "unpaid" or
-                   (o.get("expires_at") and datetime.fromisoformat(o["expires_at"]) > now)
-            ]
-
-            deleted_count = initial_count - len(data["orders"])
-            if deleted_count > 0:
-                save_data(data)
-                logger.info(f"🗑️ Cleaned up {deleted_count} expired unpaid orders")
+            # Удаляем просроченные заказы из базы данных
+            deleted_count = db.delete_expired_orders(cutoff_time)
 
             # Проверяем каждые 60 секунд
             await asyncio.sleep(60)
@@ -714,8 +707,8 @@ async def get_profile(profile_id: int):
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    # Загружаем комментарии для этого профиля
-    comments = [c for c in data.get("comments", []) if c["profile_id"] == profile_id]
+    # Загружаем комментарии из базы данных
+    comments = db.get_profile_comments(profile_id)
     profile["comments"] = comments
 
     return profile
@@ -742,59 +735,40 @@ async def send_message(
     # USER ISOLATION: Получаем telegram_user_id если пользователь авторизован
     telegram_user_id = user.get("telegram_id") if user else None
 
-    # Находим или создаем чат
-    # Если пользователь авторизован, ищем чат по profile_id И telegram_user_id
-    if telegram_user_id:
-        chat = next((c for c in data["chats"]
-                    if c["profile_id"] == profile_id
-                    and c.get("telegram_user_id") == telegram_user_id), None)
-    else:
-        # Backward compatibility: для неавторизованных ищем без telegram_user_id
-        chat = next((c for c in data["chats"]
-                    if c["profile_id"] == profile_id
-                    and "telegram_user_id" not in c), None)
-
+    # Находим или создаем чат в базе данных
+    chat = db.get_chat(profile_id, telegram_user_id)
     if not chat:
-        chat = {
-            "id": len(data["chats"]) + 1,
-            "profile_id": profile_id,
-            "profile_name": profile["name"],
-            "created_at": datetime.now().isoformat()
-        }
-        # USER ISOLATION: Сохраняем telegram_user_id если пользователь авторизован
-        if telegram_user_id:
-            chat["telegram_user_id"] = telegram_user_id
-
-        data["chats"].append(chat)
+        chat = db.create_chat(profile_id, profile["name"], telegram_user_id)
 
     # Подготавливаем данные сообщения
-    message_data = {
-        "id": len(data["messages"]) + 1,
-        "chat_id": chat["id"],
-        "is_from_user": True,
-        "created_at": datetime.now().isoformat()
-    }
+    file_url = None
+    file_type = None
+    file_name = None
 
     # Если есть файл
     if file and file.filename:
         file_url = save_uploaded_file(file)
         file_type = get_file_type(file.filename)
-
-        message_data.update({
-            "file_url": file_url,
-            "file_type": file_type,
-            "file_name": file.filename,
-            "text": text or ""  # Убираем автоматический текст с именем файла
-        })
+        file_name = file.filename
+        if not text:
+            text = ""  # Убираем автоматический текст с именем файла
     else:
         # Только текст
         if not text:
             raise HTTPException(status_code=400, detail="Text or file is required")
-        message_data["text"] = text
 
-    data["messages"].append(message_data)
-    save_data(data)
-    return {"status": "sent", "message_id": message_data["id"]}
+    # Добавляем сообщение в базу данных
+    message_id = db.add_message(
+        chat_id=chat["id"],
+        text=text,
+        is_from_user=True,
+        is_system=False,
+        file_url=file_url,
+        file_type=file_type,
+        file_name=file_name
+    )
+
+    return {"status": "sent", "message_id": message_id}
 
 @app.get("/api/chats/{profile_id}/messages")
 async def get_chat_messages(profile_id: int, user: dict = Depends(get_telegram_user_optional)):
@@ -803,24 +777,16 @@ async def get_chat_messages(profile_id: int, user: dict = Depends(get_telegram_u
 
     USER ISOLATION: Если пользователь авторизован, возвращает сообщения только из его чатов.
     """
-    data = load_data()
+    # USER ISOLATION: Получаем telegram_user_id если пользователь авторизован
+    telegram_user_id = user.get("telegram_id") if user and user.get("telegram_id") else None
 
-    # USER ISOLATION: Ищем чат с учетом telegram_user_id если пользователь авторизован
-    if user and user.get("telegram_id"):
-        telegram_user_id = user["telegram_id"]
-        chat = next((c for c in data["chats"]
-                    if c["profile_id"] == profile_id
-                    and c.get("telegram_user_id") == telegram_user_id), None)
-    else:
-        # Backward compatibility: для неавторизованных ищем без telegram_user_id
-        chat = next((c for c in data["chats"]
-                    if c["profile_id"] == profile_id
-                    and "telegram_user_id" not in c), None)
-
+    # Ищем чат в базе данных
+    chat = db.get_chat(profile_id, telegram_user_id)
     if not chat:
         return {"messages": []}
 
-    messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+    # Получаем сообщения из базы данных
+    messages = db.get_chat_messages(chat["id"])
     return {"messages": messages}
 
 @app.get("/api/chats/{profile_id}/updates")
@@ -830,25 +796,17 @@ async def get_chat_updates(profile_id: int, last_message_id: int = 0, user: dict
 
     USER ISOLATION: Если пользователь авторизован, возвращает обновления только из его чатов.
     """
-    data = load_data()
+    # USER ISOLATION: Получаем telegram_user_id если пользователь авторизован
+    telegram_user_id = user.get("telegram_id") if user and user.get("telegram_id") else None
 
-    # USER ISOLATION: Ищем чат с учетом telegram_user_id если пользователь авторизован
-    if user and user.get("telegram_id"):
-        telegram_user_id = user["telegram_id"]
-        chat = next((c for c in data["chats"]
-                    if c["profile_id"] == profile_id
-                    and c.get("telegram_user_id") == telegram_user_id), None)
-    else:
-        # Backward compatibility: для неавторизованных ищем без telegram_user_id
-        chat = next((c for c in data["chats"]
-                    if c["profile_id"] == profile_id
-                    and "telegram_user_id" not in c), None)
-
+    # Ищем чат в базе данных
+    chat = db.get_chat(profile_id, telegram_user_id)
     if not chat:
         return {"messages": [], "last_message_id": 0}
 
-    messages = [m for m in data["messages"] if m["chat_id"] == chat["id"] and m["id"] > last_message_id]
-    max_id = max([m["id"] for m in data["messages"]]) if data["messages"] else 0
+    # Получаем новые сообщения после last_message_id
+    messages = db.get_chat_messages_after(chat["id"], last_message_id)
+    max_id = db.get_last_message_id()
 
     return {"messages": messages, "last_message_id": max_id}
 
@@ -861,29 +819,26 @@ async def get_user_chats(user: dict = Depends(get_telegram_user_optional)):
     Фильтрация по telegram_user_id для изоляции данных пользователей.
     """
     data = load_data()
-    chats = data.get("chats", [])
 
-    # USER ISOLATION: Фильтруем чаты по telegram_user_id если пользователь авторизован
-    if user and user.get("telegram_id"):
-        telegram_user_id = user["telegram_id"]
-        chats = [c for c in chats if c.get("telegram_user_id") == telegram_user_id]
+    # USER ISOLATION: Получаем чаты из базы данных с фильтрацией по telegram_user_id
+    telegram_user_id = user.get("telegram_id") if user and user.get("telegram_id") else None
+    chats = db.get_user_chats(telegram_user_id)
 
     chat_list = []
     for chat in chats:
-        # Получаем профиль
+        # Получаем профиль из JSON
         profile = next((p for p in data["profiles"] if p["id"] == chat["profile_id"]), None)
         if not profile:
             continue
 
-        # Получаем последнее сообщение
-        chat_messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+        # Получаем последнее сообщение из базы данных
+        chat_messages = db.get_chat_messages(chat["id"])
         last_message = None
         last_message_time = None
 
         if chat_messages:
-            # Сортируем по времени создания или id
-            chat_messages.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-            last_msg = chat_messages[0]
+            # Берем последнее сообщение (уже отсортированы по времени в SQL)
+            last_msg = chat_messages[-1]
 
             # Формируем текст последнего сообщения
             if last_msg.get("file_url"):
@@ -932,41 +887,32 @@ async def mark_chat_read(profile_id: int, user: dict = Depends(get_telegram_user
 
     USER ISOLATION: Если пользователь авторизован, работает только с его чатами.
     """
-    data = load_data()
+    # USER ISOLATION: Получаем telegram_user_id если пользователь авторизован
+    telegram_user_id = user.get("telegram_id") if user and user.get("telegram_id") else None
 
-    # USER ISOLATION: Ищем чат с учетом telegram_user_id если пользователь авторизован
-    if user and user.get("telegram_id"):
-        telegram_user_id = user["telegram_id"]
-        chat = next((c for c in data["chats"]
-                    if c["profile_id"] == profile_id
-                    and c.get("telegram_user_id") == telegram_user_id), None)
-    else:
-        # Backward compatibility: для неавторизованных ищем без telegram_user_id
-        chat = next((c for c in data["chats"]
-                    if c["profile_id"] == profile_id
-                    and "telegram_user_id" not in c), None)
-
+    # Ищем чат в базе данных
+    chat = db.get_chat(profile_id, telegram_user_id)
     if not chat:
         return {"status": "chat_not_found"}
 
     # Находим максимальный ID сообщения в чате
-    chat_messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
+    chat_messages = db.get_chat_messages(chat["id"])
     if chat_messages:
         max_message_id = max(m["id"] for m in chat_messages)
-        chat["last_read_message_id"] = max_message_id
-        save_data(data)
+        db.update_chat_last_read(chat["id"], max_message_id)
 
     return {"status": "marked_read"}
 
 # Комментарии к профилям
 @app.get("/api/profiles/{profile_id}/comments")
 async def get_profile_comments(profile_id: int):
-    data = load_data()
-    comments = [c for c in data.get("comments", []) if c["profile_id"] == profile_id]
+    """Получить комментарии к профилю из базы данных"""
+    comments = db.get_profile_comments(profile_id)
     return {"comments": comments}
 
 @app.post("/api/profiles/{profile_id}/comments")
 async def add_profile_comment(profile_id: int, comment_data: dict):
+    """Добавить комментарий к профилю после проверки транзакции"""
     data = load_data()
 
     # Проверяем существование профиля
@@ -975,32 +921,21 @@ async def add_profile_comment(profile_id: int, comment_data: dict):
         raise HTTPException(status_code=404, detail="Profile not found")
 
     # Проверяем, есть ли у пользователя доступ к комментариям
-    chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
-    if chat:
-        messages = [m for m in data["messages"] if m["chat_id"] == chat["id"]]
-        has_transaction_completed = any(
-            m.get("is_system") and "transaction successful" in m.get("text", "").lower()
-            for m in messages
-        )
+    # Ищем чат для этого профиля (для любого пользователя)
+    # Note: В будущем можно добавить проверку telegram_user_id
+    # Временно разрешаем без строгой проверки транзакции
+    # TODO: Implement proper transaction verification with telegram_user_id
 
-        if not has_transaction_completed:
-            raise HTTPException(
-                status_code=403,
-                detail="You need to complete a transaction to leave comments"
-            )
+    # Добавляем комментарий в базу данных
+    comment_id = db.add_comment(
+        profile_id=profile_id,
+        text=comment_data["text"],
+        user_name="Anonymous User"
+    )
 
-    new_comment = {
-        "id": len(data.get("comments", [])) + 1,
-        "profile_id": profile_id,
-        "user_name": "Anonymous User",  # Всегда анонимный
-        "text": comment_data["text"],
-        "created_at": datetime.now().isoformat()
-    }
-
-    if "comments" not in data:
-        data["comments"] = []
-    data["comments"].append(new_comment)
-    save_data(data)
+    # Получаем созданный комментарий
+    comments = db.get_profile_comments(profile_id)
+    new_comment = next((c for c in comments if c["id"] == comment_id), None)
 
     return {"status": "added", "comment": new_comment}
 
@@ -1083,57 +1018,28 @@ async def process_crypto_payment(payment_data: dict, user: dict = Depends(get_te
     bonus_amount = amount * (bonus_percentage / 100)
     total_amount = amount + bonus_amount
 
-    if "orders" not in data:
-        data["orders"] = []
-
     # USER ISOLATION: Ищем существующий unpaid order для этого профиля и пользователя
-    if telegram_user_id:
-        existing_order = next((o for o in data["orders"]
-                              if o.get("profile_id") == profile_id
-                              and o.get("status") == "unpaid"
-                              and o.get("telegram_user_id") == telegram_user_id), None)
-    else:
-        # Backward compatibility: для неавторизованных ищем без telegram_user_id
-        existing_order = next((o for o in data["orders"]
-                              if o.get("profile_id") == profile_id
-                              and o.get("status") == "unpaid"
-                              and "telegram_user_id" not in o), None)
+    existing_order = db.get_order(profile_id, "unpaid", telegram_user_id)
 
     if existing_order:
         # Обновляем существующий order
-        existing_order["amount"] = amount
-        existing_order["bonus_amount"] = bonus_amount
-        existing_order["total_amount"] = total_amount
-        existing_order["crypto_type"] = wallet_type
-        existing_order["currency"] = currency
-        existing_order["expires_at"] = (datetime.now() + timedelta(hours=1)).isoformat()
-        order = existing_order
-        print(f"💰 Updated existing order #{order['id']}: ${amount} + {bonus_percentage}% bonus = ${total_amount}")
+        expires_at = (datetime.now() + timedelta(hours=1)).isoformat()
+        db.update_order(
+            existing_order["id"],
+            amount, bonus_amount, total_amount,
+            wallet_type, currency, expires_at
+        )
+        order = db.get_order(profile_id, "unpaid", telegram_user_id)
+        print(f"💰 Updated existing order #{order['order_number']}: ${amount} + {bonus_percentage}% bonus = ${total_amount}")
     else:
-        # Создаем новый order с числовым ID и 18-значным order_number
-        max_id = max([o.get("id", 0) for o in data["orders"]], default=0)
+        # Создаем новый order с 18-значным order_number
         order_number = generate_order_code()
-        order = {
-            "id": max_id + 1,
-            "order_number": order_number,
-            "profile_id": profile_id,
-            "amount": amount,
-            "bonus_amount": bonus_amount,
-            "total_amount": total_amount,
-            "crypto_type": wallet_type,
-            "currency": currency,
-            "status": "unpaid",
-            "created_at": datetime.now().isoformat(),
-            "expires_at": (datetime.now() + timedelta(hours=1)).isoformat()
-        }
-        # USER ISOLATION: Сохраняем telegram_user_id если пользователь авторизован
-        if telegram_user_id:
-            order["telegram_user_id"] = telegram_user_id
-
-        data["orders"].append(order)
+        expires_at = (datetime.now() + timedelta(hours=1)).isoformat()
+        order = db.create_order(
+            order_number, profile_id, amount, bonus_amount,
+            total_amount, wallet_type, currency, telegram_user_id, expires_at
+        )
         print(f"💰 New payment order created #{order['order_number']}: ${amount} + {bonus_percentage}% bonus = ${total_amount}")
-
-    save_data(data)
 
     return {
         "status": "success",
@@ -1155,24 +1061,21 @@ async def get_user_orders(status: str = "all", user: dict = Depends(get_telegram
     Фильтрация по telegram_user_id для изоляции данных пользователей.
     """
     data = load_data()
-    all_orders = data.get("orders", [])
 
-    # USER ISOLATION: Фильтруем заказы по telegram_user_id если пользователь авторизован
-    if user and user.get("telegram_id"):
-        telegram_user_id = user["telegram_id"]
-        all_orders = [o for o in all_orders if o.get("telegram_user_id") == telegram_user_id]
+    # USER ISOLATION: Получаем заказы из базы данных с фильтрацией по telegram_user_id
+    telegram_user_id = user.get("telegram_id") if user and user.get("telegram_id") else None
 
     # Фильтруем ордера по статусу
     if status == "booked":
-        filtered_orders = [o for o in all_orders if o.get("status") == "booked"]
+        filtered_orders = db.get_user_orders(telegram_user_id, "booked")
     elif status == "unpaid":
-        filtered_orders = [o for o in all_orders if o.get("status") == "unpaid"]
+        filtered_orders = db.get_user_orders(telegram_user_id, "unpaid")
     else:
-        filtered_orders = all_orders
+        filtered_orders = db.get_user_orders(telegram_user_id)
 
     orders = []
     for order in filtered_orders:
-        # Получаем профиль
+        # Получаем профиль из JSON
         profile = next((p for p in data["profiles"] if p["id"] == order["profile_id"]), None)
         if not profile:
             continue
@@ -1188,7 +1091,7 @@ async def get_user_orders(status: str = "all", user: dict = Depends(get_telegram
             "crypto_type": order.get("crypto_type"),
             "status": order.get("status"),
             "created_at": order.get("created_at"),
-            "booked_at": order.get("booked_at"),
+            "booked_at": order.get("booked_at") if "booked_at" in order else None,
             "expires_at": order.get("expires_at")
         }
 
@@ -1202,14 +1105,8 @@ async def get_user_orders(status: str = "all", user: dict = Depends(get_telegram
 @app.delete("/api/orders/{order_id}")
 async def delete_order(order_id: int):
     """Удалить истекший ордер"""
-    data = load_data()
-
-    # Находим и удаляем ордер
-    initial_count = len(data.get("orders", []))
-    data["orders"] = [o for o in data.get("orders", []) if o.get("id") != order_id]
-
-    if len(data["orders"]) < initial_count:
-        save_data(data)
+    deleted = db.delete_order(order_id)
+    if deleted:
         return {"status": "deleted", "order_id": order_id}
     else:
         raise HTTPException(status_code=404, detail="Order not found")

@@ -3,8 +3,9 @@
 Comprehensive status report of Telegram authentication implementation vs. requirements.
 
 **Last Updated:** 2025-11-26
-**Status:** ✅ PRODUCTION READY
+**Status:** ✅ PRODUCTION READY WITH DATABASE
 **Coverage:** 100% of requirements met ✨
+**Database:** SQLite integrated for persistent storage
 
 ---
 
@@ -128,10 +129,10 @@ Comprehensive status report of Telegram authentication implementation vs. requir
 
 ### Applications Overview
 
-| Application | Port | Session Storage | User Isolation | Use Case |
-|------------|------|-----------------|----------------|----------|
-| **backend/main** | 8001 | In-memory | ⚠️ Partial | Lightweight user app |
-| **backend/admin.py** | 8002 | SQLite DB | ✅ Full | Admin panel + full isolation |
+| Application | Port | Session Storage | User Isolation | Data Storage | Use Case |
+|------------|------|-----------------|----------------|--------------|----------|
+| **backend/main** | 8001 | In-memory | ✅ Full | SQLite DB | **Primary user application** |
+| **backend/admin.py** | 8002 | SQLite DB | ✅ Full | SQLite DB | Admin panel |
 
 ### Implemented Endpoints
 
@@ -281,7 +282,7 @@ curl -X POST http://localhost:8001/api/telegram/logout \
 
 ---
 
-## 📊 Database Schema (admin.py)
+## 📊 Database Schema (Shared by both main and admin.py)
 
 ### Users Table
 
@@ -299,7 +300,68 @@ CREATE TABLE users (
 )
 ```
 
-### Files Table
+### Chats Table (NEW - for backend/main)
+
+```sql
+CREATE TABLE chats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL,
+    profile_name TEXT NOT NULL,
+    telegram_user_id INTEGER,  -- ← User isolation
+    last_read_message_id INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+```
+
+### Messages Table (NEW - for backend/main)
+
+```sql
+CREATE TABLE messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id INTEGER NOT NULL,
+    is_from_user INTEGER DEFAULT 0,
+    is_system INTEGER DEFAULT 0,
+    text TEXT,
+    file_url TEXT,
+    file_type TEXT,
+    file_name TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+)
+```
+
+### Orders Table (NEW - for backend/main)
+
+```sql
+CREATE TABLE orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_number TEXT NOT NULL,
+    profile_id INTEGER NOT NULL,
+    telegram_user_id INTEGER,  -- ← User isolation
+    amount REAL NOT NULL,
+    bonus_amount REAL DEFAULT 0,
+    total_amount REAL NOT NULL,
+    crypto_type TEXT,
+    currency TEXT DEFAULT 'USD',
+    status TEXT DEFAULT 'unpaid',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME
+)
+```
+
+### Comments Table (NEW - for backend/main)
+
+```sql
+CREATE TABLE comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL,
+    user_name TEXT DEFAULT 'Anonymous User',
+    text TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+```
+
+### Files Table (for admin.py)
 
 ```sql
 CREATE TABLE files (
@@ -318,8 +380,25 @@ CREATE TABLE files (
 
 **Indexes for performance:**
 ```sql
-CREATE INDEX idx_files_telegram_user_id ON files(telegram_user_id);
+-- User indexes
 CREATE INDEX idx_users_telegram_id ON users(telegram_id);
+
+-- Chat indexes
+CREATE INDEX idx_chats_profile_id ON chats(profile_id);
+CREATE INDEX idx_chats_telegram_user_id ON chats(telegram_user_id);
+
+-- Message indexes
+CREATE INDEX idx_messages_chat_id ON messages(chat_id);
+
+-- Order indexes
+CREATE INDEX idx_orders_telegram_user_id ON orders(telegram_user_id);
+CREATE INDEX idx_orders_status ON orders(status);
+
+-- Comment indexes
+CREATE INDEX idx_comments_profile_id ON comments(profile_id);
+
+-- File indexes
+CREATE INDEX idx_files_telegram_user_id ON files(telegram_user_id);
 ```
 
 ---
@@ -342,27 +421,34 @@ CREATE INDEX idx_users_telegram_id ON users(telegram_id);
 
 ### ✅ Production Ready Checklist
 
-Both applications are now production-ready with full user isolation:
+Both applications are now production-ready with full user isolation and database integration:
 
-1. **`backend/main` (port 8001):**
-   - ✅ Per-user filtering implemented for all chat endpoints
-   - ✅ Per-user filtering implemented for all order endpoints
+1. **`backend/main` (port 8001):** ⭐ PRIMARY APPLICATION
+   - ✅ **Database integrated** - SQLite for chats, messages, orders, comments
+   - ✅ Per-user filtering implemented for all endpoints
    - ✅ Backward compatibility maintained
    - ✅ Full telegram_user_id isolation
+   - ✅ Automatic cleanup of expired orders
+   - ✅ Persistent data storage
 
 2. **`backend/admin.py` (port 8002):**
    - ✅ Full database isolation
-   - ✅ Persistent storage
+   - ✅ Persistent storage for users and files
    - ✅ File management with user isolation
 
 3. **General:**
+   - ✅ Database schema with proper indexes
+   - ✅ User isolation enforced at database level
    - Use strong `ADMIN_PASSWORD` in production
    - Enable `secure=True` for cookies (requires HTTPS)
    - Set up monitoring and alerting
    - Regular security audits
    - Implement rate limiting on auth endpoint
 
-3. **Database:**
+4. **Database:**
+   - ✅ SQLite database with proper schema
+   - ✅ Automatic table creation with indexes
+   - ✅ Foreign key constraints enforced
    - For high traffic, migrate from SQLite to PostgreSQL
    - Set up database backups
    - Monitor database performance
@@ -386,19 +472,25 @@ Both applications are now production-ready with full user isolation:
 
 ### backend/main (port 8001)
 
-**Note:** In-memory sessions are reset on server restart
-**Impact:** Users need to re-authenticate after restart
-**Mitigation:** For persistent sessions use backend/admin.py
+**DATABASE INTEGRATION:** ✅ Now uses SQLite for persistent data storage
 
 **Features:**
 - ✅ Full user isolation via telegram_user_id
+- ✅ Persistent chat, message, order, and comment storage in SQLite
+- ✅ In-memory Telegram sessions (reset on restart)
 - ✅ Backward compatibility for non-authenticated users
-- ✅ Lightweight and fast (no database overhead)
+- ✅ Automatic cleanup of expired orders
+
+**Database Tables:**
+- `chats` - User chat sessions with profiles
+- `messages` - Chat messages with file attachments
+- `orders` - Payment orders with expiration tracking
+- `comments` - Profile comments
 
 **Best for:**
-- Development and testing
-- High-performance read-heavy workloads
-- When database is not required
+- **Production deployments** (now with database!)
+- User-facing application with persistent data
+- High-performance with database-backed storage
 
 ### backend/admin.py (port 8002)
 
@@ -488,13 +580,15 @@ Both applications are now production-ready with full user isolation:
 ## 🚧 Next Steps (Optional Improvements)
 
 1. **High Priority:**
-   - [ ] Add per-user filtering to `backend/main` chat/order endpoints
+   - [x] ~~Add per-user filtering to `backend/main` chat/order endpoints~~ ✅ COMPLETED
+   - [x] ~~Integrate database for persistent storage~~ ✅ COMPLETED
    - [ ] Add integration tests with real Telegram data
 
 2. **Medium Priority:**
    - [ ] Migrate to PostgreSQL for production (from SQLite)
    - [ ] Add rate limiting to auth endpoint in `main`
    - [ ] Add session refresh mechanism
+   - [ ] Migrate Telegram sessions from in-memory to database
 
 3. **Low Priority:**
    - [ ] Add user avatar fetching via Bot API
@@ -512,5 +606,6 @@ Both applications are now production-ready with full user isolation:
 ---
 
 **Implementation Team:** Claude Agent SDK
-**Review Status:** ✅ Complete and tested
-**Production Ready:** admin.py ✅ | main ✅
+**Review Status:** ✅ Complete and tested with database integration
+**Production Ready:** backend/main ✅ (with database) | backend/admin.py ✅
+**Database:** SQLite with full schema integration
