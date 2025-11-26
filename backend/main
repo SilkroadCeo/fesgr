@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Response, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +12,14 @@ import random
 import string
 import asyncio
 import logging
+import hashlib
+import hmac
+import uuid
+from urllib.parse import parse_qs
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -41,6 +49,138 @@ UPLOAD_DIR = os.path.join(current_dir, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 print("🚀 Запускаем сервер Muji на порту 8001...")
+
+# ============= TELEGRAM WEBAPP AUTHENTICATION =============
+
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+
+# Session storage for Telegram users
+telegram_sessions = {}  # {session_id: {user_data, created_at}}
+
+
+def verify_telegram_auth(init_data: str, max_age_seconds: int = 86400) -> bool:
+    """
+    Проверка подлинности данных от Telegram Web App
+
+    Args:
+        init_data: Строка initData от Telegram WebApp
+        max_age_seconds: Максимальный возраст данных в секундах (по умолчанию 24 часа)
+
+    Returns:
+        True если данные валидны и не устарели, иначе False
+    """
+    if not TELEGRAM_BOT_TOKEN:
+        logger.error("⚠️ TELEGRAM_BOT_TOKEN not configured")
+        return False
+
+    try:
+        parsed_data = parse_qs(init_data)
+        received_hash = parsed_data.get('hash', [''])[0]
+
+        if not received_hash:
+            logger.warning("⚠️ Missing hash in Telegram auth data")
+            return False
+
+        # Формируем строку для проверки
+        data_check_arr = []
+        for key, value in sorted(parsed_data.items()):
+            if key != 'hash':
+                data_check_arr.append(f"{key}={value[0]}")
+
+        data_check_string = '\n'.join(data_check_arr)
+
+        # Вычисляем HMAC-SHA256
+        secret_key = hashlib.sha256(TELEGRAM_BOT_TOKEN.encode()).digest()
+        calculated_hash = hmac.new(
+            secret_key,
+            data_check_string.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        # Проверка подлинности хеша (защита от атак по времени)
+        if not hmac.compare_digest(calculated_hash, received_hash):
+            logger.warning("⚠️ Invalid hash in Telegram auth data")
+            return False
+
+        # Проверка свежести данных (защита от повторных атак)
+        auth_date = parsed_data.get('auth_date', ['0'])[0]
+        try:
+            auth_timestamp = int(auth_date)
+            current_timestamp = int(datetime.now().timestamp())
+
+            if current_timestamp - auth_timestamp > max_age_seconds:
+                logger.warning(f"⚠️ Telegram auth data too old: {current_timestamp - auth_timestamp} seconds")
+                return False
+        except (ValueError, TypeError):
+            logger.warning("⚠️ Invalid auth_date in Telegram auth data")
+            return False
+
+        return True
+    except Exception as e:
+        logger.error(f"Telegram auth verification error: {e}")
+        return False
+
+
+def create_telegram_session(user_data: dict) -> str:
+    """Create new Telegram user session"""
+    session_id = str(uuid.uuid4())
+    telegram_sessions[session_id] = {
+        "user_data": user_data,
+        "created_at": datetime.now()
+    }
+    return session_id
+
+
+def verify_telegram_session(session_id: str) -> bool:
+    """Verify Telegram session validity"""
+    if not session_id:
+        return False
+    return session_id in telegram_sessions
+
+
+def get_telegram_session_user(session_id: str) -> Optional[dict]:
+    """Get Telegram user data from session"""
+    if session_id in telegram_sessions:
+        return telegram_sessions[session_id]["user_data"]
+    return None
+
+
+def destroy_telegram_session(session_id: str):
+    """Destroy Telegram session"""
+    if session_id in telegram_sessions:
+        del telegram_sessions[session_id]
+
+
+async def get_telegram_user(request: Request):
+    """
+    Get current Telegram user from session
+    This dependency is used for Telegram Mini App endpoints
+    """
+    session_id = request.cookies.get("telegram_session")
+
+    if not session_id or not verify_telegram_session(session_id):
+        raise HTTPException(status_code=401, detail="Telegram authentication required")
+
+    user_data = get_telegram_session_user(session_id)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Invalid Telegram session")
+
+    return user_data
+
+
+async def get_telegram_user_optional(request: Request) -> Optional[dict]:
+    """
+    Get Telegram user if authenticated, None otherwise
+    For endpoints that work with or without authentication
+    """
+    session_id = request.cookies.get("telegram_session")
+    if session_id and verify_telegram_session(session_id):
+        return get_telegram_session_user(session_id)
+    return None
+
+
+# ============= END TELEGRAM AUTHENTICATION =============
 
 # Генерация случайного 18-значного кода для ордеров
 def generate_order_code():
@@ -329,6 +469,125 @@ async def main():
 async def get_manifest():
     """Serve PWA manifest file"""
     return FileResponse(os.path.join(frontend_dir, "manifest.json"))
+
+
+# ============= TELEGRAM AUTHENTICATION ENDPOINTS =============
+
+@app.post("/api/telegram/auth")
+async def telegram_auth(request: Request, response: Response):
+    """
+    Telegram Web App Authentication with HMAC verification
+    Creates user session for Telegram Mini App
+    """
+    try:
+        body = await request.json()
+        init_data = body.get("initData")
+
+        if not init_data:
+            raise HTTPException(status_code=400, detail="Missing initData")
+
+        # SECURITY: Verify Telegram data authenticity
+        if not verify_telegram_auth(init_data):
+            logger.warning("⚠️ Invalid Telegram authentication attempt")
+            raise HTTPException(status_code=401, detail="Invalid Telegram authentication")
+
+        # Parse user data from Telegram
+        parsed_data = parse_qs(init_data)
+        user_json = parsed_data.get('user', ['{}'])[0]
+        user_data = json.loads(user_json) if user_json != '{}' else {}
+
+        telegram_id = user_data.get('id')
+        if not telegram_id:
+            raise HTTPException(status_code=400, detail="Missing Telegram user ID")
+
+        first_name = user_data.get('first_name', '')
+        last_name = user_data.get('last_name', '')
+        username = user_data.get('username', '')
+        language_code = user_data.get('language_code', 'en')
+        is_premium = user_data.get('is_premium', False)
+
+        # Create session with user data
+        session_user_data = {
+            "telegram_id": telegram_id,
+            "first_name": first_name,
+            "last_name": last_name,
+            "username": username,
+            "language_code": language_code,
+            "is_premium": is_premium
+        }
+
+        session_id = create_telegram_session(session_user_data)
+
+        # Set secure session cookie
+        response.set_cookie(
+            key="telegram_session",
+            value=session_id,
+            httponly=True,
+            max_age=86400 * 30,  # 30 days
+            samesite="lax",
+            secure=False  # Set to True in production with HTTPS
+        )
+
+        logger.info(f"✅ Telegram user authenticated: {telegram_id} ({first_name} {last_name})")
+
+        return {
+            "status": "success",
+            "user": {
+                "telegram_id": telegram_id,
+                "first_name": first_name,
+                "last_name": last_name,
+                "username": username,
+                "language_code": language_code,
+                "is_premium": is_premium
+            }
+        }
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON data")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Telegram auth error: {e}")
+        raise HTTPException(status_code=500, detail="Authentication error")
+
+
+@app.get("/api/telegram/me")
+async def get_current_telegram_user_endpoint(user: dict = Depends(get_telegram_user)):
+    """
+    Get current authenticated Telegram user information
+    This endpoint can be used to check if user is authenticated and get their data
+    """
+    return {
+        "status": "success",
+        "user": {
+            "telegram_id": user["telegram_id"],
+            "first_name": user["first_name"],
+            "last_name": user["last_name"],
+            "username": user.get("username", ""),
+            "language_code": user.get("language_code", "en"),
+            "is_premium": user.get("is_premium", False)
+        }
+    }
+
+
+@app.post("/api/telegram/logout")
+async def telegram_logout(request: Request, response: Response):
+    """
+    Logout Telegram user by destroying session
+    """
+    try:
+        session_id = request.cookies.get("telegram_session")
+        if session_id:
+            destroy_telegram_session(session_id)
+            response.delete_cookie(key="telegram_session")
+            logger.info(f"✅ Telegram user logged out: session {session_id}")
+
+        return {"status": "success", "message": "Logged out successfully"}
+    except Exception as e:
+        logger.error(f"❌ Logout error: {e}")
+        raise HTTPException(status_code=500, detail="Logout error")
+
+
+# ============= END TELEGRAM AUTHENTICATION ENDPOINTS =============
 
 @app.get("/api/profiles")
 async def get_profiles(
