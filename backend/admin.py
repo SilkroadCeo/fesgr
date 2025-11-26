@@ -286,7 +286,7 @@ class ChatMessageModel(BaseModel):
         return bleach.clean(v, tags=allowed_tags, strip=True)
 
 
-async def send_telegram_notification(message: str, profile_id: int = None, profile_name: str = None, message_text: str = None, file_url: str = None):
+async def send_telegram_notification(message: str, profile_id: int = None, profile_name: str = None, message_text: str = None, file_url: str = None, telegram_user_id: str = None):
     """
     Отправка уведомления администратору в Telegram
 
@@ -296,6 +296,7 @@ async def send_telegram_notification(message: str, profile_id: int = None, profi
         profile_name: Имя профиля, от которого пришло сообщение
         message_text: Текст сообщения от пользователя
         file_url: URL файла, если есть
+        telegram_user_id: ID пользователя в Telegram (для изоляции чатов)
     """
     if not telegram_bot:
         logger.warning("⚠️ Telegram bot not initialized, skipping notification")
@@ -323,10 +324,14 @@ async def send_telegram_notification(message: str, profile_id: int = None, profi
         # Создаем inline-кнопки для быстрого ответа
         keyboard = None
         if profile_id:
+            # Include telegram_user_id in callback data for proper message routing
+            reply_data = f"reply_{profile_id}_{telegram_user_id}" if telegram_user_id else f"reply_{profile_id}"
+            payment_data = f"payment_{profile_id}_{telegram_user_id}" if telegram_user_id else f"payment_{profile_id}"
+
             keyboard = InlineKeyboardMarkup([
                 [
-                    InlineKeyboardButton("✉️ Ответить", callback_data=f"reply_{profile_id}"),
-                    InlineKeyboardButton("✅ Payment OK", callback_data=f"payment_{profile_id}")
+                    InlineKeyboardButton("✉️ Ответить", callback_data=reply_data),
+                    InlineKeyboardButton("✅ Payment OK", callback_data=payment_data)
                 ],
                 [
                     InlineKeyboardButton("📋 Все чаты", callback_data="list_chats")
@@ -345,8 +350,12 @@ async def send_telegram_notification(message: str, profile_id: int = None, profi
 
                 # Сохраняем mapping для возможности ответа
                 if profile_id and sent_message:
-                    telegram_message_mapping[sent_message.message_id] = profile_id
-                    logger.info(f"📝 Mapped Telegram message {sent_message.message_id} to profile {profile_id}")
+                    # Store both profile_id and telegram_user_id for proper reply routing
+                    telegram_message_mapping[sent_message.message_id] = {
+                        "profile_id": profile_id,
+                        "telegram_user_id": telegram_user_id
+                    }
+                    logger.info(f"📝 Mapped Telegram message {sent_message.message_id} to profile {profile_id}, user {telegram_user_id}")
 
                 logger.info(f"✅ Notification sent to admin {admin_id}")
             except TelegramError as e:
@@ -410,24 +419,35 @@ async def handle_callback_query(callback_query, admin_id):
 
         if data.startswith('reply_'):
             # Активируем режим ответа
-            profile_id = int(data.split('_')[1])
-            active_reply_sessions[admin_id] = profile_id
+            parts = data.split('_')
+            profile_id = int(parts[1])
+            telegram_user_id = parts[2] if len(parts) > 2 else None
+
+            # Store both profile_id and telegram_user_id
+            active_reply_sessions[admin_id] = {
+                "profile_id": profile_id,
+                "telegram_user_id": telegram_user_id
+            }
 
             # Получаем информацию о профиле
             app_data = load_data()
             profile = next((p for p in app_data["profiles"] if p["id"] == profile_id), None)
             profile_name = profile["name"] if profile else "Unknown"
 
+            user_info = f" (User: {telegram_user_id})" if telegram_user_id else ""
             await telegram_bot.send_message(
                 chat_id=admin_id,
-                text=f"✍️ Режим ответа активирован для: <b>{profile_name}</b>\n\nНапишите сообщение, и оно будет отправлено пользователю.\nДля отмены используйте /cancel",
+                text=f"✍️ Режим ответа активирован для: <b>{profile_name}</b>{user_info}\n\nНапишите сообщение, и оно будет отправлено пользователю.\nДля отмены используйте /cancel",
                 parse_mode='HTML'
             )
 
         elif data.startswith('payment_'):
             # Отправляем "payment successful"
-            profile_id = int(data.split('_')[1])
-            await send_admin_reply_from_telegram(profile_id, "payment successful")
+            parts = data.split('_')
+            profile_id = int(parts[1])
+            telegram_user_id = parts[2] if len(parts) > 2 else None
+
+            await send_admin_reply_from_telegram(profile_id, "payment successful", telegram_user_id)
             await telegram_bot.send_message(
                 chat_id=admin_id,
                 text="✅ Подтверждение оплаты отправлено! Статус заказа обновлен на 'Booked'."
@@ -461,16 +481,20 @@ async def show_chats_list(admin_id):
         for chat in chats[-10:]:  # Показываем последние 10 чатов
             profile_id = chat.get("profile_id")
             profile_name = chat.get("profile_name", "Unknown")
+            telegram_user_id = chat.get("telegram_user_id")
 
             # Получаем последнее сообщение
             messages = [m for m in data.get("messages", []) if m.get("chat_id") == chat.get("id")]
             last_message = messages[-1] if messages else None
             last_text = last_message.get("text", "No messages")[:50] if last_message else "No messages"
 
-            chat_info = f"👤 <b>{profile_name}</b>\n💬 {last_text}"
+            user_info = f"\n👤 User: {telegram_user_id}" if telegram_user_id else ""
+            chat_info = f"👤 <b>{profile_name}</b>{user_info}\n💬 {last_text}"
 
+            # Include telegram_user_id in callback data
+            reply_data = f"reply_{profile_id}_{telegram_user_id}" if telegram_user_id else f"reply_{profile_id}"
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("✉️ Ответить", callback_data=f"reply_{profile_id}")]
+                [InlineKeyboardButton("✉️ Ответить", callback_data=reply_data)]
             ])
 
             await telegram_bot.send_message(
@@ -536,8 +560,10 @@ async def process_telegram_updates():
                     if update.message.reply_to_message:
                         replied_message_id = update.message.reply_to_message.message_id
                         if replied_message_id in telegram_message_mapping:
-                            profile_id = telegram_message_mapping[replied_message_id]
-                            await send_admin_reply_from_telegram(profile_id, update.message.text)
+                            mapping = telegram_message_mapping[replied_message_id]
+                            profile_id = mapping["profile_id"]
+                            telegram_user_id = mapping.get("telegram_user_id")
+                            await send_admin_reply_from_telegram(profile_id, update.message.text, telegram_user_id)
                             await telegram_bot.send_message(
                                 chat_id=admin_id,
                                 text="✅ Ответ отправлен пользователю!"
@@ -546,8 +572,10 @@ async def process_telegram_updates():
 
                     # Обработка обычных сообщений (если админ в режиме ответа)
                     if admin_id in active_reply_sessions:
-                        profile_id = active_reply_sessions[admin_id]
-                        await send_admin_reply_from_telegram(profile_id, update.message.text)
+                        session = active_reply_sessions[admin_id]
+                        profile_id = session["profile_id"]
+                        telegram_user_id = session.get("telegram_user_id")
+                        await send_admin_reply_from_telegram(profile_id, update.message.text, telegram_user_id)
                         await telegram_bot.send_message(
                             chat_id=admin_id,
                             text="✅ Ответ отправлен! Отправьте еще сообщение или /cancel для выхода."
@@ -564,13 +592,14 @@ async def process_telegram_updates():
         logger.error(f"❌ Error in Telegram updates processor: {e}")
 
 
-async def send_admin_reply_from_telegram(profile_id: int, text: str):
+async def send_admin_reply_from_telegram(profile_id: int, text: str, telegram_user_id: str = None):
     """
     Отправка ответа администратора из Telegram в чат с пользователем
 
     Args:
         profile_id: ID профиля
         text: Текст ответа от администратора
+        telegram_user_id: ID пользователя в Telegram (для изоляции чатов)
     """
     try:
         data = load_data()
@@ -581,13 +610,21 @@ async def send_admin_reply_from_telegram(profile_id: int, text: str):
             logger.error(f"❌ Profile {profile_id} not found")
             return
 
-        # Находим или создаем чат
-        chat = next((c for c in data["chats"] if c["profile_id"] == profile_id), None)
+        # Находим или создаем чат - ВАЖНО: фильтруем по profile_id И telegram_user_id
+        if telegram_user_id:
+            chat = next((c for c in data["chats"]
+                        if c["profile_id"] == profile_id and c.get("telegram_user_id") == telegram_user_id), None)
+        else:
+            # Fallback for legacy messages without telegram_user_id
+            chat = next((c for c in data["chats"]
+                        if c["profile_id"] == profile_id and not c.get("telegram_user_id")), None)
+
         if not chat:
             chat = {
                 "id": len(data["chats"]) + 1,
                 "profile_id": profile_id,
                 "profile_name": profile["name"],
+                "telegram_user_id": telegram_user_id,
                 "created_at": datetime.now().isoformat()
             }
             data["chats"].append(chat)
@@ -604,15 +641,17 @@ async def send_admin_reply_from_telegram(profile_id: int, text: str):
 
         # Проверяем если это подтверждение оплаты
         if text and "payment successful" in text.lower():
-            # Находим последний unpaid ордер для этого профиля
+            # Находим последний unpaid ордер для этого профиля и пользователя
             profile_orders = [o for o in data.get("orders", [])
-                            if o.get("profile_id") == profile_id and o.get("status") == "unpaid"]
+                            if o.get("profile_id") == profile_id
+                            and o.get("status") == "unpaid"
+                            and (not telegram_user_id or o.get("telegram_user_id") == telegram_user_id)]
             if profile_orders:
                 # Обновляем статус последнего ордера
                 last_order = profile_orders[-1]
                 last_order["status"] = "booked"
                 last_order["booked_at"] = datetime.now().isoformat()
-                logger.info(f"Order #{last_order['id']} marked as booked for profile {profile_id} (from Telegram)")
+                logger.info(f"Order #{last_order['id']} marked as booked for profile {profile_id}, user {telegram_user_id} (from Telegram)")
 
         # Сохраняем данные
         save_data(data)
@@ -3383,6 +3422,13 @@ async def send_admin_reply(
 @app.get("/api/chats/{profile_id}/messages")
 async def get_chat_messages(profile_id: int, telegram_user_id: Optional[str] = None):
     """Получить все сообщения чата для пользователя"""
+    # SECURITY: telegram_user_id is required to prevent users from seeing other users' messages
+    if not telegram_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="telegram_user_id is required for message isolation. Please ensure Telegram WebApp is properly initialized."
+        )
+
     data = load_data()
 
     # Ищем чат для конкретного пользователя и профиля
@@ -3403,6 +3449,13 @@ async def get_chat_messages(profile_id: int, telegram_user_id: Optional[str] = N
 @app.get("/api/chats/{profile_id}/updates")
 async def get_chat_updates(profile_id: int, last_message_id: int = 0, telegram_user_id: Optional[str] = None):
     """Получить только новые сообщения после указанного ID"""
+    # SECURITY: telegram_user_id is required to prevent users from seeing other users' messages
+    if not telegram_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="telegram_user_id is required for message isolation. Please ensure Telegram WebApp is properly initialized."
+        )
+
     data = load_data()
 
     # Ищем чат для конкретного пользователя и профиля
@@ -3425,6 +3478,13 @@ async def get_chat_updates(profile_id: int, last_message_id: int = 0, telegram_u
 @app.post("/api/chats/{profile_id}/messages")
 async def send_user_message(profile_id: int, request: Request, telegram_user_id: Optional[str] = None):
     """Отправка сообщения от пользователя"""
+    # SECURITY: telegram_user_id is required to prevent message mixing between users
+    if not telegram_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="telegram_user_id is required for message isolation. Please ensure Telegram WebApp is properly initialized."
+        )
+
     data = load_data()
 
     logger.info(f"📨 User sending message to profile {profile_id}, telegram_user_id: {telegram_user_id}")
@@ -3524,7 +3584,8 @@ async def send_user_message(profile_id: int, request: Request, telegram_user_id:
                 profile_id=profile_id,
                 profile_name=profile["name"],
                 message_text=message_data.get("text", ""),
-                file_url=message_data.get("file_url")
+                file_url=message_data.get("file_url"),
+                telegram_user_id=telegram_user_id
             )
         except Exception as e:
             logger.error(f"❌ Failed to send Telegram notification: {e}")
@@ -3542,6 +3603,13 @@ async def send_user_message(profile_id: int, request: Request, telegram_user_id:
 @app.get("/api/user/chats")
 async def get_user_chats(telegram_user_id: Optional[str] = None):
     """Получить все чаты пользователя с последним сообщением и количеством непрочитанных"""
+    # SECURITY: telegram_user_id is required to prevent users from seeing other users' chats
+    if not telegram_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="telegram_user_id is required. Please ensure Telegram WebApp is properly initialized."
+        )
+
     data = load_data()
 
     chats_list = []
@@ -3581,6 +3649,13 @@ async def get_user_chats(telegram_user_id: Optional[str] = None):
 @app.get("/api/user/orders")
 async def get_user_orders(status: str = "all", telegram_user_id: Optional[str] = None):
     """Получить заказы пользователя (booked/unpaid)"""
+    # SECURITY: telegram_user_id is required to prevent users from seeing other users' orders
+    if not telegram_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="telegram_user_id is required. Please ensure Telegram WebApp is properly initialized."
+        )
+
     data = load_data()
 
     # Фильтруем заказы по telegram_user_id
