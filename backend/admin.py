@@ -3422,6 +3422,13 @@ async def send_admin_reply(
 @app.get("/api/chats/{profile_id}/messages")
 async def get_chat_messages(profile_id: int, telegram_user_id: Optional[str] = None):
     """Получить все сообщения чата для пользователя"""
+    # SECURITY: telegram_user_id is required to prevent users from seeing other users' messages
+    if not telegram_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="telegram_user_id is required for message isolation. Please ensure Telegram WebApp is properly initialized."
+        )
+
     data = load_data()
 
     # Ищем чат для конкретного пользователя и профиля
@@ -3442,6 +3449,13 @@ async def get_chat_messages(profile_id: int, telegram_user_id: Optional[str] = N
 @app.get("/api/chats/{profile_id}/updates")
 async def get_chat_updates(profile_id: int, last_message_id: int = 0, telegram_user_id: Optional[str] = None):
     """Получить только новые сообщения после указанного ID"""
+    # SECURITY: telegram_user_id is required to prevent users from seeing other users' messages
+    if not telegram_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="telegram_user_id is required for message isolation. Please ensure Telegram WebApp is properly initialized."
+        )
+
     data = load_data()
 
     # Ищем чат для конкретного пользователя и профиля
@@ -3464,6 +3478,13 @@ async def get_chat_updates(profile_id: int, last_message_id: int = 0, telegram_u
 @app.post("/api/chats/{profile_id}/messages")
 async def send_user_message(profile_id: int, request: Request, telegram_user_id: Optional[str] = None):
     """Отправка сообщения от пользователя"""
+    # SECURITY: telegram_user_id is required to prevent message mixing between users
+    if not telegram_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="telegram_user_id is required for message isolation. Please ensure Telegram WebApp is properly initialized."
+        )
+
     data = load_data()
 
     logger.info(f"📨 User sending message to profile {profile_id}, telegram_user_id: {telegram_user_id}")
@@ -3582,6 +3603,13 @@ async def send_user_message(profile_id: int, request: Request, telegram_user_id:
 @app.get("/api/user/chats")
 async def get_user_chats(telegram_user_id: Optional[str] = None):
     """Получить все чаты пользователя с последним сообщением и количеством непрочитанных"""
+    # SECURITY: telegram_user_id is required to prevent users from seeing other users' chats
+    if not telegram_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="telegram_user_id is required. Please ensure Telegram WebApp is properly initialized."
+        )
+
     data = load_data()
 
     chats_list = []
@@ -3621,6 +3649,13 @@ async def get_user_chats(telegram_user_id: Optional[str] = None):
 @app.get("/api/user/orders")
 async def get_user_orders(status: str = "all", telegram_user_id: Optional[str] = None):
     """Получить заказы пользователя (booked/unpaid)"""
+    # SECURITY: telegram_user_id is required to prevent users from seeing other users' orders
+    if not telegram_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="telegram_user_id is required. Please ensure Telegram WebApp is properly initialized."
+        )
+
     data = load_data()
 
     # Фильтруем заказы по telegram_user_id
