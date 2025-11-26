@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Muji - Anonymous Dating</title>
+    <title>Muzo - Anonymous Dating</title>
     <style>
         * {
             margin: 0;
@@ -55,45 +55,46 @@
             50% { transform: scale(1.1) rotate(180deg); }
         }
 
-        /* VIP каталоги */
+        /* VIP каталоги - 3 анкеты в ряд */
         .vip-catalogs {
-            margin: 15px 0;
+            margin: 10px 0;
             padding: 0 10px;
+            transition: all 0.3s ease;
         }
 
         .vip-catalogs-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 8px;
+            margin-bottom: 15px;
         }
 
         .vip-catalog-card {
             background: linear-gradient(135deg, var(--secondary), var(--accent));
-            border-radius: 12px;
-            padding: 12px;
+            border-radius: 10px;
+            padding: 10px;
             position: relative;
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
             transition: all 0.3s ease;
             cursor: pointer;
         }
 
         .vip-catalog-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
         }
 
         .vip-catalog-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .vip-catalog-name {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 700;
             color: white;
         }
@@ -101,83 +102,23 @@
         .vip-catalog-price {
             background: rgba(255, 255, 255, 0.2);
             color: white;
-            padding: 4px 8px;
-            border-radius: 12px;
+            padding: 3px 6px;
+            border-radius: 10px;
             font-weight: 600;
-            font-size: 0.75rem;
-        }
-
-        .vip-profiles-container {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-
-        .vip-profile-featured {
-            flex: 0 0 45%;
-            position: relative;
-            border-radius: 8px;
-            overflow: hidden;
-            aspect-ratio: 3/4;
-            background: var(--card);
-        }
-
-        .vip-profile-featured .vip-profile-image {
-            filter: blur(6px);
-        }
-
-        .vip-profile-featured .vip-profile-name {
-            font-size: 0.8rem;
-        }
-
-        .vip-profile-featured .vip-profile-age {
             font-size: 0.7rem;
         }
 
-        .vip-profile-featured .vip-profile-city {
-            font-size: 0.6rem;
-        }
-
-        .vip-profiles-scroll {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            max-height: 150px;
-            overflow-y: auto;
-            padding-right: 4px;
-        }
-
-        .vip-profiles-scroll::-webkit-scrollbar {
-            width: 3px;
-        }
-
-        .vip-profiles-scroll::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 3px;
-        }
-
-        .vip-profiles-scroll::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 3px;
-        }
-
-        .vip-profiles-scroll .vip-profile-preview {
-            flex-shrink: 0;
-            height: 70px;
-            aspect-ratio: auto;
-        }
-
+        /* Изменено: теперь все анкеты в одном ряду */
         .vip-profiles-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 6px;
-            margin-bottom: 10px;
+            gap: 5px;
+            margin-bottom: 8px;
         }
 
         .vip-profile-preview {
             position: relative;
-            border-radius: 8px;
+            border-radius: 6px;
             overflow: hidden;
             aspect-ratio: 3/4;
             background: var(--card);
@@ -201,7 +142,7 @@
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            padding: 6px;
+            padding: 5px;
             color: white;
         }
 
@@ -212,16 +153,16 @@
         .vip-profile-name {
             font-weight: 600;
             margin-bottom: 2px;
-            font-size: 0.65rem;
+            font-size: 0.6rem;
         }
 
         .vip-profile-age {
-            font-size: 0.55rem;
+            font-size: 0.5rem;
             opacity: 0.8;
         }
 
         .vip-profile-city {
-            font-size: 0.5rem;
+            font-size: 0.45rem;
             opacity: 0.6;
             margin-top: 1px;
         }
@@ -232,10 +173,10 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.3);
             color: white;
-            padding: 8px;
-            border-radius: 8px;
+            padding: 6px;
+            border-radius: 6px;
             font-weight: 600;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
@@ -253,17 +194,17 @@
         .vip-catalog-stats {
             display: flex;
             justify-content: space-between;
-            margin-top: 8px;
-            font-size: 0.6rem;
+            margin-top: 6px;
+            font-size: 0.55rem;
             opacity: 0.8;
         }
 
-        /* Баннер под статистикой - reduced 10% */
+        /* Баннер под статистикой */
         .stats-banner {
             background: linear-gradient(135deg, var(--secondary), var(--accent));
-            padding: 12px 16px;
-            border-radius: 12px;
-            margin: 15px 0;
+            padding: 10px 14px;
+            border-radius: 10px;
+            margin: 10px 0;
             text-align: center;
             color: white;
             display: none;
@@ -274,22 +215,22 @@
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 8px;
         }
 
         .stats-banner-text {
             flex: 1;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .stats-banner-link {
             background: rgba(255, 255, 255, 0.2);
             color: white;
-            padding: 6px 12px;
-            border-radius: 16px;
+            padding: 5px 10px;
+            border-radius: 14px;
             text-decoration: none;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             transition: all 0.3s ease;
             border: 1px solid rgba(255, 255, 255, 0.3);
@@ -304,9 +245,9 @@
             background: none;
             border: none;
             color: white;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
-            padding: 4px;
+            padding: 3px;
             border-radius: 50%;
             transition: all 0.3s ease;
         }
@@ -315,12 +256,16 @@
             background: rgba(255, 255, 255, 0.2);
         }
 
-        /* Language Selector */
-        .language-selector {
+        /* Language and Filters Selector - кнопка фильтров слева */
+        .language-filters-selector {
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: 15px;
+            left: 15px;
+            right: 15px;
             z-index: 1001;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .language-btn {
@@ -328,22 +273,22 @@
             backdrop-filter: blur(10px);
             border: 1px solid var(--primary);
             color: var(--primary);
-            padding: 12px 20px;
-            border-radius: 25px;
+            padding: 10px 16px;
+            border-radius: 20px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
-            gap: 8px;
-            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.2);
+            gap: 6px;
+            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.2);
         }
 
         .language-btn:hover {
             background: rgba(255, 107, 157, 0.25);
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 107, 157, 0.3);
+            box-shadow: 0 6px 18px rgba(255, 107, 157, 0.3);
         }
 
         .language-dropdown {
@@ -353,11 +298,11 @@
             background: var(--surface);
             backdrop-filter: blur(20px);
             border: 1px solid var(--primary);
-            border-radius: 15px;
-            margin-top: 10px;
-            min-width: 150px;
+            border-radius: 12px;
+            margin-top: 8px;
+            min-width: 140px;
             display: none;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
             overflow: hidden;
         }
 
@@ -369,7 +314,7 @@
         @keyframes dropdownAppear {
             from {
                 opacity: 0;
-                transform: translateY(-10px);
+                transform: translateY(-8px);
             }
             to {
                 opacity: 1;
@@ -378,11 +323,11 @@
         }
 
         .language-option {
-            padding: 12px 20px;
+            padding: 10px 16px;
             cursor: pointer;
             transition: all 0.3s ease;
             border-bottom: 1px solid rgba(255, 107, 157, 0.1);
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .language-option:last-child {
@@ -391,6 +336,38 @@
 
         .language-option:hover {
             background: rgba(255, 107, 157, 0.1);
+        }
+
+        /* Кнопка фильтров - слева от языка */
+        .filters-toggle {
+            position: relative;
+            display: flex;
+            background: var(--primary);
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 3px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.4);
+        }
+
+        .filters-toggle:hover {
+            background: var(--secondary);
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .filter-bar {
+            width: 18px;
+            height: 2px;
+            background: white;
+            border-radius: 2px;
+            transition: all 0.3s ease;
         }
 
         /* Экран загрузки */
@@ -415,30 +392,30 @@
         }
 
         .loading-logo {
-            font-size: 48px;
+            font-size: 42px;
             font-weight: 400;
             background: linear-gradient(45deg, #fff, #ff8fab);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            letter-spacing: 8px;
+            letter-spacing: 6px;
             text-transform: capitalize;
         }
 
         .loading-spinner {
-            width: 60px;
-            height: 60px;
+            width: 50px;
+            height: 50px;
             border: 3px solid rgba(255, 255, 255, 0.3);
             border-top: 3px solid #fff;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            margin: 0 auto 15px;
         }
 
         .loading-text {
             color: rgba(255, 255, 255, 0.8);
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 500;
         }
 
@@ -450,7 +427,7 @@
         @keyframes fadeInUp {
             from {
                 opacity: 0;
-                transform: translateY(30px);
+                transform: translateY(25px);
             }
             to {
                 opacity: 1;
@@ -465,12 +442,13 @@
             display: none;
         }
 
-        /* Хедер - compact for mini app */
+        /* Хедер - опущен на 15% */
         .main-header {
             text-align: center;
             margin-bottom: 15px;
             padding: 15px 15px;
             position: relative;
+            margin-top: 60px;
         }
 
         .header-content {
@@ -479,46 +457,46 @@
         }
 
         .logo {
-            font-size: 2rem;
+            font-size: 1.8rem;
             font-weight: 600;
             background: linear-gradient(45deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            letter-spacing: 6px;
+            letter-spacing: 5px;
             text-transform: capitalize;
         }
 
         .subtitle {
             color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin-bottom: 15px;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
             font-weight: 400;
         }
 
         /* Иконка незавершенной оплаты */
         .pending-payment-icon {
             position: fixed;
-            bottom: 80px;
-            left: 20px;
+            bottom: 70px;
+            left: 15px;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             border-radius: 50%;
-            width: 60px;
-            height: 60px;
+            width: 55px;
+            height: 55px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             z-index: 1001;
-            box-shadow: 0 5px 20px rgba(255, 107, 157, 0.5);
+            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.5);
             transition: all 0.3s ease;
             animation: pulse 2s infinite;
         }
 
         .pending-payment-icon:hover {
             transform: scale(1.1);
-            box-shadow: 0 8px 30px rgba(255, 107, 157, 0.7);
+            box-shadow: 0 6px 25px rgba(255, 107, 157, 0.7);
         }
 
         .pending-payment-icon svg {
@@ -531,8 +509,8 @@
             right: -2px;
             background: var(--error);
             border-radius: 50%;
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
             border: 2px solid var(--background);
             animation: pulse-dot 2s infinite;
         }
@@ -550,19 +528,19 @@
 
         @keyframes pulse {
             0%, 100% {
-                box-shadow: 0 5px 20px rgba(255, 107, 157, 0.5);
+                box-shadow: 0 4px 15px rgba(255, 107, 157, 0.5);
             }
             50% {
-                box-shadow: 0 5px 30px rgba(255, 107, 157, 0.8);
+                box-shadow: 0 4px 25px rgba(255, 107, 157, 0.8);
             }
         }
 
         .header-stats {
             display: flex;
             justify-content: center;
-            gap: 30px;
+            gap: 25px;
             flex-wrap: wrap;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .stat-item {
@@ -570,58 +548,68 @@
         }
 
         .stat-number {
-            font-size: 2rem;
+            font-size: 1.7rem;
             font-weight: 700;
             color: var(--primary);
             display: block;
         }
 
         .stat-label {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--text-secondary);
         }
 
-        /* Кнопка фильтров - inline below header */
-        .filters-toggle {
-            position: relative;
-            display: inline-flex;
-            background: var(--primary);
-            border: none;
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            cursor: pointer;
-            flex-direction: column;
+        /* Активные фильтры - inline below header */
+        .active-filters {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            flex: 1;
+            align-items: center;
             justify-content: center;
+            margin-top: 8px;
+        }
+
+        .active-filters:empty {
+            display: none;
+        }
+
+        .filter-tag {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            display: flex;
             align-items: center;
             gap: 4px;
             transition: all 0.3s ease;
-            box-shadow: 0 5px 20px rgba(255, 107, 157, 0.4);
-            margin-right: 10px;
         }
 
-        .filters-toggle:hover {
-            background: var(--secondary);
-            transform: scale(1.1) rotate(90deg);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        .filter-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.4);
         }
 
-        .filter-bar {
-            width: 20px;
-            height: 2px;
-            background: white;
-            border-radius: 2px;
+        .filter-tag .remove {
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
             transition: all 0.3s ease;
         }
 
-        /* Filters container below header */
-        .filters-row {
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            padding: 10px 15px;
-            flex-wrap: wrap;
-            gap: 8px;
+        .filter-tag .remove:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
         }
 
         /* Боковые фильтры */
@@ -648,8 +636,8 @@
             z-index: 1002;
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow-y: auto;
-            padding: 30px;
-            box-shadow: 5px 0 30px rgba(0, 0, 0, 0.5);
+            padding: 25px;
+            box-shadow: 5px 0 25px rgba(0, 0, 0, 0.5);
         }
 
         .filters-sidebar.active {
@@ -657,9 +645,9 @@
         }
 
         .filters-header {
-            padding: 0 0 30px 0;
+            padding: 0 0 25px 0;
             border-bottom: 1px solid rgba(255, 107, 157, 0.2);
-            margin-bottom: 30px;
+            margin-bottom: 25px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -667,17 +655,17 @@
 
         .filters-title {
             color: var(--primary);
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             font-weight: 700;
         }
 
         .close-btn {
             background: rgba(255, 107, 157, 0.1);
             border: none;
-            width: 45px;
-            height: 45px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            font-size: 20px;
+            font-size: 18px;
             cursor: pointer;
             color: var(--primary);
             display: flex;
@@ -692,32 +680,32 @@
         }
 
         .filter-group {
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
         .filter-group label {
             display: block;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             color: var(--primary);
             font-weight: 600;
-            font-size: 1rem;
+            font-size: 0.95rem;
         }
 
         .modern-select {
             width: 100%;
-            padding: 15px 20px;
+            padding: 12px 18px;
             background: rgba(255, 107, 157, 0.05);
             border: 2px solid var(--primary);
-            border-radius: 15px;
+            border-radius: 12px;
             color: var(--text);
-            font-size: 16px;
+            font-size: 15px;
             outline: none;
             cursor: pointer;
             appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ff6b9d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 20px center;
-            background-size: 16px;
+            background-position: right 18px center;
+            background-size: 14px;
             transition: all 0.3s ease;
         }
 
@@ -734,18 +722,18 @@
         .range-inputs {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
         }
 
         .range-inputs input {
             flex: 1;
             text-align: center;
-            padding: 15px;
+            padding: 12px;
             background: rgba(255, 107, 157, 0.05);
             border: 1px solid var(--primary);
-            border-radius: 12px;
+            border-radius: 10px;
             color: var(--text);
-            font-size: 16px;
+            font-size: 15px;
             outline: none;
             transition: all 0.3s ease;
         }
@@ -758,89 +746,38 @@
         .range-inputs span {
             color: var(--text-secondary);
             font-weight: 600;
-            min-width: 20px;
+            min-width: 18px;
         }
 
         .filter-actions {
             display: flex;
-            gap: 15px;
-            margin-top: 40px;
+            gap: 12px;
+            margin-top: 35px;
         }
 
         .filter-actions .btn {
             flex: 1;
         }
 
-        /* Активные фильтры - inline with filters toggle */
-        .active-filters {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            flex: 1;
-            align-items: center;
-        }
-
-        .active-filters:empty {
-            display: none;
-        }
-
-        .filter-tag {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 11px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            transition: all 0.3s ease;
-        }
-
-        .filter-tag:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(255, 107, 157, 0.4);
-        }
-
-        .filter-tag .remove {
-            cursor: pointer;
-            font-weight: bold;
-            color: white;
-            background: rgba(255, 255, 255, 0.2);
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            transition: all 0.3s ease;
-        }
-
-        .filter-tag .remove:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.1);
-        }
-
         /* Сетка карточек */
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 25px;
-            margin-bottom: 40px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 35px;
         }
 
         /* Карточки */
         .card {
             background: var(--card);
-            border-radius: 25px;
+            border-radius: 20px;
             overflow: hidden;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 107, 157, 0.1);
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             cursor: pointer;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
         .card::before {
@@ -849,15 +786,15 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 3px;
+            height: 2px;
             background: linear-gradient(90deg, var(--primary), var(--secondary));
             transform: scaleX(0);
             transition: transform 0.4s ease;
         }
 
         .card:hover {
-            transform: translateY(-10px) scale(1.02);
-            box-shadow: 0 15px 40px rgba(255, 107, 157, 0.3);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 12px 35px rgba(255, 107, 157, 0.3);
             border-color: rgba(255, 107, 157, 0.3);
         }
 
@@ -867,21 +804,21 @@
 
         .card-badge {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: 15px;
+            right: 15px;
             background: linear-gradient(45deg, var(--primary), var(--secondary));
             color: white;
-            padding: 8px 16px;
-            border-radius: 15px;
-            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 11px;
             font-weight: 700;
             z-index: 2;
-            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.4);
+            box-shadow: 0 3px 12px rgba(255, 107, 157, 0.4);
         }
 
         .card-image {
             width: 100%;
-            height: 280px;
+            height: 250px;
             object-fit: cover;
             display: block;
             transition: transform 0.4s ease;
@@ -892,51 +829,51 @@
         }
 
         .card-content {
-            padding: 25px;
+            padding: 20px;
             position: relative;
             display: flex;
             flex-direction: column;
-            min-height: 280px;
+            min-height: 250px;
         }
 
         .card-title {
-            font-size: 1.4rem;
+            font-size: 1.3rem;
             font-weight: 700;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             color: var(--text);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .card-age {
-            color: var(--primary);
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-
-        .card-info {
-            color: var(--text-secondary);
-            font-size: 1rem;
-            margin-bottom: 12px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
+        .card-age {
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .card-info {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
         .card-stats {
             display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
+            gap: 8px;
+            margin-bottom: 12px;
             flex-wrap: wrap;
         }
 
         .stat-badge {
             background: rgba(255, 107, 157, 0.1);
             color: var(--primary);
-            padding: 6px 12px;
-            border-radius: 12px;
-            font-size: 12px;
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-size: 11px;
             font-weight: 600;
             border: 1px solid rgba(255, 107, 157, 0.2);
             transition: all 0.3s ease;
@@ -949,9 +886,9 @@
 
         .card-description {
             color: var(--text-secondary);
-            font-size: 14px;
+            font-size: 13px;
             line-height: 1.5;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -960,16 +897,16 @@
 
         .card-actions {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             margin-top: auto;
         }
 
         .btn {
-            padding: 14px 24px;
+            padding: 12px 20px;
             border: none;
-            border-radius: 15px;
+            border-radius: 12px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             transition: all 0.3s ease;
             flex: 1;
@@ -978,18 +915,18 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .btn-primary {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
-            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.4);
+            box-shadow: 0 3px 12px rgba(255, 107, 157, 0.4);
         }
 
         .btn-primary:hover {
             transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(255, 107, 157, 0.6);
+            box-shadow: 0 6px 20px rgba(255, 107, 157, 0.6);
         }
 
         .btn-secondary {
@@ -1001,53 +938,53 @@
         .btn-secondary:hover {
             background: rgba(255, 107, 157, 0.2);
             transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(255, 107, 157, 0.3);
+            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.3);
         }
 
         .btn-pay {
             background: linear-gradient(135deg, var(--success), #1e7e34);
             color: white;
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+            box-shadow: 0 3px 12px rgba(40, 167, 69, 0.4);
         }
 
         .btn-pay:hover {
             transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.6);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.6);
         }
 
         .btn-promo {
             background: linear-gradient(135deg, var(--warning), #e0a800);
             color: #000;
-            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+            box-shadow: 0 3px 12px rgba(255, 193, 7, 0.4);
         }
 
         .btn-promo:hover {
             transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(255, 193, 7, 0.6);
+            box-shadow: 0 6px 20px rgba(255, 193, 7, 0.6);
         }
 
         /* Loading states */
         .loading {
             text-align: center;
-            padding: 60px 20px;
+            padding: 50px 15px;
             color: var(--text-secondary);
-            font-size: 18px;
+            font-size: 16px;
             grid-column: 1 / -1;
         }
 
         .no-profiles {
             text-align: center;
-            padding: 80px 20px;
+            padding: 70px 15px;
             color: var(--text-secondary);
-            font-size: 18px;
+            font-size: 16px;
             grid-column: 1 / -1;
             background: linear-gradient(135deg, var(--secondary), var(--accent));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-size: 200% 200%;
             animation: gradientShift 3s ease infinite;
-            border-radius: 20px;
-            margin: 20px 0;
+            border-radius: 18px;
+            margin: 15px 0;
         }
 
         @keyframes gradientShift {
@@ -1058,14 +995,14 @@
         .no-profiles::before {
             content: "";
             display: block;
-            font-size: 4rem;
-            margin-bottom: 20px;
+            font-size: 3.5rem;
+            margin-bottom: 15px;
             animation: float 3s ease-in-out infinite;
         }
 
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-8px); }
         }
 
         /* Модальные окна */
@@ -1089,22 +1026,22 @@
 
         .modal-content {
             background: var(--surface);
-            margin: 20px auto;
+            margin: 15px auto;
             width: 95%;
-            max-width: 500px;
-            border-radius: 25px;
+            max-width: 480px;
+            border-radius: 20px;
             overflow: hidden;
             max-height: 90vh;
             overflow-y: auto;
             border: 1px solid rgba(255, 107, 157, 0.2);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5);
             animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         @keyframes slideUp {
             from {
                 opacity: 0;
-                transform: translateY(50px) scale(0.9);
+                transform: translateY(40px) scale(0.9);
             }
             to {
                 opacity: 1;
@@ -1113,7 +1050,7 @@
         }
 
         .modal-header {
-            padding: 30px;
+            padding: 25px;
             border-bottom: 1px solid rgba(255, 107, 157, 0.1);
             display: flex;
             justify-content: space-between;
@@ -1122,7 +1059,7 @@
         }
 
         .modal-title {
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             font-weight: 700;
             background: linear-gradient(45deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
@@ -1130,20 +1067,20 @@
         }
 
         .modal-body {
-            padding: 30px;
+            padding: 25px;
         }
 
         /* Слайдер фото с свайпом */
         .slider {
             position: relative;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .slider-main {
             position: relative;
             width: 100%;
-            height: 400px;
-            border-radius: 20px;
+            height: 350px;
+            border-radius: 18px;
             overflow: hidden;
             background: var(--card);
         }
@@ -1165,7 +1102,7 @@
             width: 100%;
             display: flex;
             justify-content: space-between;
-            padding: 0 20px;
+            padding: 0 15px;
             transform: translateY(-50%);
             z-index: 2;
         }
@@ -1174,11 +1111,11 @@
             background: rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(10px);
             border: none;
-            width: 50px;
-            height: 50px;
+            width: 45px;
+            height: 45px;
             border-radius: 50%;
             color: white;
-            font-size: 20px;
+            font-size: 18px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -1193,16 +1130,16 @@
 
         .slider-thumbs {
             display: flex;
-            gap: 10px;
-            margin-top: 15px;
+            gap: 8px;
+            margin-top: 12px;
             overflow-x: auto;
-            padding: 10px 0;
+            padding: 8px 0;
         }
 
         .slider-thumb {
-            width: 80px;
-            height: 80px;
-            border-radius: 10px;
+            width: 70px;
+            height: 70px;
+            border-radius: 8px;
             overflow: hidden;
             cursor: pointer;
             border: 2px solid transparent;
@@ -1222,23 +1159,23 @@
 
         /* Комментарии */
         .comments-section {
-            margin-top: 30px;
-            padding-top: 20px;
+            margin-top: 25px;
+            padding-top: 15px;
             border-top: 1px solid rgba(255, 107, 157, 0.1);
         }
 
         .comments-title {
-            font-size: 1.4rem;
+            font-size: 1.3rem;
             font-weight: 600;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             color: var(--primary);
         }
 
         .comment-form {
             background: rgba(255, 107, 157, 0.05);
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
             border: 1px solid rgba(255, 107, 157, 0.1);
             display: none;
         }
@@ -1249,30 +1186,30 @@
 
         .comment-permission-required {
             background: rgba(255, 107, 157, 0.1);
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
             border: 1px solid rgba(255, 107, 157, 0.2);
             text-align: center;
         }
 
         .comment-permission-text {
             color: var(--text);
-            margin-bottom: 15px;
-            font-size: 14px;
+            margin-bottom: 12px;
+            font-size: 13px;
         }
 
         .comment-input {
             width: 100%;
-            padding: 15px;
+            padding: 12px;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 107, 157, 0.2);
-            border-radius: 12px;
+            border-radius: 10px;
             color: var(--text);
-            font-size: 14px;
-            margin-bottom: 10px;
+            font-size: 13px;
+            margin-bottom: 8px;
             resize: vertical;
-            min-height: 80px;
+            min-height: 70px;
         }
 
         .comment-input:focus {
@@ -1282,25 +1219,25 @@
 
         .rating-select {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 107, 157, 0.2);
-            border-radius: 12px;
+            border-radius: 10px;
             color: var(--text);
-            font-size: 14px;
-            margin-bottom: 15px;
+            font-size: 13px;
+            margin-bottom: 12px;
         }
 
         .comments-list {
-            max-height: 300px;
+            max-height: 280px;
             overflow-y: auto;
         }
 
         .comment {
             background: rgba(255, 107, 157, 0.05);
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 12px;
             border: 1px solid rgba(255, 107, 157, 0.1);
         }
 
@@ -1308,7 +1245,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .comment-author {
@@ -1318,41 +1255,41 @@
 
         .comment-date {
             color: var(--text-secondary);
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .comment-text {
             color: var(--text);
             line-height: 1.5;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .no-comments {
             text-align: center;
             color: var(--text-secondary);
-            padding: 30px;
+            padding: 25px;
             font-style: italic;
         }
 
         /* Промокод модалка */
         .promo-modal .modal-content {
-            max-width: 400px;
+            max-width: 380px;
         }
 
         .promo-input-group {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 8px;
+            margin-bottom: 15px;
         }
 
         .promo-input {
             flex: 1;
-            padding: 15px 20px;
+            padding: 12px 18px;
             background: rgba(255, 107, 157, 0.05);
             border: 2px solid var(--primary);
-            border-radius: 15px;
+            border-radius: 12px;
             color: var(--text);
-            font-size: 16px;
+            font-size: 15px;
             outline: none;
             transition: all 0.3s ease;
         }
@@ -1363,9 +1300,9 @@
         }
 
         .promo-result {
-            padding: 15px;
-            border-radius: 12px;
-            margin-top: 15px;
+            padding: 12px;
+            border-radius: 10px;
+            margin-top: 12px;
             text-align: center;
             font-weight: 600;
             display: none;
@@ -1383,73 +1320,73 @@
             border: 1px solid var(--error);
         }
 
-        /* Чат - moved up for mini app */
+        /* Чат */
         .chat-modal {
             display: none;
             position: fixed;
-            bottom: 70px;
+            bottom: 65px;
             left: 5px;
             right: 5px;
             width: auto;
             height: 80%;
             background: var(--surface);
-            border-radius: 25px;
+            border-radius: 20px;
             z-index: 2001;
             border: 1px solid rgba(255, 107, 157, 0.2);
-            box-shadow: 0 -10px 50px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5);
             animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .chat-header {
-            padding: 15px 20px;
+            padding: 12px 18px;
             border-bottom: 1px solid rgba(255, 107, 157, 0.1);
             display: flex;
             justify-content: space-between;
             align-items: center;
             background: linear-gradient(135deg, rgba(255, 107, 157, 0.1), rgba(102, 126, 234, 0.1));
-            border-top-left-radius: 25px;
-            border-top-right-radius: 25px;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
         }
 
         .chat-title {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 600;
             color: var(--text);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .chat-avatar {
-            width: 40px;
-            height: 40px;
+            width: 35px;
+            height: 35px;
             border-radius: 50%;
             object-fit: cover;
             border: 2px solid var(--primary);
         }
 
         .chat-warning {
-            padding: 15px 25px;
+            padding: 12px 20px;
             background: rgba(255, 193, 7, 0.1);
             border-bottom: 1px solid rgba(255, 193, 7, 0.3);
             color: #ffc107;
-            font-size: 13px;
+            font-size: 12px;
             line-height: 1.5;
             text-align: center;
         }
 
         .chat-body {
-            padding: 25px;
-            height: calc(100% - 210px);
+            padding: 20px;
+            height: calc(100% - 200px);
             overflow-y: auto;
             background: var(--background);
         }
 
         .chat-footer {
-            padding: 20px;
+            padding: 15px;
             border-top: 1px solid rgba(255, 107, 157, 0.1);
             display: flex;
-            gap: 15px;
+            gap: 12px;
             align-items: flex-end;
             background: var(--surface);
         }
@@ -1458,20 +1395,20 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
 
         .chat-input {
-            padding: 15px 20px;
+            padding: 12px 18px;
             border: 1px solid rgba(255, 107, 157, 0.2);
-            border-radius: 25px;
+            border-radius: 20px;
             outline: none;
             background: rgba(255, 107, 157, 0.05);
             color: var(--text);
-            font-size: 16px;
+            font-size: 15px;
             resize: none;
-            min-height: 50px;
-            max-height: 120px;
+            min-height: 45px;
+            max-height: 110px;
         }
 
         .chat-input::placeholder {
@@ -1485,14 +1422,14 @@
         .file-btn {
             background: rgba(255, 107, 157, 0.1);
             border: none;
-            width: 50px;
-            height: 50px;
+            width: 45px;
+            height: 45px;
             border-radius: 50%;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 18px;
             color: var(--primary);
             transition: all 0.3s ease;
             flex-shrink: 0;
@@ -1508,25 +1445,25 @@
             color: white;
             border: none;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            width: 45px;
+            height: 45px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 18px;
             transition: all 0.3s ease;
             flex-shrink: 0;
-            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.4);
+            box-shadow: 0 3px 12px rgba(255, 107, 157, 0.4);
         }
 
         .chat-send:hover {
             transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(255, 107, 157, 0.6);
+            box-shadow: 0 5px 18px rgba(255, 107, 157, 0.6);
         }
 
         .message {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             max-width: 80%;
             animation: messageAppear 0.3s ease;
         }
@@ -1534,7 +1471,7 @@
         @keyframes messageAppear {
             from {
                 opacity: 0;
-                transform: translateY(10px) scale(0.9);
+                transform: translateY(8px) scale(0.9);
             }
             to {
                 opacity: 1;
@@ -1551,8 +1488,8 @@
         }
 
         .message-bubble {
-            padding: 15px 20px;
-            border-radius: 25px;
+            padding: 12px 18px;
+            border-radius: 20px;
             word-wrap: break-word;
             position: relative;
         }
@@ -1560,49 +1497,49 @@
         .message.user .message-bubble {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
-            border-radius: 25px 25px 8px 25px;
-            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
+            border-radius: 20px 20px 6px 20px;
+            box-shadow: 0 3px 12px rgba(255, 107, 157, 0.3);
         }
 
         .message.other .message-bubble {
             background: rgba(255, 255, 255, 0.05);
             color: var(--text);
-            border-radius: 25px 25px 25px 8px;
+            border-radius: 20px 20px 20px 6px;
             border: 1px solid rgba(255, 107, 157, 0.1);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
         }
 
         .message-time {
-            font-size: 11px;
+            font-size: 10px;
             opacity: 0.7;
-            margin-top: 5px;
+            margin-top: 4px;
             text-align: right;
         }
 
         .file-message {
-            max-width: 300px;
+            max-width: 280px;
         }
 
         .file-preview {
             max-width: 100%;
-            max-height: 200px;
-            border-radius: 15px;
-            margin-bottom: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            max-height: 180px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2);
         }
 
         .file-info {
-            font-size: 12px;
+            font-size: 11px;
             color: rgba(255, 255, 255, 0.7);
-            margin-top: 5px;
+            margin-top: 4px;
         }
 
         .file-link {
             color: var(--primary);
             text-decoration: none;
-            font-size: 14px;
+            font-size: 13px;
             display: block;
-            margin-top: 8px;
+            margin-top: 6px;
             font-weight: 600;
         }
 
@@ -1612,35 +1549,35 @@
 
         .system-message {
             text-align: center;
-            margin: 25px 0;
+            margin: 20px 0;
         }
 
         .system-bubble {
             background: linear-gradient(135deg, var(--secondary), var(--accent));
             color: white;
-            padding: 15px 25px;
-            border-radius: 25px;
+            padding: 12px 20px;
+            border-radius: 20px;
             display: inline-block;
             max-width: 80%;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             border: 1px solid rgba(255,255,255,0.2);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
 
         /* Модалка оплаты */
         .payment-modal .modal-content {
-            max-width: 500px;
+            max-width: 480px;
             background: linear-gradient(135deg, rgba(26, 26, 26, 0.98), rgba(42, 42, 42, 0.98));
             border: 2px solid var(--primary);
-            box-shadow: 0 20px 60px rgba(255, 107, 157, 0.3);
+            box-shadow: 0 15px 50px rgba(255, 107, 157, 0.3);
         }
 
         .crypto-option {
             background: rgba(255, 107, 157, 0.05);
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 12px;
             border: 1px solid rgba(255, 107, 157, 0.1);
             cursor: pointer;
             transition: all 0.3s ease;
@@ -1654,34 +1591,34 @@
         .crypto-option.selected {
             background: rgba(255, 107, 157, 0.15);
             border-color: var(--primary);
-            box-shadow: 0 5px 15px rgba(255, 107, 157, 0.3);
+            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.3);
         }
 
         .crypto-info {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
         }
 
         .crypto-icon {
-            font-size: 24px;
+            font-size: 22px;
         }
 
         .crypto-details h4 {
-            margin-bottom: 5px;
+            margin-bottom: 4px;
             color: var(--text);
         }
 
         .crypto-details p {
             color: var(--text-secondary);
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .wallet-address {
             background: rgba(255, 107, 157, 0.05);
-            padding: 15px;
-            border-radius: 12px;
-            margin: 15px 0;
+            padding: 12px;
+            border-radius: 10px;
+            margin: 12px 0;
             border: 1px solid rgba(255, 107, 157, 0.1);
             font-family: monospace;
             word-break: break-all;
@@ -1692,10 +1629,10 @@
             background: var(--primary);
             color: white;
             border: none;
-            padding: 10px 15px;
-            border-radius: 8px;
+            padding: 8px 12px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             transition: all 0.3s ease;
         }
 
@@ -1706,14 +1643,14 @@
 
         .payment-success {
             text-align: center;
-            padding: 40px 20px;
+            padding: 35px 15px;
             display: none;
         }
 
         .success-icon {
-            font-size: 4rem;
+            font-size: 3.5rem;
             color: var(--success);
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             animation: pulse 2s infinite;
         }
 
@@ -1725,21 +1662,21 @@
         .payment-timer {
             background: linear-gradient(135deg, rgba(255, 107, 157, 0.1), rgba(102, 126, 234, 0.1));
             border: 2px solid var(--primary);
-            border-radius: 15px;
-            padding: 20px;
-            margin: 25px 0;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 20px 0;
         }
 
         .timer-label {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--text-secondary);
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
 
         .timer-display {
-            font-size: 2.5rem;
+            font-size: 2.2rem;
             font-weight: 700;
             background: linear-gradient(45deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
@@ -1749,28 +1686,28 @@
 
         .profile-info-payment {
             background: rgba(255, 107, 157, 0.05);
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 20px;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 15px;
             border: 1px solid rgba(255, 107, 157, 0.1);
         }
 
         .profile-info-payment h4 {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             color: var(--primary);
         }
 
         .profile-details {
             display: flex;
-            gap: 15px;
+            gap: 12px;
             flex-wrap: wrap;
         }
 
         .profile-detail {
             background: rgba(255, 107, 157, 0.1);
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
             color: var(--primary);
         }
 
@@ -1785,83 +1722,51 @@
                 grid-template-columns: 1fr;
             }
 
-            .vip-profiles-container {
-                gap: 10px;
-            }
-
-            .vip-profile-featured {
-                flex: 0 0 40%;
-            }
-
-            .vip-profiles-scroll {
-                max-height: 140px;
+            .vip-profiles-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 5px;
             }
 
             .cards-grid {
                 grid-template-columns: 1fr;
-                gap: 20px;
+                gap: 15px;
             }
 
             .container {
-                padding: 15px;
+                padding: 12px;
             }
 
             .logo {
-                font-size: 3rem;
+                font-size: 2.5rem;
             }
 
             .header-stats {
-                gap: 20px;
+                gap: 15px;
             }
 
             .stat-number {
-                font-size: 1.5rem;
+                font-size: 1.3rem;
             }
 
             .stats-banner-content {
                 flex-direction: column;
-                gap: 10px;
+                gap: 8px;
                 text-align: center;
             }
 
             .chat-modal {
-                height: 90%;
+                height: 85%;
             }
 
             .slider-main {
-                height: 300px;
+                height: 280px;
             }
         }
 
         @media (max-width: 480px) {
-            .vip-profiles-container {
-                flex-direction: column;
-            }
-
-            .vip-profile-featured {
-                flex: none;
-                width: 100%;
-                aspect-ratio: 16/9;
-            }
-
-            .vip-profiles-scroll {
-                flex-direction: row;
-                max-height: none;
-                overflow-x: auto;
-                overflow-y: hidden;
-                padding-bottom: 4px;
-                padding-right: 0;
-            }
-
-            .vip-profiles-scroll::-webkit-scrollbar {
-                height: 3px;
-                width: auto;
-            }
-
-            .vip-profiles-scroll .vip-profile-preview {
-                width: 80px;
-                height: 100px;
-                flex-shrink: 0;
+            .vip-profiles-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 5px;
             }
 
             .card-actions {
@@ -1873,17 +1778,17 @@
             }
 
             .language-btn {
-                padding: 10px 15px;
-                font-size: 12px;
+                padding: 8px 12px;
+                font-size: 11px;
             }
 
             .filters-toggle {
-                width: 50px;
-                height: 50px;
+                width: 45px;
+                height: 45px;
             }
 
             .slider-main {
-                height: 250px;
+                height: 230px;
             }
         }
 
@@ -1891,20 +1796,20 @@
             animation: fadeInUp 0.6s ease;
         }
 
-        /* Bottom Navigation - moved up for mini app */
+        /* Bottom Navigation */
         .bottom-nav {
             position: fixed;
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
+            bottom: 8px;
+            left: 8px;
+            right: 8px;
             background: var(--surface);
             border-top: 1px solid rgba(255, 107, 157, 0.2);
-            border-radius: 20px;
+            border-radius: 18px;
             display: flex;
             justify-content: space-around;
-            padding: 8px 0;
+            padding: 6px 0;
             z-index: 1000;
-            box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.3);
         }
 
         .nav-item {
@@ -1912,9 +1817,9 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 3px;
+            gap: 2px;
             cursor: pointer;
-            padding: 6px;
+            padding: 5px;
             transition: all 0.3s ease;
             position: relative;
             text-decoration: none;
@@ -1930,29 +1835,29 @@
         }
 
         .nav-icon {
-            font-size: 24px;
+            font-size: 22px;
         }
 
         .nav-label {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
         }
 
         .nav-badge {
             display: inline-block;
             background: #ff0000;
-            width: 8px;
-            height: 8px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
             font-size: 0;
-            margin-left: 4px;
+            margin-left: 3px;
             vertical-align: middle;
         }
 
-        /* Chats Page */
+        /* Chats Page - исправлено переполнение текста */
         .page {
             display: none;
-            padding-bottom: 80px;
+            padding-bottom: 70px;
         }
 
         .page.active {
@@ -1960,31 +1865,31 @@
         }
 
         .chats-list {
-            padding: 20px;
+            padding: 15px;
         }
 
         .chat-item {
             background: var(--card);
-            border-radius: 15px;
-            padding: 15px;
-            margin-bottom: 15px;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
             cursor: pointer;
             transition: all 0.3s ease;
             border: 1px solid rgba(255, 107, 157, 0.1);
         }
 
         .chat-item:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 25px rgba(255, 107, 157, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 107, 157, 0.3);
             border-color: var(--primary);
         }
 
         .chat-avatar {
-            width: 60px;
-            height: 60px;
+            width: 55px;
+            height: 55px;
             border-radius: 50%;
             object-fit: cover;
             border: 2px solid var(--primary);
@@ -1992,17 +1897,21 @@
 
         .chat-info {
             flex: 1;
+            min-width: 0;
         }
 
         .chat-name {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 700;
             color: var(--text);
-            margin-bottom: 5px;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .chat-last-message {
-            font-size: 14px;
+            font-size: 13px;
             color: var(--text-secondary);
             white-space: nowrap;
             overflow: hidden;
@@ -2010,7 +1919,7 @@
         }
 
         .chat-time {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-secondary);
         }
 
@@ -2018,42 +1927,42 @@
             background: var(--primary);
             color: white;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            width: 22px;
+            height: 22px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
         }
 
         .empty-state {
             text-align: center;
-            padding: 60px 20px;
+            padding: 50px 15px;
             color: var(--text-secondary);
         }
 
         .empty-state-icon {
-            font-size: 64px;
-            margin-bottom: 20px;
+            font-size: 56px;
+            margin-bottom: 15px;
             opacity: 0.5;
         }
 
         .empty-state-text {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
         }
 
         /* Orders Page */
         .orders-list {
-            padding: 20px;
+            padding: 15px;
         }
 
         .order-item {
             background: var(--card);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 15px;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
             border: 1px solid rgba(255, 107, 157, 0.1);
         }
 
@@ -2061,13 +1970,13 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
 
         .order-status {
-            padding: 6px 12px;
-            border-radius: 12px;
-            font-size: 12px;
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-size: 11px;
             font-weight: 700;
         }
 
@@ -2090,41 +1999,41 @@
         .order-profile {
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
+            gap: 8px;
+            margin-bottom: 8px;
         }
 
         .order-avatar {
-            width: 40px;
-            height: 40px;
+            width: 35px;
+            height: 35px;
             border-radius: 50%;
             object-fit: cover;
         }
 
         .order-info {
-            font-size: 14px;
+            font-size: 13px;
             color: var(--text-secondary);
             line-height: 1.6;
         }
 
         .container {
-            padding-bottom: 80px;
+            padding-bottom: 70px;
         }
 
         /* Плавающая кнопка Telegram бота */
         .telegram-bot-btn {
             display: none;
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
+            bottom: 15px;
+            right: 15px;
+            width: 55px;
+            height: 55px;
             background: linear-gradient(135deg, #0088cc, #00a0dc);
             border-radius: 50%;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            box-shadow: 0 4px 20px rgba(0, 136, 204, 0.5);
+            box-shadow: 0 3px 15px rgba(0, 136, 204, 0.5);
             z-index: 9999;
             transition: all 0.3s ease;
             border: none;
@@ -2132,8 +2041,8 @@
         }
 
         .telegram-bot-btn:hover {
-            transform: scale(1.1) translateY(-5px);
-            box-shadow: 0 8px 30px rgba(0, 136, 204, 0.7);
+            transform: scale(1.1) translateY(-4px);
+            box-shadow: 0 6px 25px rgba(0, 136, 204, 0.7);
         }
 
         .telegram-bot-btn:active {
@@ -2141,19 +2050,19 @@
         }
 
         .telegram-bot-btn svg {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             fill: white;
         }
 
         @keyframes floatPulse {
             0%, 100% {
                 transform: translateY(0px);
-                box-shadow: 0 4px 20px rgba(0, 136, 204, 0.5);
+                box-shadow: 0 3px 15px rgba(0, 136, 204, 0.5);
             }
             50% {
-                transform: translateY(-10px);
-                box-shadow: 0 8px 30px rgba(0, 136, 204, 0.7);
+                transform: translateY(-8px);
+                box-shadow: 0 6px 25px rgba(0, 136, 204, 0.7);
             }
         }
 
@@ -2161,12 +2070,12 @@
         .telegram-bot-btn::before {
             content: attr(data-tooltip);
             position: absolute;
-            right: 70px;
+            right: 65px;
             background: rgba(0, 0, 0, 0.9);
             color: white;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 14px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 13px;
             white-space: nowrap;
             opacity: 0;
             pointer-events: none;
@@ -2180,15 +2089,15 @@
         /* Адаптивность для мобильных */
         @media (max-width: 768px) {
             .telegram-bot-btn {
-                width: 56px;
-                height: 56px;
-                bottom: 80px;
-                right: 16px;
+                width: 50px;
+                height: 50px;
+                bottom: 70px;
+                right: 12px;
             }
 
             .telegram-bot-btn svg {
-                width: 28px;
-                height: 28px;
+                width: 25px;
+                height: 25px;
             }
         }
     </style>
@@ -2199,7 +2108,7 @@
     <!-- iOS Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Muji">
+    <meta name="apple-mobile-web-app-title" content="Muzo">
     <meta name="theme-color" content="#ff6b9d">
 
     <!-- iOS Icons -->
@@ -2222,43 +2131,50 @@
     <!-- Экран загрузки -->
     <div class="loading-screen" id="loading-screen">
         <div class="loading-content">
-            <div class="loading-logo">Muji</div>
+            <div class="loading-logo">Muzo</div>
             <div class="loading-spinner"></div>
             <div class="loading-text" id="loading-text">Loading premium experience...</div>
         </div>
     </div>
 
     <div class="container" id="main-content">
-        <!-- Language Selector -->
-        <div class="language-selector">
-            <button class="language-btn" id="language-btn">
-                <span id="language-text">EN</span>
+        <!-- Language and Filters Selector - кнопка фильтров слева -->
+        <div class="language-filters-selector">
+            <button class="filters-toggle" id="filters-toggle">
+                <div class="filter-bar"></div>
+                <div class="filter-bar"></div>
+                <div class="filter-bar"></div>
             </button>
-            <div class="language-dropdown" id="language-dropdown">
-                <div class="language-option" data-lang="en">English</div>
-                <div class="language-option" data-lang="ja">日本語</div>
-                <div class="language-option" data-lang="ko">한국어</div>
-                <div class="language-option" data-lang="zh">中文</div>
-                <div class="language-option" data-lang="ar">العربية</div>
-                <div class="language-option" data-lang="de">Deutsch</div>
-                <div class="language-option" data-lang="es">Español</div>
-                <div style="border-top: 1px solid rgba(255, 107, 157, 0.3); margin-top: 8px; padding-top: 8px;">
-                    <div class="language-option" id="install-app-btn" onclick="showInstallPrompt(true)" style="color: #ff6b9d; font-weight: 600;">
-                        <span id="add-to-screen-text">📱 Add to Screen</span>
+            <div class="language-selector">
+                <button class="language-btn" id="language-btn">
+                    <span id="language-text">EN</span>
+                </button>
+                <div class="language-dropdown" id="language-dropdown">
+                    <div class="language-option" data-lang="en">English</div>
+                    <div class="language-option" data-lang="ja">日本語</div>
+                    <div class="language-option" data-lang="ko">한국어</div>
+                    <div class="language-option" data-lang="zh">中文</div>
+                    <div class="language-option" data-lang="ar">العربية</div>
+                    <div class="language-option" data-lang="de">Deutsch</div>
+                    <div class="language-option" data-lang="es">Español</div>
+                    <div style="border-top: 1px solid rgba(255, 107, 157, 0.3); margin-top: 6px; padding-top: 6px;">
+                        <div class="language-option" id="install-app-btn" onclick="showInstallPrompt(true)" style="color: #ff6b9d; font-weight: 600;">
+                            <span id="add-to-screen-text">📱 Add to Screen</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Главный хедер -->
+        <!-- Главный хедер - опущен на 15% -->
         <header class="main-header fade-in">
             <div class="header-content">
-                <div class="logo">Muji</div>
+                <div class="logo">Muzo</div>
                 <div class="subtitle" id="app-subtitle">100% Anonymous Dating</div>
 
                 <!-- Иконка незавершенной оплаты -->
                 <div class="pending-payment-icon" id="pending-payment-icon" style="display: none;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
                         <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
@@ -2290,17 +2206,10 @@
             </div>
         </header>
 
-        <!-- Фильтры под хедером -->
-        <div class="filters-row">
-            <button class="filters-toggle" id="filters-toggle">
-                <div class="filter-bar"></div>
-                <div class="filter-bar"></div>
-                <div class="filter-bar"></div>
-            </button>
-            <div class="active-filters" id="active-filters"></div>
-        </div>
+        <!-- Активные фильтры -->
+        <div class="active-filters" id="active-filters"></div>
 
-        <!-- VIP каталоги -->
+        <!-- VIP каталоги - 3 анкеты в ряд -->
         <section class="vip-catalogs" id="vip-catalogs">
             <div class="vip-catalogs-grid" id="vip-catalogs-grid">
                 <!-- VIP каталоги будут загружены через JS -->
@@ -2310,7 +2219,7 @@
         <!-- Сетка карточек -->
         <div class="cards-grid" id="cards-container">
             <div class="loading" id="main-loading">
-                <div style="font-size: 3rem; margin-bottom: 20px;"></div>
+                <div style="font-size: 2.5rem; margin-bottom: 15px;"></div>
                 Loading premium profiles...
             </div>
         </div>
@@ -2525,7 +2434,7 @@
                 <button class="close-btn" id="close-promo">✕</button>
             </div>
             <div class="modal-body">
-                <p style="margin-bottom: 20px; color: var(--text-secondary);" id="promo-description">
+                <p style="margin-bottom: 15px; color: var(--text-secondary);" id="promo-description">
                     Enter your promo code to get a special discount
                 </p>
                 <div class="promo-input-group">
@@ -2535,7 +2444,7 @@
                     </button>
                 </div>
                 <div class="promo-result" id="promo-result"></div>
-                <div style="text-align: center; margin-top: 20px;">
+                <div style="text-align: center; margin-top: 15px;">
                     <button class="btn btn-secondary" id="close-promo-btn">
                         <span id="close-promo-text">Close</span>
                     </button>
@@ -2564,7 +2473,7 @@
                         </div>
                     </div>
 
-                    <p style="margin-bottom: 20px; color: var(--text-secondary);" id="payment-description">Select cryptocurrency and enter amount</p>
+                    <p style="margin-bottom: 15px; color: var(--text-secondary);" id="payment-description">Select cryptocurrency and enter amount</p>
 
                     <div class="form-group">
                         <label id="payment-amount-label">Amount (USD)</label>
@@ -2681,11 +2590,11 @@
                         </div>
                     </div>
 
-                    <div style="padding: 15px; background: rgba(255, 107, 157, 0.1); border-radius: 12px; margin: 15px 0; text-align: center;">
+                    <div style="padding: 12px; background: rgba(255, 107, 157, 0.1); border-radius: 10px; margin: 12px 0; text-align: center;">
                         <span style="color: var(--primary); font-weight: 600;">🎁 +5% Bonus on all deposits!</span>
                     </div>
 
-                    <button class="btn btn-primary" id="confirm-payment" style="width: 100%; margin-top: 20px;">
+                    <button class="btn btn-primary" id="confirm-payment" style="width: 100%; margin-top: 15px;">
                         <span id="confirm-payment-text">Pay</span>
                     </button>
                 </div>
@@ -2695,10 +2604,10 @@
                     <h3 id="payment-success-title">Awaiting Confirmation</h3>
                     <p id="payment-success-message">Processing payment... Close the window, you will receive a notification in chat.</p>
 
-                    <div class="wallet-address" id="wallet-address" style="margin: 20px 0;">
+                    <div class="wallet-address" id="wallet-address" style="margin: 15px 0;">
                         <strong id="wallet-address-label">Wallet Address:</strong>
-                        <div id="address-text" style="margin: 10px 0; word-break: break-all; background: rgba(255,107,157,0.1); padding: 15px; border-radius: 8px; font-size: 14px;"></div>
-                        <button class="copy-btn" id="copy-address" style="margin-top: 10px;">Copy Address</button>
+                        <div id="address-text" style="margin: 8px 0; word-break: break-all; background: rgba(255,107,157,0.1); padding: 12px; border-radius: 6px; font-size: 13px;"></div>
+                        <button class="copy-btn" id="copy-address" style="margin-top: 8px;">Copy Address</button>
                     </div>
 
                     <div class="payment-timer">
@@ -2743,10 +2652,10 @@
             <!-- Main content already here -->
         </div>
 
-        <!-- Chats Page -->
+        <!-- Chats Page - исправлено переполнение текста -->
         <div id="chats-page" class="page">
             <header class="main-header">
-                <h2 style="color: var(--primary); font-size: 24px; font-weight: 700;">My Chats</h2>
+                <h2 style="color: var(--primary); font-size: 22px; font-weight: 700;">My Chats</h2>
             </header>
             <div class="chats-list" id="chats-list-container"></div>
         </div>
@@ -2754,7 +2663,7 @@
         <!-- My Bookings Page -->
         <div id="paid-orders-page" class="page">
             <header class="main-header">
-                <h2 style="color: #28a745; font-size: 24px; font-weight: 700;">My Bookings</h2>
+                <h2 style="color: #28a745; font-size: 22px; font-weight: 700;">My Bookings</h2>
             </header>
             <div class="orders-list" id="paid-orders-list"></div>
         </div>
@@ -2762,7 +2671,7 @@
         <!-- Pending Orders Page -->
         <div id="unpaid-orders-page" class="page">
             <header class="main-header">
-                <h2 style="color: #ffc107; font-size: 24px; font-weight: 700;">Pending Orders</h2>
+                <h2 style="color: #ffc107; font-size: 22px; font-weight: 700;">Pending Orders</h2>
             </header>
             <div class="orders-list" id="unpaid-orders-list"></div>
         </div>
@@ -2906,16 +2815,16 @@
 
         function showIOSInstructions() {
             const modal = document.createElement('div');
-            modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10001; padding: 20px;';
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10001; padding: 15px;';
             modal.innerHTML = `
-                <div style="background: #1a1a1a; border-radius: 20px; padding: 30px; max-width: 400px; text-align: center; border: 1px solid #ff6b9d;">
-                    <h3 style="color: #ff6b9d; margin-bottom: 20px; font-size: 20px;">${translations.ios_add_title || 'Add to Home Screen'}</h3>
-                    <ol style="text-align: left; color: white; line-height: 2; padding-left: 20px;">
-                        <li>${translations.ios_step1 || 'Tap the Share button'} <span style="font-size: 24px;">⎋</span></li>
-                        <li>${translations.ios_step2 || 'Select "Add to Home Screen"'} <span style="font-size: 24px;">➕</span></li>
+                <div style="background: #1a1a1a; border-radius: 18px; padding: 25px; max-width: 380px; text-align: center; border: 1px solid #ff6b9d;">
+                    <h3 style="color: #ff6b9d; margin-bottom: 15px; font-size: 18px;">${translations.ios_add_title || 'Add to Home Screen'}</h3>
+                    <ol style="text-align: left; color: white; line-height: 1.8; padding-left: 15px;">
+                        <li>${translations.ios_step1 || 'Tap the Share button'} <span style="font-size: 22px;">⎋</span></li>
+                        <li>${translations.ios_step2 || 'Select "Add to Home Screen"'} <span style="font-size: 22px;">➕</span></li>
                         <li>${translations.ios_step3 || 'Tap "Add"'}</li>
                     </ol>
-                    <button onclick="this.parentElement.parentElement.remove()" style="background: linear-gradient(135deg, #ff6b9d, #667eea); color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 20px; cursor: pointer; font-weight: 600;">${translations.ios_got_it || 'Got it'}</button>
+                    <button onclick="this.parentElement.parentElement.remove()" style="background: linear-gradient(135deg, #ff6b9d, #667eea); color: white; border: none; padding: 10px 20px; border-radius: 10px; margin-top: 15px; cursor: pointer; font-weight: 600;">${translations.ios_got_it || 'Got it'}</button>
                 </div>
             `;
             document.body.appendChild(modal);
@@ -4001,9 +3910,8 @@
                         <span class="vip-catalog-name">${catalog.name}</span>
                         <span class="vip-catalog-price">$${catalog.price}</span>
                     </div>
-                    <div class="vip-profiles-container" id="vip-profiles-${catalogKey}">
-                        <div class="vip-profile-featured" id="vip-featured-${catalogKey}"></div>
-                        <div class="vip-profiles-scroll" id="vip-scroll-${catalogKey}"></div>
+                    <div class="vip-profiles-grid" id="vip-profiles-${catalogKey}">
+                        <!-- Анкеты будут добавлены через JS -->
                     </div>
                     <div class="vip-catalog-stats">
                         <span>${catalog.preview_count} ${translations.premium_profiles_count || 'premium profiles'}</span>
@@ -4034,12 +3942,10 @@
 
         // Отрисовка VIP анкет для каталога
         function renderVipProfilesForCatalog(catalogKey, previewProfiles) {
-            const featuredContainer = document.getElementById(`vip-featured-${catalogKey}`);
-            const scrollContainer = document.getElementById(`vip-scroll-${catalogKey}`);
-            if (!featuredContainer || !scrollContainer) return;
+            const profilesContainer = document.getElementById(`vip-profiles-${catalogKey}`);
+            if (!profilesContainer) return;
 
-            featuredContainer.innerHTML = '';
-            scrollContainer.innerHTML = '';
+            profilesContainer.innerHTML = '';
 
             // Капитализация имени
             function capitalize(str) {
@@ -4067,12 +3973,14 @@
                 const randomGradient = getRandomGradient();
                 // SECURITY FIX: Escape user-generated content to prevent XSS
                 return `
-                    <div class="vip-profile-image" style="background: ${randomGradient}; background-size: cover; background-position: center;"></div>
-                    <div class="vip-profile-overlay">
-                        <div class="vip-profile-info">
-                            <div class="vip-profile-name">${escapeHtml(capitalize(profile.name))}</div>
-                            <div class="vip-profile-age">${escapeHtml(profile.age)} ${escapeHtml(translations.years_short || 'y.o')}</div>
-                            <div class="vip-profile-city">${escapeHtml(capitalize(profile.city))}</div>
+                    <div class="vip-profile-preview">
+                        <div class="vip-profile-image" style="background: ${randomGradient}; background-size: cover; background-position: center;"></div>
+                        <div class="vip-profile-overlay">
+                            <div class="vip-profile-info">
+                                <div class="vip-profile-name">${escapeHtml(capitalize(profile.name))}</div>
+                                <div class="vip-profile-age">${escapeHtml(profile.age)} ${escapeHtml(translations.years_short || 'y.o')}</div>
+                                <div class="vip-profile-city">${escapeHtml(capitalize(profile.city))}</div>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -4081,16 +3989,10 @@
             previewProfiles.forEach((profile, index) => {
                 if (!profile.name) return;
 
-                if (index === 0) {
-                    // Первый профиль - featured (большой)
-                    featuredContainer.innerHTML = createProfileHtml(profile);
-                } else {
-                    // Остальные профили - в scrollable контейнер
-                    const profileDiv = document.createElement('div');
-                    profileDiv.className = 'vip-profile-preview';
-                    profileDiv.innerHTML = createProfileHtml(profile);
-                    scrollContainer.appendChild(profileDiv);
-                }
+                // Все профили в одном ряду
+                const profileDiv = document.createElement('div');
+                profileDiv.innerHTML = createProfileHtml(profile);
+                profilesContainer.appendChild(profileDiv);
             });
         }
 
@@ -4304,11 +4206,6 @@
                 if (!languageBtn.contains(event.target)) {
                     languageDropdown.classList.remove('active');
                 }
-            });
-
-            // Баннер под статистикой
-            closeStatsBanner.addEventListener('click', function() {
-                statsBanner.style.display = 'none';
             });
 
             // Фильтры
@@ -4597,6 +4494,10 @@
             };
             updateFilterInputs();
             updateActiveFilters();
+            
+            // Показываем VIP каталоги при сбросе фильтров
+            vipCatalogsSection.style.display = 'block';
+            
             applyFilters();
         }
 
@@ -4635,6 +4536,9 @@
 
             updateActiveFilters();
             closeFilters();
+
+            // Скрываем VIP каталоги при применении фильтров
+            vipCatalogsSection.style.display = 'none';
 
             currentPage = 0;
             currentProfiles = [];
@@ -6020,7 +5924,7 @@
     <!-- Плавающая кнопка Telegram бота -->
     <button class="telegram-bot-btn" onclick="openTelegramBot()" data-tooltip="Contact Support Bot">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.24-5.53 3.65-.52.36-.99.53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.37-.48 1.02-.73 3.99-1.73 6.65-2.87 7.98-3.43 3.8-1.58 4.59-1.86 5.1-1.87.11 0 .37.03.53.17.14.12.18.28.19.39.01.11.03.36.02.55z"/>
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-12S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.24-5.53 3.65-.52.36-.99.53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.37-.48 1.02-.73 3.99-1.73 6.65-2.87 7.98-3.43 3.8-1.58 4.59-1.86 5.1-1.87.11 0 .37.03.53.17.14.12.18.28.19.39.01.11.03.36.02.55z"/>
         </svg>
     </button>
 
