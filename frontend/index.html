@@ -2707,6 +2707,13 @@
             // Получаем данные пользователя
             telegramUser = tg.initDataUnsafe?.user;
 
+            // DEBUG: Логируем все данные Telegram
+            console.log('=== TELEGRAM DEBUG ===');
+            console.log('tg.initData:', tg.initData);
+            console.log('tg.initDataUnsafe:', tg.initDataUnsafe);
+            console.log('telegramUser:', telegramUser);
+            console.log('======================');
+
             // Устанавливаем тему
             if (tg.themeParams) {
                 document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#0f0f0f');
@@ -2722,13 +2729,21 @@
 
         // Функция аутентификации через Telegram WebApp
         async function authenticateWithTelegram() {
+            console.log('=== AUTHENTICATION DEBUG ===');
+            console.log('tg:', tg);
+            console.log('tg?.initData:', tg?.initData);
+            console.log('============================');
+
             if (!tg || !tg.initData) {
-                console.warn('Telegram WebApp initData not available, skipping authentication');
+                console.warn('⚠️ Telegram WebApp initData not available, skipping authentication');
+                console.warn('   tg exists:', !!tg);
+                console.warn('   tg.initData exists:', !!tg?.initData);
+                console.warn('   tg.initData value:', tg?.initData);
                 return false;
             }
 
             try {
-                console.log('Authenticating with Telegram...');
+                console.log('🔐 Authenticating with Telegram...');
                 const response = await originalFetch('/api/telegram/auth', {
                     method: 'POST',
                     headers: {
