@@ -48,6 +48,7 @@ def init_database():
                 last_name TEXT,
                 language_code TEXT DEFAULT 'en',
                 is_premium INTEGER DEFAULT 0,
+                user_type TEXT DEFAULT 'telegram' CHECK(user_type IN ('telegram', 'web')),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 last_login DATETIME DEFAULT CURRENT_TIMESTAMP
             )
@@ -85,6 +86,24 @@ def init_database():
             ON users(telegram_id)
         """)
 
+        # Profiles table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER UNIQUE NOT NULL,
+                avatar TEXT,
+                bio TEXT DEFAULT '',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_profiles_user_id
+            ON profiles(user_id)
+        """)
+
         logger.info("✅ Database initialized successfully")
 
 
@@ -92,7 +111,8 @@ def init_database():
 
 def get_or_create_user(telegram_id: int, username: str = None,
                        first_name: str = None, last_name: str = None,
-                       language_code: str = 'en', is_premium: bool = False) -> Dict[str, Any]:
+                       language_code: str = 'en', is_premium: bool = False,
+                       user_type: str = 'telegram') -> Dict[str, Any]:
     """
     Get existing user or create new one from Telegram data
     Returns user dictionary with id, telegram_id, etc.
@@ -103,13 +123,17 @@ def get_or_create_user(telegram_id: int, username: str = None,
     if not isinstance(telegram_id, int) or telegram_id <= 0:
         raise ValueError(f"Invalid telegram_id: {telegram_id}. Must be a positive integer.")
 
+    # Validate user_type
+    if user_type not in ('telegram', 'web'):
+        raise ValueError(f"Invalid user_type: {user_type}. Must be 'telegram' or 'web'.")
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
         # Try to get existing user
         cursor.execute("""
             SELECT id, telegram_id, username, first_name, last_name,
-                   language_code, is_premium, created_at, last_login
+                   language_code, is_premium, user_type, created_at, last_login
             FROM users
             WHERE telegram_id = ?
         """, (telegram_id,))
@@ -125,17 +149,18 @@ def get_or_create_user(telegram_id: int, username: str = None,
                     first_name = ?,
                     last_name = ?,
                     language_code = ?,
-                    is_premium = ?
+                    is_premium = ?,
+                    user_type = ?
                 WHERE telegram_id = ?
             """, (username, first_name, last_name, language_code,
-                  1 if is_premium else 0, telegram_id))
+                  1 if is_premium else 0, user_type, telegram_id))
 
             logger.info(f"✅ User logged in: {telegram_id} ({first_name} {last_name})")
 
             # Fetch updated user
             cursor.execute("""
                 SELECT id, telegram_id, username, first_name, last_name,
-                       language_code, is_premium, created_at, last_login
+                       language_code, is_premium, user_type, created_at, last_login
                 FROM users
                 WHERE telegram_id = ?
             """, (telegram_id,))
@@ -144,18 +169,25 @@ def get_or_create_user(telegram_id: int, username: str = None,
             # Create new user
             cursor.execute("""
                 INSERT INTO users (telegram_id, username, first_name, last_name,
-                                   language_code, is_premium)
-                VALUES (?, ?, ?, ?, ?, ?)
+                                   language_code, is_premium, user_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (telegram_id, username, first_name, last_name, language_code,
-                  1 if is_premium else 0))
+                  1 if is_premium else 0, user_type))
 
             user_id = cursor.lastrowid
             logger.info(f"✅ New user created: {telegram_id} ({first_name} {last_name})")
 
+            # Create profile for new user
+            cursor.execute("""
+                INSERT INTO profiles (user_id, bio)
+                VALUES (?, ?)
+            """, (user_id, ''))
+            logger.info(f"✅ Profile created for user_id: {user_id}")
+
             # Fetch created user
             cursor.execute("""
                 SELECT id, telegram_id, username, first_name, last_name,
-                       language_code, is_premium, created_at, last_login
+                       language_code, is_premium, user_type, created_at, last_login
                 FROM users
                 WHERE id = ?
             """, (user_id,))
@@ -170,7 +202,7 @@ def get_user_by_telegram_id(telegram_id: int) -> Optional[Dict[str, Any]]:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT id, telegram_id, username, first_name, last_name,
-                   language_code, is_premium, created_at, last_login
+                   language_code, is_premium, user_type, created_at, last_login
             FROM users
             WHERE telegram_id = ?
         """, (telegram_id,))
@@ -418,6 +450,108 @@ def get_database_stats() -> Dict[str, Any]:
             'total_storage_bytes': total_size,
             'total_storage_mb': round(total_size / (1024 * 1024), 2)
         }
+
+
+# ==================== PROFILE MANAGEMENT ====================
+
+def get_or_create_profile(user_id: int) -> Dict[str, Any]:
+    """
+    Get existing profile or create new one for user
+    Returns profile dictionary with id, user_id, avatar, bio
+    """
+    if not isinstance(user_id, int) or user_id <= 0:
+        raise ValueError(f"Invalid user_id: {user_id}. Must be a positive integer.")
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+
+        # Try to get existing profile
+        cursor.execute("""
+            SELECT id, user_id, avatar, bio, created_at, updated_at
+            FROM profiles
+            WHERE user_id = ?
+        """, (user_id,))
+
+        profile = cursor.fetchone()
+
+        if not profile:
+            # Create new profile
+            cursor.execute("""
+                INSERT INTO profiles (user_id, bio)
+                VALUES (?, ?)
+            """, (user_id, ''))
+
+            profile_id = cursor.lastrowid
+            logger.info(f"✅ Profile created for user_id: {user_id}")
+
+            # Fetch created profile
+            cursor.execute("""
+                SELECT id, user_id, avatar, bio, created_at, updated_at
+                FROM profiles
+                WHERE id = ?
+            """, (profile_id,))
+            profile = cursor.fetchone()
+
+        return dict(profile) if profile else None
+
+
+def update_profile(user_id: int, avatar: str = None, bio: str = None) -> bool:
+    """
+    Update user profile
+    Returns True if updated, False otherwise
+    """
+    if not isinstance(user_id, int) or user_id <= 0:
+        raise ValueError(f"Invalid user_id: {user_id}. Must be a positive integer.")
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+
+        # Build update query dynamically based on provided fields
+        update_fields = []
+        params = []
+
+        if avatar is not None:
+            update_fields.append("avatar = ?")
+            params.append(avatar)
+
+        if bio is not None:
+            update_fields.append("bio = ?")
+            params.append(bio)
+
+        if not update_fields:
+            return False
+
+        # Always update updated_at
+        update_fields.append("updated_at = CURRENT_TIMESTAMP")
+        params.append(user_id)
+
+        query = f"""
+            UPDATE profiles
+            SET {', '.join(update_fields)}
+            WHERE user_id = ?
+        """
+
+        cursor.execute(query, params)
+
+        if cursor.rowcount > 0:
+            logger.info(f"✅ Profile updated for user_id: {user_id}")
+            return True
+
+        return False
+
+
+def get_profile_by_user_id(user_id: int) -> Optional[Dict[str, Any]]:
+    """Get profile by user ID"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, user_id, avatar, bio, created_at, updated_at
+            FROM profiles
+            WHERE user_id = ?
+        """, (user_id,))
+
+        profile = cursor.fetchone()
+        return dict(profile) if profile else None
 
 
 # Initialize database on module import
