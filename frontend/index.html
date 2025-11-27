@@ -2716,6 +2716,58 @@
             console.log('Telegram Web App initialized', telegramUser);
         }
 
+        // ==================== TELEGRAM AUTHENTICATION ====================
+        // Сохраняем оригинальный fetch
+        const originalFetch = window.fetch;
+
+        // Функция аутентификации через Telegram WebApp
+        async function authenticateWithTelegram() {
+            if (!tg || !tg.initData) {
+                console.warn('Telegram WebApp initData not available, skipping authentication');
+                return false;
+            }
+
+            try {
+                console.log('Authenticating with Telegram...');
+                const response = await originalFetch('/api/telegram/auth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        initData: tg.initData
+                    }),
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Telegram authentication successful', data);
+                    return true;
+                } else {
+                    const error = await response.json();
+                    console.error('❌ Telegram authentication failed:', response.status, error);
+                    return false;
+                }
+            } catch (error) {
+                console.error('❌ Error during Telegram authentication:', error);
+                return false;
+            }
+        }
+
+        // Переопределяем fetch для автоматического включения credentials
+        window.fetch = function(...args) {
+            const [url, options = {}] = args;
+
+            // Автоматически добавляем credentials: 'include' для всех запросов
+            const newOptions = {
+                ...options,
+                credentials: 'include'
+            };
+
+            return originalFetch(url, newOptions);
+        };
+
         // Helper function to get telegram_user_id for API calls
         function getTelegramUserId() {
             return telegramUser?.id ? String(telegramUser.id) : null;
@@ -3848,6 +3900,11 @@
             if (typeof window.Telegram !== 'undefined') {
                 Telegram.WebApp.ready();
                 Telegram.WebApp.expand();
+            }
+
+            // Аутентификация через Telegram WebApp
+            if (tg && tg.initData) {
+                await authenticateWithTelegram();
             }
         });
 

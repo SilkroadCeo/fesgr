@@ -27,16 +27,14 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Muji - Anonymous Dating", version="15.0.0")
 
-# Разрешаем CORS
+# Разрешаем CORS (включая ngrok и Telegram WebApp)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8001",
-        "http://127.0.0.1:8001"
-    ],
+    allow_origins=["*"],  # Разрешаем все origins для ngrok и Telegram WebApp
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    expose_headers=["Set-Cookie"],
 )
 
 # Пути
@@ -524,8 +522,8 @@ async def telegram_auth(request: Request, response: Response):
             value=session_id,
             httponly=True,
             max_age=86400 * 30,  # 30 days
-            samesite="lax",
-            secure=False  # Set to True in production with HTTPS
+            samesite="none",  # Required for cross-origin cookies (ngrok, Telegram WebApp)
+            secure=True  # Required for HTTPS (ngrok uses HTTPS)
         )
 
         logger.info(f"✅ Telegram user authenticated: {telegram_id} ({first_name} {last_name})")
