@@ -96,7 +96,13 @@ def get_or_create_user(telegram_id: int, username: str = None,
     """
     Get existing user or create new one from Telegram data
     Returns user dictionary with id, telegram_id, etc.
+
+    Security: Validates telegram_id to prevent invalid data
     """
+    # SECURITY: Validate telegram_id format
+    if not isinstance(telegram_id, int) or telegram_id <= 0:
+        raise ValueError(f"Invalid telegram_id: {telegram_id}. Must be a positive integer.")
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
@@ -178,9 +184,36 @@ def get_user_by_telegram_id(telegram_id: int) -> Optional[Dict[str, Any]]:
 def add_file(user_id: int, telegram_user_id: int, filename: str,
              original_filename: str, file_path: str, file_size: int,
              mime_type: str) -> int:
-    """Add file to database"""
+    """
+    Add file to database with ownership validation
+
+    Security: Validates that user_id corresponds to telegram_user_id
+    """
+    # SECURITY: Validate inputs
+    if not isinstance(user_id, int) or user_id <= 0:
+        raise ValueError(f"Invalid user_id: {user_id}")
+
+    if not isinstance(telegram_user_id, int) or telegram_user_id <= 0:
+        raise ValueError(f"Invalid telegram_user_id: {telegram_user_id}")
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
+
+        # SECURITY: Verify user_id belongs to telegram_user_id
+        cursor.execute("""
+            SELECT telegram_id FROM users WHERE id = ?
+        """, (user_id,))
+        user = cursor.fetchone()
+
+        if not user:
+            raise ValueError(f"User ID {user_id} not found")
+
+        if user['telegram_id'] != telegram_user_id:
+            raise ValueError(
+                f"User ID mismatch: user_id {user_id} has telegram_id {user['telegram_id']}, "
+                f"but {telegram_user_id} was provided"
+            )
+
         cursor.execute("""
             INSERT INTO files (user_id, telegram_user_id, filename, original_filename,
                               file_path, file_size, mime_type)
@@ -189,7 +222,7 @@ def add_file(user_id: int, telegram_user_id: int, filename: str,
               file_path, file_size, mime_type))
 
         file_id = cursor.lastrowid
-        logger.info(f"✅ File added to database: {filename} (user_id: {user_id})")
+        logger.info(f"✅ File added to database: {filename} (user_id: {user_id}, telegram_id: {telegram_user_id})")
         return file_id
 
 
@@ -213,7 +246,18 @@ def get_file_by_id(file_id: int, telegram_user_id: int) -> Optional[Dict[str, An
     """
     Get file by ID with ownership verification
     Returns None if file doesn't exist or doesn't belong to user
+
+    Security: Critical function for preventing unauthorized file access
     """
+    # SECURITY: Validate inputs
+    if not isinstance(telegram_user_id, int) or telegram_user_id <= 0:
+        logger.error(f"Invalid telegram_user_id in get_file_by_id: {telegram_user_id}")
+        return None
+
+    if not isinstance(file_id, int) or file_id <= 0:
+        logger.error(f"Invalid file_id in get_file_by_id: {file_id}")
+        return None
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -224,6 +268,13 @@ def get_file_by_id(file_id: int, telegram_user_id: int) -> Optional[Dict[str, An
         """, (file_id, telegram_user_id))
 
         file = cursor.fetchone()
+
+        # SECURITY: Log access attempts for auditing
+        if file:
+            logger.debug(f"File {file_id} accessed by telegram_user_id {telegram_user_id}")
+        else:
+            logger.warning(f"Unauthorized file access attempt: file_id={file_id}, telegram_user_id={telegram_user_id}")
+
         return dict(file) if file else None
 
 
@@ -246,11 +297,22 @@ def delete_file(file_id: int, telegram_user_id: int) -> bool:
     """
     Delete file with ownership verification
     Returns True if deleted, False if not found or unauthorized
+
+    Security: Critical function for preventing unauthorized file deletion
     """
+    # SECURITY: Validate inputs
+    if not isinstance(telegram_user_id, int) or telegram_user_id <= 0:
+        logger.error(f"Invalid telegram_user_id in delete_file: {telegram_user_id}")
+        return False
+
+    if not isinstance(file_id, int) or file_id <= 0:
+        logger.error(f"Invalid file_id in delete_file: {file_id}")
+        return False
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
-        # Check if file exists and belongs to user
+        # SECURITY: Check if file exists and belongs to user
         cursor.execute("""
             SELECT file_path FROM files
             WHERE id = ? AND telegram_user_id = ?
@@ -258,6 +320,7 @@ def delete_file(file_id: int, telegram_user_id: int) -> bool:
 
         file = cursor.fetchone()
         if not file:
+            logger.warning(f"Unauthorized delete attempt: file_id={file_id}, telegram_user_id={telegram_user_id}")
             return False
 
         file_path = file['file_path']
