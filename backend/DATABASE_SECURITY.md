@@ -90,8 +90,8 @@ def get_file_by_id(file_id: int, telegram_user_id: int):
 def verify_telegram_auth(init_data: str, max_age_seconds: int = 86400) -> bool:
     """Verify Telegram WebApp authentication"""
 
-    # 1. Verify HMAC signature
-    secret_key = hashlib.sha256(TELEGRAM_BOT_TOKEN.encode()).digest()
+    # 1. Verify HMAC signature (Telegram official algorithm)
+    secret_key = hmac.new("WebAppData".encode(), TELEGRAM_BOT_TOKEN.encode(), hashlib.sha256).digest()
     calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 
     if not hmac.compare_digest(calculated_hash, received_hash):

@@ -204,8 +204,12 @@ def verify_telegram_auth(init_data: str, max_age_seconds: int = 86400) -> bool:
             data_check_arr.append(f"{key}={value[0]}")
     data_check_string = '\n'.join(data_check_arr)
 
-    # 3. Compute secret_key = SHA256(bot_token)
-    secret_key = hashlib.sha256(TELEGRAM_BOT_TOKEN.encode()).digest()
+    # 3. Compute secret_key = HMAC-SHA256("WebAppData", bot_token)
+    secret_key = hmac.new(
+        "WebAppData".encode(),
+        TELEGRAM_BOT_TOKEN.encode(),
+        hashlib.sha256
+    ).digest()
 
     # 4. Compute HMAC-SHA256
     calculated_hash = hmac.new(
