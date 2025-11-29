@@ -99,6 +99,19 @@ if TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
         logger.error(f"❌ Failed to initialize Telegram bot: {e}")
         telegram_bot = None
 
+# ============= FILE PATHS AND INITIALIZATION =============
+# ВАЖНО: Определяем пути ДО регистрации event handlers, чтобы избежать NameError!
+current_dir = os.path.dirname(os.path.abspath(__file__))
+DATA_FILE = os.path.join(current_dir, "data.json")
+UPLOAD_DIR = os.path.join(current_dir, "uploads")
+
+# Создаем папку для загрузок если её нет
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Initialize database
+db.init_database()
+logger.info("✅ Database initialized successfully")
+
 
 def verify_telegram_auth(init_data: str, max_age_seconds: int = 86400) -> bool:
     """
@@ -726,6 +739,9 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+# Mount uploads directory
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
 
 # Фоновая задача для удаления просроченных заказов
 async def cleanup_expired_orders():
@@ -767,14 +783,6 @@ async def startup_event():
     # Запуск задачи очистки просроченных заказов
     logger.info("🧹 Starting expired orders cleanup task...")
     asyncio.create_task(cleanup_expired_orders())
-
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-DATA_FILE = os.path.join(current_dir, "data.json")
-UPLOAD_DIR = os.path.join(current_dir, "uploads")
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 def get_crypto_wallets_from_env():
