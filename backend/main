@@ -41,6 +41,7 @@ app.add_middleware(
 # Пути
 current_dir = os.path.dirname(os.path.abspath(__file__))
 frontend_dir = os.path.join(current_dir, "../frontend")
+DATA_FILE = os.path.join(current_dir, "data.json")  # Legacy data file
 UPLOAD_DIR = os.path.join(current_dir, "uploads")
 
 # Создаем папку для загрузок если её нет
