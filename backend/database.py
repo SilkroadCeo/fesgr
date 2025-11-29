@@ -104,6 +104,141 @@ def init_database():
             ON profiles(user_id)
         """)
 
+        # Dating profiles table (for dating app functionality)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS dating_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                age INTEGER NOT NULL,
+                gender TEXT NOT NULL,
+                nationality TEXT,
+                city TEXT,
+                travel_cities TEXT,  -- JSON array stored as text
+                description TEXT,
+                photos TEXT,  -- JSON array stored as text
+                visible INTEGER DEFAULT 1,
+                created_at TEXT,
+                height INTEGER,
+                weight INTEGER,
+                chest INTEGER
+            )
+        """)
+
+        # VIP profiles table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS vip_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                age INTEGER NOT NULL,
+                gender TEXT NOT NULL,
+                nationality TEXT,
+                city TEXT,
+                travel_cities TEXT,  -- JSON array
+                description TEXT,
+                photos TEXT,  -- JSON array
+                visible INTEGER DEFAULT 1,
+                created_at TEXT,
+                height INTEGER,
+                weight INTEGER,
+                chest INTEGER,
+                is_vip INTEGER DEFAULT 1
+            )
+        """)
+
+        # Chats table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS chats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id INTEGER NOT NULL,
+                telegram_user_id INTEGER,
+                created_at TEXT,
+                last_message_at TEXT
+            )
+        """)
+
+        # Messages table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id INTEGER NOT NULL,
+                profile_id INTEGER NOT NULL,
+                telegram_user_id INTEGER,
+                sender_type TEXT NOT NULL,  -- 'user' or 'profile' or 'admin'
+                content TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                is_read INTEGER DEFAULT 0,
+                FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+            )
+        """)
+
+        # Orders table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_user_id INTEGER,
+                profile_id INTEGER NOT NULL,
+                service_type TEXT NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT DEFAULT 'USD',
+                payment_method TEXT,
+                payment_wallet TEXT,
+                status TEXT DEFAULT 'pending',  -- pending, paid, confirmed, cancelled
+                created_at TEXT,
+                confirmed_at TEXT,
+                details TEXT  -- JSON stored as text
+            )
+        """)
+
+        # Comments table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id INTEGER NOT NULL,
+                telegram_user_id INTEGER,
+                author_name TEXT,
+                rating INTEGER NOT NULL,
+                comment TEXT,
+                created_at TEXT,
+                visible INTEGER DEFAULT 1
+            )
+        """)
+
+        # Promocodes table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS promocodes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT UNIQUE NOT NULL,
+                discount_percent INTEGER NOT NULL,
+                max_uses INTEGER DEFAULT NULL,
+                current_uses INTEGER DEFAULT 0,
+                valid_until TEXT,
+                active INTEGER DEFAULT 1,
+                created_at TEXT
+            )
+        """)
+
+        # App settings table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT
+            )
+        """)
+
+        # Create indexes for performance
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_dating_profiles_visible ON dating_profiles(visible)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_dating_profiles_city ON dating_profiles(city)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_vip_profiles_visible ON vip_profiles(visible)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chats_profile_id ON chats(profile_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chats_telegram_user_id ON chats(telegram_user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_telegram_user_id ON messages(telegram_user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_telegram_user_id ON orders(telegram_user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_comments_profile_id ON comments(profile_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_promocodes_code ON promocodes(code)")
+
         logger.info("✅ Database initialized successfully")
 
 
@@ -552,6 +687,231 @@ def get_profile_by_user_id(user_id: int) -> Optional[Dict[str, Any]]:
 
         profile = cursor.fetchone()
         return dict(profile) if profile else None
+
+
+# ==================== DATING APP FUNCTIONS ====================
+
+def get_all_dating_profiles(filters: Dict = None) -> List[Dict]:
+    """Get all dating profiles with optional filters"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        query = "SELECT * FROM dating_profiles WHERE visible = 1"
+        params = []
+
+        if filters:
+            if filters.get('city'):
+                query += " AND city = ?"
+                params.append(filters['city'])
+            if filters.get('gender'):
+                query += " AND gender = ?"
+                params.append(filters['gender'])
+
+        cursor.execute(query, params)
+        profiles = cursor.fetchall()
+        return [dict(p) for p in profiles]
+
+
+def get_dating_profile_by_id(profile_id: int) -> Optional[Dict]:
+    """Get dating profile by ID"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM dating_profiles WHERE id = ?", (profile_id,))
+        profile = cursor.fetchone()
+        return dict(profile) if profile else None
+
+
+def add_dating_profile(profile_data: Dict) -> int:
+    """Add new dating profile"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO dating_profiles (name, age, gender, nationality, city,
+                                         travel_cities, description, photos, visible,
+                                         created_at, height, weight, chest)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            profile_data['name'], profile_data['age'], profile_data['gender'],
+            profile_data.get('nationality'), profile_data.get('city'),
+            profile_data.get('travel_cities'), profile_data.get('description'),
+            profile_data.get('photos'), profile_data.get('visible', 1),
+            profile_data.get('created_at'), profile_data.get('height'),
+            profile_data.get('weight'), profile_data.get('chest')
+        ))
+        return cursor.lastrowid
+
+
+def get_all_vip_profiles() -> List[Dict]:
+    """Get all VIP profiles"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM vip_profiles WHERE visible = 1")
+        profiles = cursor.fetchall()
+        return [dict(p) for p in profiles]
+
+
+def get_chat_by_profile_and_user(profile_id: int, telegram_user_id: int) -> Optional[Dict]:
+    """Get or create chat between profile and user"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM chats
+            WHERE profile_id = ? AND telegram_user_id = ?
+        """, (profile_id, telegram_user_id))
+        chat = cursor.fetchone()
+
+        if not chat:
+            # Create new chat
+            from datetime import datetime
+            now = datetime.now().isoformat()
+            cursor.execute("""
+                INSERT INTO chats (profile_id, telegram_user_id, created_at, last_message_at)
+                VALUES (?, ?, ?, ?)
+            """, (profile_id, telegram_user_id, now, now))
+            chat_id = cursor.lastrowid
+            return {'id': chat_id, 'profile_id': profile_id, 'telegram_user_id': telegram_user_id}
+
+        return dict(chat)
+
+
+def add_message(chat_id: int, profile_id: int, telegram_user_id: Optional[int],
+                sender_type: str, content: str) -> int:
+    """Add message to chat"""
+    from datetime import datetime
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO messages (chat_id, profile_id, telegram_user_id, sender_type, content, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (chat_id, profile_id, telegram_user_id, sender_type, content, datetime.now().isoformat()))
+
+        # Update last_message_at in chats
+        cursor.execute("""
+            UPDATE chats SET last_message_at = ? WHERE id = ?
+        """, (datetime.now().isoformat(), chat_id))
+
+        return cursor.lastrowid
+
+
+def get_messages_by_chat(chat_id: int, limit: int = 100) -> List[Dict]:
+    """Get messages for a chat"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM messages
+            WHERE chat_id = ?
+            ORDER BY timestamp ASC
+            LIMIT ?
+        """, (chat_id, limit))
+        messages = cursor.fetchall()
+        return [dict(m) for m in messages]
+
+
+def get_user_chats(telegram_user_id: int) -> List[Dict]:
+    """Get all chats for a user"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT c.*, dp.name as profile_name, dp.photos as profile_photos
+            FROM chats c
+            LEFT JOIN dating_profiles dp ON c.profile_id = dp.id
+            WHERE c.telegram_user_id = ?
+            ORDER BY c.last_message_at DESC
+        """, (telegram_user_id,))
+        chats = cursor.fetchall()
+        return [dict(c) for c in chats]
+
+
+def add_order(order_data: Dict) -> int:
+    """Add new order"""
+    from datetime import datetime
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO orders (telegram_user_id, profile_id, service_type, amount,
+                               currency, payment_method, payment_wallet, status, created_at, details)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            order_data.get('telegram_user_id'), order_data['profile_id'],
+            order_data['service_type'], order_data['amount'], order_data.get('currency', 'USD'),
+            order_data.get('payment_method'), order_data.get('payment_wallet'),
+            order_data.get('status', 'pending'), datetime.now().isoformat(),
+            order_data.get('details')
+        ))
+        return cursor.lastrowid
+
+
+def get_user_orders(telegram_user_id: int) -> List[Dict]:
+    """Get all orders for a user"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT o.*, dp.name as profile_name
+            FROM orders o
+            LEFT JOIN dating_profiles dp ON o.profile_id = dp.id
+            WHERE o.telegram_user_id = ?
+            ORDER BY o.created_at DESC
+        """, (telegram_user_id,))
+        orders = cursor.fetchall()
+        return [dict(o) for o in orders]
+
+
+def add_comment(comment_data: Dict) -> int:
+    """Add new comment"""
+    from datetime import datetime
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO comments (profile_id, telegram_user_id, author_name, rating, comment, created_at, visible)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            comment_data['profile_id'], comment_data.get('telegram_user_id'),
+            comment_data.get('author_name'), comment_data['rating'],
+            comment_data.get('comment'), datetime.now().isoformat(),
+            comment_data.get('visible', 1)
+        ))
+        return cursor.lastrowid
+
+
+def get_profile_comments(profile_id: int) -> List[Dict]:
+    """Get comments for a profile"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM comments
+            WHERE profile_id = ? AND visible = 1
+            ORDER BY created_at DESC
+        """, (profile_id,))
+        comments = cursor.fetchall()
+        return [dict(c) for c in comments]
+
+
+def get_promocode_by_code(code: str) -> Optional[Dict]:
+    """Get promocode by code"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM promocodes WHERE code = ? AND active = 1", (code,))
+        promo = cursor.fetchone()
+        return dict(promo) if promo else None
+
+
+def get_app_setting(key: str) -> Optional[str]:
+    """Get app setting by key"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM app_settings WHERE key = ?", (key,))
+        result = cursor.fetchone()
+        return result['value'] if result else None
+
+
+def set_app_setting(key: str, value: str):
+    """Set app setting"""
+    from datetime import datetime
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO app_settings (key, value, updated_at)
+            VALUES (?, ?, ?)
+        """, (key, value, datetime.now().isoformat()))
 
 
 # Initialize database on module import

@@ -17,6 +17,7 @@ import hmac
 import uuid
 from urllib.parse import parse_qs
 from dotenv import load_dotenv
+import database as db  # Using unified database instead of data.json
 
 # Load environment variables
 load_dotenv()
@@ -40,11 +41,13 @@ app.add_middleware(
 # Пути
 current_dir = os.path.dirname(os.path.abspath(__file__))
 frontend_dir = os.path.join(current_dir, "../frontend")
-DATA_FILE = os.path.join(current_dir, "data.json")
 UPLOAD_DIR = os.path.join(current_dir, "uploads")
 
 # Создаем папку для загрузок если её нет
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Initialize database
+db.init_database()
 
 print("🚀 Запускаем сервер Muji на порту 8001...")
 
