@@ -156,8 +156,15 @@ def verify_telegram_auth(init_data: str) -> bool:
 
     data_check_string = '\n'.join(data_check_arr)
 
-    # Compute HMAC
-    secret_key = hashlib.sha256(TELEGRAM_BOT_TOKEN.encode()).digest()
+    # Compute HMAC согласно официальной документации Telegram
+    # Step 1: secret_key = HMAC-SHA256("WebAppData", bot_token)
+    secret_key = hmac.new(
+        "WebAppData".encode(),
+        TELEGRAM_BOT_TOKEN.encode(),
+        hashlib.sha256
+    ).digest()
+
+    # Step 2: hash = HMAC-SHA256(data_check_string, secret_key)
     calculated_hash = hmac.new(
         secret_key,
         data_check_string.encode(),
